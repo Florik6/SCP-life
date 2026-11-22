@@ -1,0 +1,199 @@
+<title>SCP LIFE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@400;600;700&display=swap">
+<style>
+/* Layout: full-screen WebGL view; HUD hugs the corners; touch zones split the screen left (move) / right (look). */
+:root {
+  --ink: #e6e8e3; --dim: #8e9895; --panel: rgba(8, 11, 12, 0.78); --panel-solid: #0b0f10; --line: rgba(230, 232, 227, 0.14);
+  --hazard: #d9a619; --crt: #7dffa0; --crt-dim: #3d8a57; --danger: #ff4a3d; --warn: #ff9a2e;
+  --ui: "IBM Plex Sans Condensed", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+  --mono: "IBM Plex Mono", "Roboto Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: #050607; color: var(--ink); font-family: var(--ui); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#game { position: fixed; inset: 0; }
+#game canvas { display: block; width: 100%; height: 100%; }
+button { font-family: var(--ui); color: var(--ink); }
+button:focus-visible { outline: 2px solid var(--hazard); outline-offset: 2px; }
+
+/* HUD */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud[hidden] { display: none !important; }
+.corner { position: absolute; background: var(--panel); border: 1px solid var(--line); padding: 6px 10px; }
+#status { top: calc(8px + env(safe-area-inset-top, 0px)); left: calc(8px + env(safe-area-inset-left, 0px)); border-left: 4px solid #3fd16a; max-width: min(46vw, 420px); }
+#clock { font-size: clamp(14px, 2.2vw, 20px); font-weight: 700; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+#alert { font-size: clamp(11px, 1.5vw, 13px); color: var(--dim); margin-top: 2px; line-height: 1.25; }
+.bars { display: grid; gap: 3px; margin-top: 6px; }
+.bar { height: 5px; background: rgba(0, 0, 0, 0.55); }
+.bar i { display: block; height: 100%; width: 100%; background: #c9372c; transition: width 0.2s; }
+.bar.st i { background: #c8ccc8; }
+#tasks { top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(62px + env(safe-area-inset-right, 0px)); width: min(40vw, 380px); font-size: clamp(11px, 1.45vw, 13px); line-height: 1.35; max-height: 38vh; overflow: hidden; }
+#tasks h3 { margin: 0 0 3px; font-size: 11px; letter-spacing: 0.12em; color: var(--hazard); font-weight: 700; }
+#tasks .t { margin-bottom: 3px; } #tasks .p { color: var(--hazard); } #tasks .n { color: var(--dim); }
+#feed { position: absolute; left: calc(8px + env(safe-area-inset-left, 0px)); top: 34%; width: min(52vw, 520px); display: flex; flex-direction: column; gap: 3px; }
+#feed div { background: rgba(5, 7, 8, 0.62); padding: 3px 8px; font-size: clamp(11px, 1.5vw, 14px); line-height: 1.3; border-left: 2px solid var(--line); transition: opacity 1s; }
+#feed .t { color: var(--dim); font-variant-numeric: tabular-nums; margin-right: 6px; }
+#cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(255, 255, 255, 0.65); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+#prompt { position: absolute; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); background: rgba(0, 0, 0, 0.62); padding: 6px 12px; font-size: clamp(12px, 1.7vw, 15px); text-align: center; max-width: 70vw; white-space: pre-line; border: 1px solid var(--line); }
+#prompt:empty { display: none; }
+#counting { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); color: #ffe27a; font-weight: 700; font-size: clamp(14px, 2.2vw, 20px); text-shadow: 0 2px 4px #000; letter-spacing: 0.04em; white-space: nowrap; }
+#card { position: absolute; left: 50%; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--panel); padding: 4px 12px; font-size: clamp(11px, 1.5vw, 13px); border: 1px solid var(--line); white-space: nowrap; }
+#damage { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(150, 0, 0, 0.9)); opacity: 0; }
+.speech { position: absolute; transform: translate(-50%, -100%); background: rgba(5, 7, 8, 0.72); padding: 3px 8px; font-size: clamp(11px, 1.45vw, 13px); max-width: 34vw; text-align: center; line-height: 1.25; border-bottom: 2px solid var(--hazard); }
+.speech b { color: #d9d29a; font-weight: 600; }
+
+/* Touch controls */
+#touch { position: fixed; inset: 0; }
+#touch[hidden] { display: none !important; }
+#zoneL, #zoneR { position: absolute; top: 0; bottom: 0; }
+#zoneL { left: 0; width: 45%; } #zoneR { right: 0; width: 55%; }
+#stick { position: absolute; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.28); left: calc(110px + env(safe-area-inset-left, 0px)); top: calc(100% - 110px - env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); }
+.tb { position: absolute; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(12, 15, 17, 0.55); font-weight: 700; font-size: 12px; letter-spacing: 0.06em; display: grid; place-items: center; touch-action: none; }
+.tb.on { background: rgba(217, 166, 25, 0.75); color: #111; }
+#bUse { width: 84px; height: 84px; right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); font-size: 13px; }
+#bRun { width: 64px; height: 64px; right: calc(128px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+#bCount { width: 70px; height: 70px; right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(140px + env(safe-area-inset-bottom, 0px)); border-color: #ffe27a; color: #ffe27a; }
+#bLight { width: 54px; height: 54px; right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(104px + env(safe-area-inset-bottom, 0px)); font-size: 10px; }
+#bCard { width: 54px; height: 54px; right: calc(200px + env(safe-area-inset-right, 0px)); bottom: calc(30px + env(safe-area-inset-bottom, 0px)); font-size: 10px; line-height: 1.1; text-align: center; }
+#bMenu { position: fixed; width: 44px; height: 44px; right: calc(8px + env(safe-area-inset-right, 0px)); top: calc(8px + env(safe-area-inset-top, 0px)); border-radius: 4px; font-size: 22px; background: var(--panel); border: 1px solid var(--line); z-index: 5; }
+#bMenu[hidden] { display: none !important; }
+
+/* Overlays */
+.overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); overflow: auto; }
+.overlay[hidden] { display: none !important; }
+#menu { background: #050607; background-image: repeating-linear-gradient(-45deg, rgba(217, 166, 25, 0.06) 0 14px, transparent 14px 28px); }
+.menu-box { width: min(92vw, 560px); display: grid; gap: 10px; }
+.logo { font-family: var(--ui); font-weight: 700; font-size: clamp(44px, 9vw, 92px); letter-spacing: 0.08em; line-height: 0.95; text-align: center; }
+.logo span { display: block; font-size: clamp(11px, 1.8vw, 15px); letter-spacing: 0.32em; color: var(--hazard); margin-top: 8px; font-weight: 600; }
+.mbtn { background: rgba(15, 19, 21, 0.92); border: 1px solid var(--line); border-left: 4px solid var(--hazard); padding: 12px 16px; font-size: clamp(15px, 2.2vw, 18px); font-weight: 700; letter-spacing: 0.06em; text-align: left; cursor: pointer; }
+.mbtn:disabled { opacity: 0.35; border-left-color: var(--dim); }
+.mbtn:active { background: rgba(217, 166, 25, 0.25); }
+.note { color: var(--dim); font-size: 13px; line-height: 1.45; text-align: center; }
+#pause, #settings { background: rgba(3, 4, 5, 0.86); }
+.row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 8px; background: rgba(15, 19, 21, 0.92); border: 1px solid var(--line); padding: 8px 10px; font-size: 15px; }
+.row button { width: 40px; height: 36px; background: #1a2023; border: 1px solid var(--line); font-size: 16px; }
+.row output { min-width: 92px; text-align: center; color: var(--hazard); font-weight: 600; }
+#dialogue { place-items: end center; background: transparent; pointer-events: none; }
+.dlg { pointer-events: auto; width: min(94vw, 820px); background: rgba(8, 11, 12, 0.95); border: 1px solid var(--line); border-top: 3px solid var(--hazard); padding: 12px 16px; display: grid; gap: 8px; }
+.dlg h2 { margin: 0; font-size: 17px; color: var(--hazard); letter-spacing: 0.04em; }
+.dlg p { margin: 0; font-size: 15px; line-height: 1.45; max-height: 40vh; overflow: auto; white-space: pre-line; }
+.dlg button { justify-self: end; }
+#death { background: radial-gradient(ellipse at center, rgba(70, 0, 0, 0.85), rgba(10, 0, 0, 0.97)); }
+#death h1 { font-size: clamp(32px, 6vw, 56px); margin: 0; letter-spacing: 0.1em; text-align: center; }
+
+/* Terminal */
+#terminal { z-index: 9; display: grid; grid-template-rows: auto auto 1fr; place-items: stretch; gap: 6px; background: rgba(2, 8, 5, 0.94); font-family: var(--mono); color: var(--crt); }
+#terminal.cctv { background: transparent; }
+.th { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.th span { flex: 1; font-size: clamp(11px, 1.6vw, 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: rgba(2, 8, 5, 0.9); padding: 6px 8px; }
+.tbtn { font-family: var(--mono); background: rgba(10, 30, 18, 0.95); color: var(--crt); border: 1px solid var(--crt-dim); padding: 7px 10px; font-size: clamp(11px, 1.5vw, 13px); cursor: pointer; white-space: nowrap; }
+.tbtn.on { background: var(--crt); color: #031008; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tbody { min-height: 0; display: grid; grid-template-columns: 1fr; }
+#tText { background: rgba(2, 10, 6, 0.9); border: 1px solid var(--crt-dim); padding: 8px 10px; overflow: auto; font-size: clamp(11px, 1.5vw, 13px); line-height: 1.45; white-space: pre-wrap; user-select: text; -webkit-user-select: text; touch-action: pan-y; }
+#tText .w { color: #ffd479; } #tText .r { color: #ff7a6b; } #tText .g { color: #8dff9e; } #tText .d { color: var(--crt-dim); } #tText b { color: #c9ffd6; }
+#tCam { display: grid; grid-template-columns: 1fr min(34vw, 300px); gap: 8px; min-height: 0; }
+#feedArea { position: relative; border: 2px solid var(--crt-dim); background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px); min-height: 0; }
+#camOver { position: absolute; left: 8px; top: 6px; font-size: clamp(11px, 1.5vw, 14px); color: #e6ffe9; text-shadow: 0 1px 2px #000; white-space: pre-line; }
+#camInfo { background: rgba(2, 10, 6, 0.92); border: 1px solid var(--crt-dim); padding: 8px; font-size: clamp(11px, 1.4vw, 13px); line-height: 1.4; overflow: auto; display: grid; align-content: start; gap: 6px; white-space: pre-line; }
+#camInfo .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#rotate { position: fixed; inset: auto 0 0 0; padding: 6px; text-align: center; font-size: 12px; color: var(--dim); background: rgba(0, 0, 0, 0.6); pointer-events: none; z-index: 4; }
+@media (orientation: landscape) { #rotate { display: none; } }
+@media (max-height: 460px) {
+  #tasks { max-height: 34vh; } #feed { top: 30%; width: min(46vw, 440px); } #feed div { font-size: 11px; }
+  .menu-box { gap: 7px; } .logo { font-size: 46px; } .logo span { margin-top: 4px; } .mbtn { padding: 8px 14px; font-size: 15px; } .note { font-size: 12px; margin: 0; }
+  .row { padding: 5px 10px; font-size: 14px; } .row button { height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { #feed div { transition: none; } }
+</style>
+
+<div id="game"></div>
+
+<div id="hud" hidden>
+  <div id="status" class="corner"><div id="clock">—</div><div id="alert"></div><div class="bars"><div class="bar"><i id="hp"></i></div><div class="bar st"><i id="stam"></i></div></div></div>
+  <div id="tasks" class="corner"></div>
+  <div id="feed"></div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="counting"></div>
+  <div id="card"></div>
+  <div id="damage"></div>
+  <div id="speech"></div>
+</div>
+
+<div id="touch" hidden>
+  <div id="zoneL"></div><div id="zoneR"></div>
+  <div id="stick"><div id="knob"></div></div>
+  <button class="tb" id="bUse" aria-label="Использовать">ИСПОЛЬЗ.</button>
+  <button class="tb" id="bRun" aria-label="Бег">БЕГ</button>
+  <button class="tb" id="bCount" aria-label="Протокол счёта" hidden>СЧЁТ</button>
+  <button class="tb" id="bLight" aria-label="Фонарь">ФОНАРЬ</button>
+  <button class="tb" id="bCard" aria-label="Сменить карту">КАРТА</button>
+</div>
+<button id="bMenu" aria-label="Меню" hidden>≡</button>
+<div id="rotate">Поверните телефон горизонтально — так удобнее</div>
+
+<div id="menu" class="overlay">
+  <div class="menu-box">
+    <div class="logo">SCP LIFE<span>ЗОНА-19 · УРОВЕНЬ 3 · СЕКТОР Б-3</span></div>
+    <button class="mbtn" id="mContinue">ПРОДОЛЖИТЬ СМЕНУ</button>
+    <button class="mbtn" id="mNew">НОВАЯ СМЕНА — ОХРАННИК</button>
+    <button class="mbtn" id="mSettings">НАСТРОЙКИ</button>
+    <button class="mbtn" id="mHelp">КАК ИГРАТЬ</button>
+    <p class="note" id="mNote">Вы — сержант охраны сектора содержания. Комплекс живёт своей жизнью: учёные, техник, медик, охрана и заключённые класса D работают по распорядку. В камере — SCP-L-001 «Счетовод». Он считает людей и запоминает, когда открывается его дверь.</p>
+  </div>
+</div>
+
+<div id="pause" class="overlay" hidden>
+  <div class="menu-box">
+    <button class="mbtn" id="pResume">ПРОДОЛЖИТЬ</button>
+    <button class="mbtn" id="pSave">СОХРАНИТЬ</button>
+    <button class="mbtn" id="pLoad">ЗАГРУЗИТЬ ПОСЛЕДНЕЕ СОХРАНЕНИЕ</button>
+    <button class="mbtn" id="pJournal">ЖУРНАЛ</button>
+    <button class="mbtn" id="pSettings">НАСТРОЙКИ</button>
+    <button class="mbtn" id="pSpeed">СКОРОСТЬ ВРЕМЕНИ: ×1</button>
+    <button class="mbtn" id="pMenu">В ГЛАВНОЕ МЕНЮ</button>
+  </div>
+</div>
+
+<div id="settings" class="overlay" hidden>
+  <div class="menu-box">
+    <div class="row"><span>Чувствительность обзора</span><button data-s="sens" data-d="-1">◀</button><output id="sSens"></output><button data-s="sens" data-d="1">▶</button></div>
+    <div class="row"><span>Качество графики</span><button data-s="quality" data-d="-1">◀</button><output id="sQuality"></output><button data-s="quality" data-d="1">▶</button></div>
+    <div class="row"><span>Громкость</span><button data-s="volume" data-d="-1">◀</button><output id="sVolume"></output><button data-s="volume" data-d="1">▶</button></div>
+    <div class="row"><span>Инверсия по вертикали</span><button data-s="invert" data-d="0">◀</button><output id="sInvert"></output><button data-s="invert" data-d="0">▶</button></div>
+    <div class="row"><span>Сенсорные кнопки</span><button data-s="touch" data-d="0">◀</button><output id="sTouch"></output><button data-s="touch" data-d="0">▶</button></div>
+    <button class="mbtn" id="sBack">НАЗАД</button>
+  </div>
+</div>
+
+<div id="dialogue" class="overlay" hidden>
+  <div class="dlg"><h2 id="dTitle"></h2><p id="dBody"></p><button class="mbtn" id="dClose">ЗАКРЫТЬ</button></div>
+</div>
+
+<div id="death" class="overlay" hidden>
+  <div class="menu-box"><h1>ВЫ ПОГИБЛИ</h1><p class="note" id="deathCause"></p>
+    <button class="mbtn" id="xLoad">ЗАГРУЗИТЬ СОХРАНЕНИЕ</button><button class="mbtn" id="xNew">НОВАЯ СМЕНА</button><button class="mbtn" id="xMenu">ГЛАВНОЕ МЕНЮ</button></div>
+</div>
+
+<div id="terminal" class="overlay" hidden>
+  <div class="th"><span id="tHead"></span><button class="tbtn" id="tClose">ЗАКРЫТЬ ✕</button></div>
+  <div class="tabs" id="tTabs"></div>
+  <div class="tbody">
+    <div id="tCam"><div id="feedArea"><div id="camOver"></div></div><div id="camInfo"><div id="camText"></div><div class="btns"><button class="tbtn" id="camPrev">◀ ПРЕД.</button><button class="tbtn" id="camNext">СЛЕД. ▶</button></div><button class="tbtn" id="camObserve">НАБЛЮДАТЬ ЗА ОБЪЕКТОМ</button></div></div>
+    <div id="tText" hidden></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/brain.js"></script>
+<script src="js/tallyman.js"></script>
+<script src="js/world.js"></script>
+<script src="js/content.js"></script>
+<script src="js/render.js"></script>
+<script src="js/game.js"></script>
