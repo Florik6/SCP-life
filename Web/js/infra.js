@@ -100,7 +100,7 @@
     create(kind, roomId, extra) {
       const w = this.w, K = FAULT_KINDS[kind]; let room = roomId ? w.fac.room(roomId) : null, obj = null, poi = null;
       if (kind === 'camera') { const c = roomId ? w.cams.find(x => x.roomId === roomId && x.operational) : w.rng.pick(w.cams.filter(x => x.operational)); if (!c) return null; obj = c; room = w.fac.room(c.roomId); c.operational = false; }
-      else if (kind === 'reader') { const d = roomId ? w.fac.door(roomId) : w.rng.pick(w.fac.doorList.filter(x => x.hasLeaf && x.kind !== 'Heavy')); if (!d) return null; obj = d; room = w.fac.room(d.roomA).type === 'Containment' ? w.fac.room(d.roomB) : w.fac.room(d.roomA); d.readerFault = true; }
+      else if (kind === 'reader') { const d = roomId ? w.fac.door(roomId) : w.rng.pick(w.fac.doorList.filter(x => x.hasLeaf && x.kind !== 'Heavy')); if (!d) return null; obj = d; const ra = w.fac.room(d.roomA), rb = w.fac.room(d.roomB); room = rb && /Corridor|Tunnel/.test(rb.type) ? rb : /Corridor|Tunnel/.test(ra.type) ? ra : ra.type === 'Containment' ? rb : ra; d.readerFault = true; }
       else if (kind === 'sensor') { const cells = Object.keys(this.sensors).filter(c => this.sensors[c].mode === 'ok'); if (!cells.length) return null; const c = roomId || w.rng.pick(cells); this.sensors[c].mode = w.rng.pick(['stuck', 'spike', 'drift']); this.sensors[c].stuck = null; const a = w.anomalies.find(x => x.containRoom === c); room = w.fac.room(a && a.obsRoom ? a.obsRoom : c); obj = { cell: c }; }
       else if (kind === 'humidity') room = room || w.fac.room(w.rng.pick(['cell125', 'cell129', 'labC', 'lab2', 'pumps']));
       else if (kind === 'shield') { room = w.fac.room('obs135'); this.shields.cell135 = clamp((this.shields.cell135 || 90) - 25, 0, 100); }

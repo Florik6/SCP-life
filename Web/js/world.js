@@ -33,7 +33,7 @@
       this.fac = fac; this.clock = new S.GameClock(start); this.rng = new S.SimRandom(seed); this.seed = seed;
       this.events = new S.EventLog(); this.accessLog = []; this.cards = {}; this.npcs = []; this.npcMap = {}; this.active = []; this.anomalies = []; this.cams = []; this.camLog = [];
       this.alert = new S.Alert(); this.tasks = new S.Tasks(); this.player = new Player();
-      this.realTime = 0; this.notify = []; this.sounds = []; this.timers = []; this.queues = {}; this.research = { samples: 4, analyses: 0 }; this.food = 120;
+      this.realTime = 0; this.notify = []; this.sounds = []; this.noise = []; this.camWatch = {}; this.timers = []; this.queues = {}; this.research = { samples: 4, analyses: 0 }; this.food = 120;
       this._remote = {}; this._distCache = {}; this._distRoom = null; this._scan = 0; this._abs = 0; this._sync = 0; this.lockEpoch = 1; this._paths = new Map(); this.byRoom = {}; this.grid = new Map();
       this.life = new S.SCPLife(this); this.infra = new S.Infra(this); this.horror = new S.Horror(this); this.dirt = new S.Dirt(this);
       this.events.listeners.push(e => this.onEvent(e));
@@ -354,17 +354,19 @@
       return true;
     }
     stopCounting(reason) { if (!this.player.counting) return; this.player.counting = false; this.notify.push({ time: this.now, type: EV.CountingProtocol, actor: 'player', severity: 1, text: 'Протокол счёта прерван: ' + reason }); }
+    // sounds the anomalies can hear (separate from the audio queue, which the renderer consumes)
+    makeNoise(kind, pos, roomId, loud, by) { this.noise.push({ t: this.realTime, now: this.now, kind, pos: V.copy(pos), roomId, loud: loud == null ? 0.5 : loud, by: by || null }); if (this.noise.length > 40) this.noise.shift(); }
     damagePlayer(amount, src, text) {
       const p = this.player; if (p.dead) return;
       p.health -= amount; p.stunnedUntil = this.realTime + 2.5; p.psy.fear = clamp(p.psy.fear + 40, 0, 100); this.stopCounting('получен удар');
       this.events.post({ time: this.now, type: EV.Injury, roomId: p.roomId, pos: V.copy(p.pos), actor: src, target: 'player', severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: p.roomId, pos: V.copy(p.pos), cause: 'injury', who: 'player', female: !!p.female });
+      this.sounds.push({ t: this.now, kind: 'scream', roomId: p.roomId, pos: V.copy(p.pos), cause: 'injury', who: 'player', female: !!p.female }); this.makeNoise('scream', p.pos, p.roomId, 1, 'player');
       if (p.health <= 0) { p.health = 0; p.dead = true; }
     }
     injureNpc(n, amount, src, text, mins) {
       n.needs.health = clamp(n.needs.health - amount, 0, 100); n.needs.stress = clamp(n.needs.stress + 35, 0, 100); n.psy.fear = clamp(n.psy.fear + 50, 0, 100); n.incapUntil = this.now + mins; n.nextThink = 0;
       this.events.post({ time: this.now, type: EV.Injury, roomId: n.agent.roomId, pos: V.copy(n.agent.pos), actor: src, target: n.id, severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: n.agent.roomId, pos: V.copy(n.agent.pos), cause: 'injury', who: n.id, female: !!n.female });
+      this.sounds.push({ t: this.now, kind: 'scream', roomId: n.agent.roomId, pos: V.copy(n.agent.pos), cause: 'injury', who: n.id, female: !!n.female }); this.makeNoise('scream', n.agent.pos, n.agent.roomId, 1, n.id);
       this.life.openCase('injury', 'Травма: ' + n.shortName, n.agent.roomId, { cause: 'anomalous', scp: src });
       if (!this.tasks.hasActive('first_aid', n.id)) this.life.assign('first_aid', ['field_medic', 'doctor', 'operative'], { patient: n.id, target: n.id }, 'SCP LIFE', 30, n.agent.roomId);
     }
@@ -491,7 +493,7 @@
         pois: Object.values(this.fac.pois).filter(p => p.owners).map(p => [p.id, p.owners]),
         npcs: this.npcs.map(n => World.packNpc(n.save(), tbl)), strings: tbl.list, anomalies: this.anomalies.map(a => a.save()),
         cams: this.cams.map(c => ({ id: c.id, op: c.operational, ph: c.phase })), camLog: this.camLog.slice(-200), alert: this.alert.save(),
-        tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
+        tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, taskDone: this.tasks.done, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
         player: this.player.save(), research: this.research, food: this.food, queues: this.queues
       });
     }
@@ -508,7 +510,7 @@
       for (const n of o.npcs) { const nn = w.npc(n.id); if (!nn) continue; nn.load(World.unpackNpc(n, o.strings || [])); if (nn.onSite) w.active.push(nn); }
       for (const a of o.anomalies) { const aa = w.anomaly(a.id); if (aa) aa.load(w, a); }
       for (const c of o.cams) { const cc = w.cams.find(x => x.id === c.id); if (cc) { cc.operational = c.op; cc.phase = c.ph; } }
-      w.camLog = o.camLog; w.alert.load(o.alert); w.tasks.list = o.tasks; w.tasks.nextId = o.taskId;
+      w.camLog = o.camLog; w.alert.load(o.alert); w.tasks.list = o.tasks; w.tasks.nextId = o.taskId; w.tasks.done = o.taskDone || { npc: 0, player: 0, failed: 0 };
       // re-link NPC jobs to board tasks after loading
       for (const n of w.npcs) {
         n.job = null; n.nextThink = 0;

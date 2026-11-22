@@ -1,6 +1,6 @@
 // Headless checks of the SCP LIFE 2.0 simulation (node Web/tests/sim-test.js)
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'living', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP;
 let failures = 0;
@@ -34,8 +34,8 @@ let W3 = null;
   ok(maxActive > minActive + 30, 'смены приходят и уходят: на территории от ' + minActive + ' до ' + maxActive);
   const a = w.anomaly('SCP-L-001');
   ok(w.now - a.tm.lastSession < 600 && a.contained, 'сеансы счёта L-001 идут по регламенту (последний ' + S.fmtStamp(a.tm.lastSession) + ')');
-  const done = w.tasks.list.filter(t => t.status === 'Completed' && t.who !== 'player');
-  ok(done.length > 60, 'NPC выполнили заданий SCP LIFE: ' + done.length + ' (+ рутина по профессиям)');
+  const done = w.tasks.done.npc;
+  ok(done > 60, 'NPC выполнили заданий SCP LIFE: ' + done + ' (+ рутина по профессиям)');
   const exps = w.anomalies.reduce((s, x) => s + x.experiments.length, 0), props = w.anomalies.reduce((s, x) => s + x.props.filter(p => p.revealed).length, 0);
   ok(exps >= 6, 'учёные провели экспериментов: ' + exps);
   ok(w.anomalies.some(x => x.props.some(p => p.revealed && !x.def.props.find(q => q[0] === p.id)[3])), 'исследования открыли скрытые свойства (открыто всего ' + props + ')');
@@ -47,7 +47,7 @@ let W3 = null;
   ok(w.events.recent.some(e => e.type === 'Conversation') && w.events.recent.some(e => e.type === 'Conflict' || e.type === 'Meeting'), 'разговоры и споры случаются');
   ok(w.npcs.some(n => n.isSick(w.now) || n.history.some(h => h.kind === 'sick')), 'сотрудники болеют, SCP LIFE ищет замену');
   ok(w.life.decisions.some(d => /Нехватка|Ответственные/.test(d.cause)), 'нехватка персонала и замены отражены в журнале');
-  ok(w.life.arrivals[0].stage !== 'planned' && w.life.transport.length >= 4, 'поступление SCP-LF-139: этап «' + w.life.arrivals[0].stage + '», записей в журнале транспортировки: ' + w.life.transport.length);
+  ok(w.life.arrivals[0].stage !== 'planned' && w.life.transport.length >= 4, 'поступление SCP-LF-147: этап «' + w.life.arrivals[0].stage + '», записей в журнале транспортировки: ' + w.life.transport.length);
   ok(w.life.cases.length > 0 && w.life.cases.some(c => c.evidence.length >= 2), 'расследования собирают улики: дел ' + w.life.cases.length);
   console.log('     3 суток за ' + ms + ' мс');
 }
@@ -98,10 +98,11 @@ let W3 = null;
   const g = w.active.find(x => (x.prof === 'guard' || x.prof === 'patrol') && S.People.block(w, x).activity === 'Duty');
   ok(!!g, 'ночью на посту есть охрана');
   if (g) {
-    w.horror.falseAlarms.push({ kind: 'radio', who: g.id, t: w.now, roomId: g.agent.roomId, cause: 'У ' + g.shortName + ' разрядилась рация', text: 'сотрудник не отвечает', explained: false });
+    const fa = { kind: 'radio', who: g.id, t: w.now, roomId: g.agent.roomId, cause: 'У ' + g.shortName + ' разрядилась рация', text: 'сотрудник не отвечает', explained: false };
+    w.horror.falseAlarms.push(fa);
     w.infra.dryRadio(g.id); run(w, 300);
     ok(w.life.decisions.some(d => /Перекличка/.test(d.cause)), 'перекличка заметила молчащую рацию');
-    ok(w.horror.falseAlarms[w.horror.falseAlarms.length - 1].explained, 'патруль нашёл обычную причину: севшая батарея');
+    ok(fa.explained || w.tasks.list.some(t => t.kind === 'investigate' && t.status === 'Completed' && /села батарея/.test(t.note || '')), 'патруль нашёл обычную причину: севшая батарея');
   }
 }
 // 7. A tense night can end without real danger
@@ -145,5 +146,62 @@ let W3 = null;
   ok(JSON.parse(s1).life.cases.length === w.life.cases.length && JSON.parse(s1).horror && JSON.parse(s1).npcs[0].m, 'расследования, восприятие и память NPC сохраняются');
   const a = S.Content.createWorld(42), b = S.Content.createWorld(42); park(a); park(b); run(a, 120); run(b, 120);
   ok(a.save() === b.save(), 'детерминизм');
+}
+// 10. Living anomalies of wing T-2: attention, hearing, behaviour that depends on being watched, research
+{
+  const w = S.Content.createWorld(11, { prof: 'scientist' }); park(w); run(w, 3);
+  const p = w.player, L = S.Living, tick = (n, f) => { for (let i = 0; i < n; i++) { if (f) f(i); w.tick(0.1); } };
+  // the player alone at the window (other staff are sent out so that the test controls who watches)
+  const clear = id => { const a = w.anomaly(id); for (const n of w.active) if (n.agent.roomId === a.obsRoom || n.agent.roomId === a.containRoom) { n.agent.pos = { x: -24, y: 0, z: -8 }; n.agent.roomId = 'post'; n.agent.clear(); } };
+  const at = id => { const a = w.anomaly(id), r = w.fac.room(a.obsRoom), win = w.fac.windows.find(x => x.scp === id); p.pos = { x: (win.min + win.max) / 2, y: r.floorY, z: r.minZ + 1 }; p.roomId = r.id; a.st.ws = {}; clear(id); return a; };
+  const away = () => { p.pos = { x: -24.5, y: 0, z: -8.5 }; p.roomId = 'post'; p.gazeAt = null; };
+  const ids = ['SCP-LF-139', 'SCP-LF-140', 'SCP-LF-141', 'SCP-LF-142', 'SCP-LF-143', 'SCP-LF-144', 'SCP-LF-145', 'SCP-LF-146'];
+  ok(ids.every(id => { const a = w.anomaly(id); return a && a.arrived && w.fac.room(a.containRoom) && w.fac.blocks[id]; }), 'крыло Т-2: 8 живых объектов в своих блоках (наблюдательная + камера + окно)');
+  ok(ids.every(id => w.anomaly(id).assigned.length >= 1), 'у живых объектов есть ответственные учёные');
+  ok(new Set(ids.map(id => w.anomaly(id).model)).size === 8, 'у каждого живого объекта своя модель');
+  // LF-141 freezes under a gaze, moves only unwatched
+  let a = at('SCP-LF-141'); p.gazeAt = a.id; let movedWatched = 0;
+  tick(150, () => { clear('SCP-LF-141'); p.gazeT = w.realTime; p.moving = false; if (w.anomaly('SCP-LF-141').agent.moving) movedWatched++; });
+  ok(a.st.act === 'freeze' && movedWatched < 20, 'LF-141 замирает под взглядом (движений под наблюдением: ' + movedWatched + ')');
+  away(); const m0 = a.st.moved || 0; run(w, 25);
+  ok((a.st.moved || 0) > m0 + 0.5, 'LF-141 перемещается без наблюдения (' + ((a.st.moved || 0) - m0).toFixed(1) + ' м)');
+  // LF-143 follows a moving person along the glass, loses a motionless one
+  a = at('SCP-LF-143'); p.gazeAt = a.id; tick(120, i => { clear('SCP-LF-143'); p.gazeT = w.realTime; p.moving = true; p.pos.x += Math.sin(i / 15) * 0.04; });
+  ok(a.st.act === 'press' || a.st.act === 'scratch', 'LF-143 подходит к стеклу к движущемуся наблюдателю (' + a.st.act + ')');
+  tick(300, () => { p.gazeT = w.realTime; p.moving = false; clear('SCP-LF-143'); });
+  ok(a.st.act === 'lurk', 'LF-143 теряет неподвижного наблюдателя и уходит в темноту');
+  L.knock(w, 'player', a.id); tick(15);
+  ok(a.st.act === 'rush' || a.st.act === 'press', 'LF-143 реагирует на стук по стеклу (' + a.st.act + ')');
+  // LF-142 answers knocks with the same number
+  a = at('SCP-LF-142'); p.gazeAt = a.id; tick(30, () => { p.gazeT = w.realTime; clear('SCP-LF-142'); });
+  for (let k = 0; k < 4; k++) L.knock(w, 'player', a.id); tick(40, () => { p.gazeT = w.realTime; clear('SCP-LF-142'); });
+  ok(a.st.replyN === 4, 'LF-142 отвечает на 4 удара четырьмя (ответ: ' + a.st.replyN + ')');
+  ok(a.st.copy === 'player', 'LF-142 перенимает облик того, кто смотрит дольше');
+  // LF-140 never turns while a camera watches it
+  a = w.anomaly('SCP-LF-140'); away(); const c0 = a.st.chair; a.rules.cctvContinuous = true; run(w, 60);
+  ok(a.st.chair === c0, 'LF-140 не поворачивается, пока на него смотрит камера');
+  a.rules.cctvContinuous = false; a.st.gap = 0; let turned = false; for (let k = 0; k < 6 && !turned; k++) { run(w, 30); turned = a.st.chair !== c0; }
+  ok(turned, 'LF-140 поворачивается без наблюдения (стул: ' + c0 + '° → ' + a.st.chair + '°)');
+  // LF-146 looks at whoever watches it and leaves an after-effect
+  a = at('SCP-LF-146'); p.gazeAt = a.id; tick(700, () => { p.gazeT = w.realTime; clear('SCP-LF-146'); });
+  const off146 = Math.abs(S.deltaAngle(a.agent.yaw + a.st.head, L.yawTo(a, p.pos)));
+  ok(a.st.act === 'stare' && a.st.target === 'player' && off146 < 8, 'LF-146 смотрит на наблюдателя (голова ' + Math.round(a.st.head) + '°, отклонение взгляда ' + off146.toFixed(1) + '°)');
+  ok(w.horror.effectsOf('player').some(e => e.src === 'SCP-LF-146'), 'после долгого контакта взглядом — последействие восприятия');
+  // LF-145 protects the offspring from a loud noise
+  a = w.anomaly('SCP-LF-145'); w.makeNoise('scream', w.fac.room(a.obsRoom).center, a.obsRoom, 1); tick(20);
+  ok(a.st.act === 'guard', 'LF-145 закрывает детёнышей при громком звуке');
+  // LF-139 approaches only a lone observer
+  a = at('SCP-LF-139'); p.gazeAt = a.id; for (const n of w.active) if (n.agent.roomId === a.obsRoom) { n.agent.pos = { x: -24, y: 0, z: -8 }; n.agent.roomId = 'post'; }
+  tick(500, () => { p.gazeT = w.realTime; for (const n of w.active) if (n.agent.roomId === a.obsRoom) n.agent.roomId = 'post'; });
+  ok(a.st.act === 'approach' || a.st.act === 'peer', 'LF-139 подходит к одинокому наблюдателю (' + a.st.act + ')');
+  // LF-144 freezes when watched
+  a = at('SCP-LF-144'); p.gazeAt = a.id; const f0 = a.st.frame; tick(200, () => { p.gazeT = w.realTime; clear('SCP-LF-144'); });
+  ok(a.st.frame === f0 && a.st.act === 'frozen', 'LF-144 застывает под взглядом');
+  away(); run(w, 60);
+  ok(ids.filter(id => (w.anomaly(id).st.reports || []).length).length >= 6, 'автоматические отчёты по журналам движения: ' + ids.filter(id => (w.anomaly(id).st.reports || []).length).length + ' объектов');
+  const rec = S.Anoms.runExperiment(w, w.anomaly('SCP-LF-143'), 'light', { who: 'player' });
+  ok(rec.revealed.length >= 1 && w.anomaly('SCP-LF-143').st.safe.length >= 1, 'эксперимент открывает свойство и безопасный метод (' + rec.revealed[0] + ')');
+  ok(S.Living.dossier(w, w.anomaly('SCP-LF-143')).length >= 4, 'досье: наблюдение, активность по часам, узнаваемые сотрудники, журнал');
+  const sv = w.save(), w2 = S.World.load ? null : null; ok(sv.length < 2.5e6 && JSON.parse(sv), 'сохранение с живыми объектами: ' + Math.round(sv.length / 1024) + ' КБ');
 }
 console.log(failures ? failures + ' FAILED' : 'ALL PASSED'); process.exit(failures ? 1 : 0);

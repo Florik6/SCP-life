@@ -38,7 +38,7 @@
 
   // ------------------------------------------------------------------ task board
   class Tasks {
-    constructor() { this.list = []; this.nextId = 1; }
+    constructor() { this.list = []; this.nextId = 1; this.done = { npc: 0, player: 0, failed: 0 }; }
     issue(w, t) {
       t.id = 'T' + this.nextId++; t.issued = w.now; t.status = 'Active'; t.by = t.by || 'SCP LIFE';
       this.list.push(t);
@@ -52,7 +52,7 @@
     firstActive(who, kind) { return this.list.find(t => t.status === 'Active' && t.who === who && t.kind === kind) || null; }
     hasActive(kind, target) { return this.list.some(t => t.status === 'Active' && t.kind === kind && (target == null || t.target === target || (t.data && t.data.target === target))); }
     complete(w, t, note) {
-      if (t.status !== 'Active') return; t.status = 'Completed'; t.doneAt = w.now; t.note = note;
+      if (t.status !== 'Active') return; t.status = 'Completed'; t.doneAt = w.now; t.note = note; this.done[t.who === 'player' ? 'player' : 'npc']++;
       if (t.who === 'player') { const p = w.player; p.done++; p.tasksInRole++; p.addRep(p.dept, 2); }
       w.events.post({ time: w.now, type: EV.TaskCompleted, actor: t.who, target: t.id, roomId: t.room, quiet: t.who !== 'player', text: w.nameOf(t.who) + ': выполнено «' + t.title + '»' + (note ? ' — ' + note : '') });
       if (t.decision && w.life) w.life.resolve(t.decision, 'выполнено: ' + (note || t.title));
@@ -73,7 +73,7 @@
     constructor(w) {
       this.w = w; this.decisions = []; this.nextDec = 1; this.due = {}; this.t = 0;
       this.sightings = []; this.cases = []; this.nextCase = 1; this.requests = []; this.nextReq = 1; this.reports = [];
-      this.arrivals = [{ scp: 'SCP-LF-139', notice: Hm(6) + 1440, eta: Hm(14) + 1440, stage: 'planned', origin: 'Филиал «Восток-2»' }, { scp: 'SCP-LF-140', notice: Hm(10) + 3 * 1440, eta: Hm(16) + 3 * 1440, stage: 'planned', origin: 'Полевая операция МОГ «Ключ-9»' }];
+      this.arrivals = [{ scp: 'SCP-LF-147', notice: Hm(6) + 1440, eta: Hm(14) + 1440, stage: 'planned', origin: 'Филиал «Восток-2»' }, { scp: 'SCP-LF-148', notice: Hm(10) + 3 * 1440, eta: Hm(16) + 3 * 1440, stage: 'planned', origin: 'Полевая операция МОГ «Ключ-9»' }];
       this.transport = []; this.agenda = []; this.nextAg = 1; this.planned = []; this.happened = []; this.stories = []; this.restrictions = []; this.short = {}; this.night = { day: -1, plan: [] };
       this.res = { budget: { science: 100, security: 100, engineering: 90, medical: 60, service: 60 }, materials: 60, equipment: 40 };
       this.priorities = { science: 1, safety: 1, maintenance: 1 };
@@ -221,7 +221,7 @@
       const w = this.w, room = task.data.room || task.room; const s = this.sightings.find(x => x.id === task.data.sighting);
       const present = w.roomPeople(room).filter(n => n.id !== who).map(n => n.shortName);
       let res;
-      if (task.data.missingGuard) { const g = w.npc(task.data.missingGuard); res = g && g.onSite ? g.shortName + ' на месте: ' + (g.radioOk ? 'рация работает' : 'села батарея рации') + '. Происшествия нет.' : 'сотрудника на месте нет'; if (g && !g.radioOk) { this.closeFalseAlarm('radio', g.shortName + ': разряжена рация'); g.say('Рация села, не заметил. Виноват.', w.now); if (w.infra) w.infra.radios[g.id].bat = 60; g.radioOk = true; g.radioSilentReported = 0; } }
+      if (task.data.missingGuard) { const g = w.npc(task.data.missingGuard); res = g && g.onSite ? g.shortName + ' на месте: ' + (g.radioOk ? 'рация работает' : 'села батарея рации') + '. Происшествия нет.' : 'сотрудника на месте нет'; if (g && !g.radioOk) { this.closeFalseAlarm('radio', g.shortName + ': разряжена рация', g.id); g.say('Рация села, не заметил. Виноват.', w.now); if (w.infra) w.infra.radios[g.id].bat = 60; g.radioOk = true; g.radioSilentReported = 0; } }
       else res = present.length ? 'на месте: ' + present.slice(0, 3).join(', ') + '. Посторонних нет.' : 'помещение пусто, следов нет.';
       if (s) { s.status = 'unconfirmed'; s.checks.push('проверка: ' + res); this.openCase('sighting', 'Неподтверждённое наблюдение: ' + s.text, s.roomId, { cause: s.src ? 'anomalous' : 'human_error', scp: s.src, sighting: s.id }, true); }
       return res;
@@ -256,6 +256,7 @@
           if (t) d.assigned = w.nameOf(t.who);
           this.openCase('sensor', 'Всплеск датчиков камеры ' + a.id, a.containRoom, { cause: w.infra.sensors[a.containRoom] && w.infra.sensors[a.containRoom].mode !== 'ok' ? 'technical' : 'anomalous', scp: a.id, cell: a.containRoom }, true);
         }
+        if (a.def.lifeCheck) a.def.lifeCheck(w, a, this);
         switch (a.id) {
           case 'SCP-L-001': this.tallyman(a, sen); break;
           case 'SCP-LF-121': if (now - a.st.lastAudit > (a.rules.audit || 1440) && !w.tasks.hasActive('records_audit')) { const d = this.decide('Регламент LF-121', ['с последнего аудита ' + durationText(now - a.st.lastAudit)], 'Назначить ручной аудит записей', '—'); const t = this.assign('records_audit', ['memetics', 'sysadmin'], {}, 'SCP LIFE', 240, 'archiveA', { decision: d.id }); if (t) d.assigned = w.nameOf(t.who); else this.resolve(d, 'отложено: нет специалиста на смене'); } break;
@@ -320,6 +321,9 @@
       const w = this.w;
       for (const f of w.infra.faults) {
         if (f.fixed || !f.known || w.tasks.hasActive('repair', f.id) || (f.wait || 0) > w.now) continue;
+        // repeated failures (no way in, nobody qualified): back off and escalate instead of re-issuing the same order
+        const fails = w.tasks.list.filter(t => t.kind === 'repair' && t.status === 'Failed' && t.steps && t.steps.some(s => s.fault === f.id)).length;
+        if (fails > (f.fails || 0)) { f.fails = fails; f.wait = w.now + 90 * fails; this.decide('Ремонт ' + f.id + ' не выполнен (' + fails + ')', [f.text, 'исполнитель не смог пройти к месту'], fails >= 3 ? 'Передано начальнику инженерной службы, ремонт в плановое окно' : 'Повтор через ' + 90 * fails + ' мин', '—'); continue; }
         const profs = { electrician: ['electrician', 'technician'], mechanic: ['mechanic', 'technician'], sysadmin: ['sysadmin', 'technician'], containment_engineer: ['containment_engineer', 'technician'] }[f.who] || ['technician'];
         const d = this.decide('Неисправность ' + f.id, [f.text, 'обнаружил: ' + f.knownBy], 'Заявка на ремонт', '—');
         const t = this.assign('repair', profs, { fault: f.id, title: 'Ремонт: ' + f.text }, 'SCP LIFE', 720, f.room, { decision: d.id, prio: f.kind === 'gen' || f.kind === 'sensor' ? 3 : 1 });
@@ -674,7 +678,7 @@
       if (t.who === 'player' && w.player.failedToday >= 3 && !w.player.reprimandedToday) { w.player.reprimandedToday = true; this.reprimand('player', 'систематическое невыполнение заданий', 'shift_chief'); }
       if (t.kind === 'counting_session') this.openCase('procedure', 'Сорван сеанс счёта SCP-L-001', 'obs', { cause: 'human_error' }, true);
     }
-    closeFalseAlarm(kind, text) { const w = this.w; if (w.horror) w.horror.explain(kind, text); }
+    closeFalseAlarm(kind, text, who) { const w = this.w; if (w.horror) w.horror.explain(kind, text, who); }
 
     // ---------------------------------------------------------------- career, reputation, discipline
     reprimand(who, why, by) {

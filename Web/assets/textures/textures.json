@@ -1,0 +1,127 @@
+{
+ "textures": {
+  "Concrete034": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Concrete034",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Стены технических и тяжёлых зон, тоннели"
+  },
+  "Concrete047A": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Concrete047A",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Бетонные полы, стены камер содержания"
+  },
+  "Concrete048": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Concrete048",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Стены коридоров сектора С и Т-2"
+  },
+  "Metal049A": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness",
+    "Metalness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Metal049A",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Двери, гермодвери, металлические панели"
+  },
+  "Metal055A": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness",
+    "Metalness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Metal055A",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Решётки и настилы, лестницы, лифты"
+  },
+  "Metal063": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness",
+    "Metalness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Metal063",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Ржавый металл: насосная, генераторы, трубы"
+  },
+  "Plaster001": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Plaster001",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Стены административных помещений"
+  },
+  "Plaster007": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Plaster007",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Стены лабораторий и медблока"
+  },
+  "Asphalt031": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Asphalt031",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Пол тоннелей и приёмного шлюза (грязный)"
+  },
+  "Wood092": {
+   "maps": [
+    "Color",
+    "NormalGL",
+    "Roughness"
+   ],
+   "author": "ambientCG (Lennart Demes)",
+   "license": "CC0 1.0",
+   "url": "https://ambientcg.com/view?id=Wood092",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Столы, двери кабинетов"
+  }
+ }
+}

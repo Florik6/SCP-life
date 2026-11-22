@@ -36,7 +36,7 @@
     effectsOf(subj) { const l = this.effects[subj]; return l ? l.filter(e => !e.ended) : []; }
     has(subj, kind) { return this.effectsOf(subj).some(e => e.kind === kind); }
     end(subj, e, reason) { if (e.ended) return; e.ended = true; e.endedAt = this.w.now; e.endReason = reason; this.history.push({ t: this.w.now, subj, kind: e.kind, src: e.src, text: 'прекращено: ' + reason }); if (subj === 'player' && reason !== 'истекло') this.w.notify.push({ time: this.w.now, type: EV.Anomalous, perceived: true, text: 'Странное ощущение прошло (' + reason + ').' }); }
-    explain(kind, text) { const fa = this.falseAlarms.find(f => f.kind === kind && !f.explained); if (fa) { fa.explained = true; fa.explainedAt = this.w.now; this.w.player.addJournal('[' + fmtStamp(this.w.now) + '] Объяснение найдено: ' + text); this.w.notify.push({ time: this.w.now, type: EV.Report, text: 'Объяснение: ' + text }); this.w.player.psy.fear = Math.max(0, this.w.player.psy.fear - 20); } }
+    explain(kind, text, who) { const fa = (who && this.falseAlarms.find(f => f.kind === kind && !f.explained && f.who === who)) || this.falseAlarms.find(f => f.kind === kind && !f.explained); if (fa) { fa.explained = true; fa.explainedAt = this.w.now; this.w.player.addJournal('[' + fmtStamp(this.w.now) + '] Объяснение найдено: ' + text); this.w.notify.push({ time: this.w.now, type: EV.Report, text: 'Объяснение: ' + text }); this.w.player.psy.fear = Math.max(0, this.w.player.psy.fear - 20); } }
     // Does the effect manifest right now for this subject? (company, light and place matter)
     active(e, subj) {
       const w = this.w; if (e.ended) return false;

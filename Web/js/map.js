@@ -1,4 +1,4 @@
-/* SCP LIFE 2.0 — facility layout: level 3 (sectors A, B, C) and level 4 (technical, D-2, heavy block, dock). */
+/* SCP LIFE 2.0 — facility layout: level 3 (sectors A, B, C) and level 4 (technical, D-2, heavy block, dock, wing T-2 of living anomalies). */
 (function (root) {
   'use strict';
   const S = root.SCP, { V, Hm, P, req, Room, Door, Facility } = S;
@@ -160,7 +160,7 @@
     D('d.liftBC', 'Проход в сектор С', 'liftB', 'corrC', 32.15, 0, true, 'Security', req(1), 2.0);
     // Containment block planner: observation room by the corridor, chamber behind it, window between, heavy door.
     const block = (side, x0, scp, name, o) => {
-      o = o || {}; const w = 8, ob = along(corrC, side, x0, x0 + w, 6, 'obs' + scp.slice(-3), 'Наблюдение ' + scp, 'Observation', x0 + 2.0, { style: 'research' }, 'Standard', req(2, P.Research | P.Security | P.Engineering));
+      o = o || {}; const w = 8, ob = along(o.corr || corrC, side, x0, x0 + w, 6, 'obs' + scp.slice(-3), 'Наблюдение ' + scp, 'Observation', x0 + 2.0, { style: 'research' }, 'Standard', req(2, P.Research | P.Security | P.Engineering));
       const depth = o.depth || 8; const chm = beyond(ob, side, x0, x0 + w, depth, 'cell' + scp.slice(-3), 'Камера ' + scp + (name ? ' «' + name + '»' : ''), 'Containment', x0 + w - 1.6, { style: o.style || 'heavy', scp, dark: !!o.dark, height: o.height || 3.4 }, 'Heavy', o.req || req(3, P.Containment));
       const n = side === 'N'; const wz = n ? ob.maxZ : ob.minZ;
       Pz(ob, ob.id + '.c1', 'Console', x0 + 2.6, n ? wz - 1.2 : wz + 1.2, n ? 0 : 180, 'Пульт наблюдения'); Pz(ob, ob.id + '.c2', 'Console', x0 + 4.4, n ? wz - 1.2 : wz + 1.2, n ? 0 : 180, 'Пульт наблюдения');
@@ -271,6 +271,20 @@
     row(st4, 'S', 'Shelf', 1.6, 0.6, 'Стеллаж'); Pz(st4, 'storage4.suit', 'Hazmat', -39.4, -2.6, 90, 'Защитный костюм на стойке'); D('d.storage4', 'Дверь склада', 'storage4', 'corr4w', -34, -1.65, false, 'Standard', req(1, P.Logistics | P.Engineering | P.Security));
     const sh4 = R('shelter4', 'Аварийное убежище «Глубокое»', 'Shelter', -60, -46, -9.8, -1.8, o4('Т'));
     row(sh4, 'S', 'Seat', 1.0, 0.6, 'Скамья'); D('d.shelter4', 'Гермодверь убежища', 'shelter4', 'corr4w', -53, -1.65, false, 'Heavy', req(0));
+    // Wing T-2: living anomalies (SCP-LF-139…146). Link from the level 4 tunnel, wing corridor, observation lab, 8 blocks.
+    const lk = R('linkT2', 'Переход в крыло Т-2', 'Corridor', 59.5, 62.5, -9.9, -1.8, o4('Т-2', 'heavy'));
+    hubs(lk, 61, -3, 61, -8.6);
+    D('d.linkT2', 'Шлюз крыла Т-2', 'linkT2', 'corr4', 61, -1.65, false, 'Security', req(2, P.Research | P.Containment | P.Security | P.Engineering | P.Medical | P.MTF), 2.0);
+    const cT2 = R('corrT2', 'Коридор крыла Т-2 (живые объекты)', 'Corridor', 20, 92, -14.3, -10.2, o4('Т-2', 'heavy'));
+    for (let x = 22; x <= 90; x += 8.3) hubs(cT2, x, -12.25);
+    D('d.corrT2', 'Дверь коридора Т-2', 'corrT2', 'linkT2', 61, -10.05, false, 'Standard', req(2, P.Research | P.Containment | P.Security | P.Engineering | P.Medical | P.MTF));
+    Pz(cT2, 'pp.corrT2_w', 'PatrolPoint', 30, -11.2, 90, 'Крыло Т-2, запад'); Pz(cT2, 'pp.corrT2_e', 'PatrolPoint', 84, -13.3, 270, 'Крыло Т-2, восток'); Pz(cT2, 'panel.corrT2', 'Panel', 50, -10.6, 0, 'Электрощит крыла Т-2');
+    const labT2 = R('labT2', 'Лаборатория наблюдения Т-2', 'Laboratory', 63, 76, -9.9, -2.1, o4('Т-2', 'research'));
+    D('d.labT2', 'Дверь лаборатории Т-2', 'labT2', 'corrT2', 69.5, -10.05, false, 'Standard', req(2, P.Research | P.Containment | P.Medical));
+    row(labT2, 'N', 'Desk', 2.2, 0.7, 'Рабочее место наблюдателя'); Pz(labT2, 'labT2.console', 'Console', 64, -6, 270, 'Сервер журналов движения'); Pz(labT2, 'labT2.bench', 'Workbench', 75, -6, 90, 'Стол анализа записей'); Pz(labT2, 'pp.labT2', 'PatrolPoint', 69.5, -8.8, 0, 'Лаборатория Т-2');
+    const T2 = [['SCP-LF-139', 'Длинношеий', { height: 5.2, dark: true }], ['SCP-LF-140', 'Сидящий', { style: 'admin' }], ['SCP-LF-141', 'Ползун', { height: 3.8 }], ['SCP-LF-142', 'Лицевой подражатель', { style: 'research' }],
+      ['SCP-LF-143', 'Существо у стекла', { dark: true }], ['SCP-LF-144', 'Забывающий двигаться', { style: 'research' }], ['SCP-LF-145', 'Тихая мать', { height: 4.2, depth: 10 }], ['SCP-LF-146', 'Обратный наблюдатель', {}]];
+    T2.forEach(([scp, name, o], i) => block('S', 22 + i * 8.6, scp, name, Object.assign({ corr: cT2 }, o)));
     // Anomalous: the floor that does not exist (reachable only through SCP-LF-122).
     const nf = R('nullfloor', 'Этаж «—»', 'NullFloor', 120, 140, 20, 26, { level: 3.5, floorY: -3.5, height: 2.9, sector: '?', style: 'null' });
     hubs(nf, 123, 23, 130, 23, 137, 23); Pz(nf, 'nullfloor.end', 'Stand', 138, 23, 90, 'Тупик');

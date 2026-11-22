@@ -29,6 +29,19 @@
   const hemi = new T.HemisphereLight(0x3a3f47, 0x15130f, 0.55); scene.add(hemi);
   const pool = []; for (let i = 0; i < 8; i++) { const l = new T.PointLight(0xffffff, 0, 10, 1.6); scene.add(l); pool.push(l); }
   const camera = new T.PerspectiveCamera(72, 1, 0.05, 45); camera.rotation.order = 'YXZ'; camera.layers.enable(S.Render.HALLU); scene.add(camera);
+  // airborne dust around the viewer: denser in technical and heavy zones, visible in the light, drifting with the ventilation
+  const Dust = { n: 260, init() { const g = new T.BufferGeometry(), p = new Float32Array(this.n * 3); for (let i = 0; i < this.n; i++) { p[i * 3] = (Math.random() - 0.5) * 8; p[i * 3 + 1] = Math.random() * 3; p[i * 3 + 2] = (Math.random() - 0.5) * 8; } g.setAttribute('position', new T.BufferAttribute(p, 3));
+      this.mat = new T.PointsMaterial({ color: 0xe8dfc8, size: 0.018, transparent: true, opacity: 0.35, depthWrite: false, sizeAttenuation: true }); this.pts = new T.Points(g, this.mat); this.pts.frustumCulled = false; scene.add(this.pts); this.t = 0; },
+    tick(dt, w) {
+      if (!this.pts) this.init(); const on = settings.quality >= 1 && settings.fx > 0; this.pts.visible = on; if (!on || !w) return;
+      const r = w.fac.room(w.player.roomId), dense = r ? ({ tech: 1, heavy: 0.8, null: 1.2, dclass: 0.6 }[r.style] || 0.35) : 0.4, vent = r && w.infra.vents[r.id] && w.infra.vents[r.id].on;
+      this.mat.opacity += (dense * 0.42 * (r && r.lightsOn !== false ? 1 : 0.2) - this.mat.opacity) * Math.min(1, dt);
+      const P = this.pts.geometry.attributes.position, a = P.array, c = camera.position; this.t += dt;
+      for (let i = 0; i < this.n; i++) { const k = i * 3; a[k] += (Math.sin(this.t * 0.3 + i) * 0.03 + (vent ? 0.04 : 0.005)) * dt; a[k + 1] += Math.sin(this.t * 0.21 + i * 1.7) * 0.02 * dt - 0.004 * dt; a[k + 2] += Math.cos(this.t * 0.27 + i) * 0.03 * dt;
+        for (const [j, half] of [[0, 4], [2, 4]]) { const d = a[k + j] - (j ? c.z : c.x); if (d > half) a[k + j] -= 2 * half; else if (d < -half) a[k + j] += 2 * half; }
+        const fy = (r ? r.floorY : 0); if (a[k + 1] < fy) a[k + 1] = fy + 3; else if (a[k + 1] > fy + 3.2) a[k + 1] = fy; }
+      P.needsUpdate = true;
+    } };
   const flash = new T.SpotLight(0xfff2d9, 0, 15, 0.5, 0.45, 1.5); flash.position.set(0.15, -0.12, 0); camera.add(flash); flash.target.position.set(0, -0.1, -5); camera.add(flash.target);
   const cctvCam = new T.PerspectiveCamera(52, 16 / 9, 0.05, 30); cctvCam.rotation.order = 'YXZ'; // layer 0 only: CCTV never sees hallucinations
   const raycaster = new T.Raycaster(); raycaster.far = REACH; if (raycaster.layers) raycaster.layers.mask = 0xffffffff;
@@ -41,7 +54,7 @@
     init() {
       this.scene = new T.Scene(); this.scene.fog = new T.Fog(0x050607, 6, 34); this.scene.add(new T.AmbientLight(0x1d2026, 1));
       this.cam = new T.PerspectiveCamera(62, 1, 0.05, 60); this.cam.rotation.order = 'YXZ';
-      const fac = S.Map.build(); this.fv = new S.Render.FacilityView({ fac }, this.scene);
+      const fac = S.Map.build(); S.Render.setQuality && S.Render.setQuality(settings.quality); this.fv = new S.Render.FacilityView({ fac }, this.scene);
       for (const id of ['corrC', 'obs125', 'obs132', 'obs124', 'obs136', 'obs127', 'obs133', 'obs138', 'officesC', 'labC', 'postC', 'obs123', 'obs135', 'obs130', 'obs134', 'obs137', 'obs131', 'genC']) { const v = this.fv.ensure(id); if (v) v.group.visible = true; }
       for (const id in this.fv.doors) { const d = this.fv.doors[id]; if (d.door.roomA === 'corrC' || d.door.roomB === 'corrC') d.group.visible = true; }
       for (let i = 0; i < 5; i++) { const l = new T.PointLight(0xfff2db, 1, 11, 1.6); this.scene.add(l); this.lights.push(l); }
@@ -197,10 +210,10 @@
       case 'poi': case 'spot': UI.msg(d.label, '#ccc'); break;
       case 'bed': { const poi = w.fac.poi(d.id); if (poi && ((poi.owners || []).indexOf('player') >= 0 || !poi.owners)) Sleep.start(); else UI.msg('Это чужая койка.', '#ccc'); break; }
       case 'hazmat': UI.msg('Защитный костюм висит на стойке. Издалека в полумраке он похож на человека.', '#ccc'); w.horror.explain('suit', 'Силуэт — защитный костюм на стойке'); break;
-      case 'window': { const a = anomalyIn(d.room); UI.dialogue(a ? 'Наблюдение: ' + a.displayName : 'Окно', [a ? w.observe(a.id, false) : 'За стеклом пустая камера.']); break; }
+      case 'window': { const a = anomalyIn(d.room); UI.dialogue(a ? 'Наблюдение: ' + a.displayName : 'Окно', [a ? w.observe(a.id, false) : 'За стеклом пустая камера.'], a && a.def.living ? livingActs(a) : undefined); break; }
       case 'intercom': intercom(d); break;
       case 'transit': Ride.start(d); break;
-      case 'anomaly': UI.dialogue('Наблюдение: ' + w.anomaly(d.id).displayName, [w.observe(d.id, false)]); break;
+      case 'anomaly': { const a = w.anomaly(d.id); UI.dialogue('Наблюдение: ' + a.displayName, [w.observe(d.id, false)], a.def.living ? livingActs(a) : undefined); break; }
       case 'npc': Talk.open(d.id); break;
       case 'card': { if (w.pickUp(d.id)) { const c = w.card(d.id); UI.msg('Подобрана карта L' + c.level + ' · ' + c.ownerName + '. Использование чужой карты попадает в журнал.', '#ffd76b'); } break; }
       case 'fake_door': UI.msg('Под ладонью — холодная стена. Никакой двери здесь нет.', '#c7c2b0'); p.psy.fear = S.clamp(p.psy.fear + 8, 0, 100); break;
@@ -726,14 +739,20 @@
   function buildViews() {
     if (G.fv) scene.remove(G.fv.root);
     for (const id in G.npcViews) scene.remove(G.npcViews[id].root);
-    for (const v of G.anomViews) scene.remove(v.root);
+    for (const v of G.anomViews) { scene.remove(v.root); if (v.fixed) scene.remove(v.fixed); }
     for (const c of G.cams) scene.remove(c.group);
     for (const k in (G.cardMeshes || {})) scene.remove(G.cardMeshes[k]);
     for (const h of G.hallu) scene.remove(h.root);
-    const w = G.world; G.fv = new S.Render.FacilityView(w, scene); G.npcViews = {}; G.anomViews = []; G.cams = []; G.cardMeshes = {}; G.hallu = [];
-    for (const a of w.anomalies) { const v = a.model === 'tallyman' ? new S.Render.TallymanView(a, G.fv.m, w, G.fv) : new S.Render.AnomalyView(a, G.fv.m, w, G.fv); v.a = a; Object.assign(v, { prev: S.V.copy(a.agent.pos), cur: S.V.copy(a.agent.pos), py: a.agent.yaw, cy: a.agent.yaw, last: S.V.copy(a.agent.pos) }); scene.add(v.root); G.anomViews.push(v); }
+    const w = G.world; S.Render.setQuality && S.Render.setQuality(settings.quality); G.fv = new S.Render.FacilityView(w, scene); G.npcViews = {}; G.anomViews = []; G.cams = []; G.cardMeshes = {}; G.hallu = [];
+    for (const a of w.anomalies) { const v = a.model === 'tallyman' ? new S.Render.TallymanView(a, G.fv.m, w, G.fv) : S.Creatures && S.Creatures.MAP[a.model] ? S.Creatures.create(a, w) : new S.Render.AnomalyView(a, G.fv.m, w, G.fv); v.a = a; if (v.fixed) scene.add(v.fixed); Object.assign(v, { prev: S.V.copy(a.agent.pos), cur: S.V.copy(a.agent.pos), py: a.agent.yaw, cy: a.agent.yaw, last: S.V.copy(a.agent.pos) }); scene.add(v.root); G.anomViews.push(v); }
     for (const c of w.cams) { const m = S.Render.cameraModel(c, G.fv.m); scene.add(m.group); G.cams.push(m); }
     const p = w.player; P.yaw = p.yaw; P.pitch = p.pitch || 0; P.stamina = 1;
+  }
+  // actions at the window of a living anomaly: knock (creatures that hear will react), read the observation journal
+  function livingActs(a) {
+    const w = G.world;
+    return [['Постучать по стеклу', () => { S.Living.knock(w, 'player', a.id); UI.msg('Вы постучали по стеклу.', '#ccc'); }],
+      ['Журнал наблюдений', () => UI.dialogue('Журнал: ' + a.displayName, S.Living.dossier(w, a))]];
   }
   function makeRig(npc) { return (S.Humans && S.Humans.create(npc)) || new S.Render.Humanoid(npc, G.fv.m); }
   function npcView(n) {
@@ -872,11 +891,24 @@
     for (const v of G.anomViews) {
       const a = v.a, x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
       if (v instanceof S.Render.TallymanView) { const fy = (w.fac.room(a.agent.roomId) || { floorY: 0 }).floorY; v.root.position.set(x, fy, z); v.root.rotation.y = yaw * D2R; const moved = Math.hypot(x - v.last.x, z - v.last.z); v.last = { x, y: 0, z }; v.root.visible = G.visible.has(a.agent.roomId); if (v.root.visible || !a.contained) v.animate(dt, dt > 0 ? Math.min(3, moved / dt) : 0, w, yaw, t, (name, pos) => A.play(name, pos, name === 'knock' ? 0.9 : 0.5, { occ: occlusionOf(a.agent.roomId) })); }
+      else if (v.fixed) {
+        // living anomalies (creatures.js): own rigs, sounds and loops; updated only when their cell or observation room is near
+        const vis = G.visible.has(a.containRoom), near = vis || S.V.distXZ(a.agent.pos, w.player.pos) < 22 && Math.abs(a.agent.pos.y - w.player.pos.y) < 3;
+        v.root.visible = v.fixed.visible = vis;
+        if (near) { const occ = occlusionOf(a.containRoom); v.update(dt, w, t, { occ, cctv: G.cctv, play: (n, pos, vol, o) => A.play(n, pos, vol, Object.assign({ occ }, o || {})), footstep: (pos, o) => A.footstep(pos, o), emitter: (k, id, pos, vol, o) => A.emitter(k, id, pos, vol, o) });
+          if (v.loop) A.emitter('crea.' + a.id, v.loop.id, { x: v.pos.x, y: v.pos.y + 0.5, z: v.pos.z }, v.loop.vol, { occ, range: 16 }); }
+      }
       else { v.update(dt, w, t, (name, pos) => A.play(name, pos, 0.6, { occ: occlusionOf(a.containRoom) })); if (v.root.visible) v.root.visible = G.visible.has(a.agent.roomId || a.containRoom); }
     }
     for (const c of G.cams) { c.group.visible = G.visible.has(c.cam.roomId); c.pivot.rotation.y = c.cam.yaw * D2R; c.pivot.rotation.x = c.cam.pitch * D2R; c.led.visible = c.cam.operational && (t % 1.6) < 0.8; }
     G.fv.updateDoors(w.realTime, w.now, doorSound);
     syncCards(); updateHallucinations(); playWorldSounds(); processNotifications(); updateHud(dt, gameplay); Terminal.tick(dt); PDA.tick(dt);
+    // what the player actually looks at (living anomalies know it) and which cell is on the CCTV screen
+    { const pp = w.player; pp.speed = P.speed || 0; pp.gazeAt = null;
+      if (G.cctv) { const cam = w.cams[G.camIndex]; if (cam) w.camWatch[cam.roomId] = w.realTime; }
+      else { const fwd = new T.Vector3(); camera.getWorldDirection(fwd); let best = 0.965;
+        for (const v of G.anomViews) { if (!v.fixed || !v.root.visible) continue; const tp = v.pos || v.a.agent.pos, dx = tp.x - camera.position.x, dy = (tp.y + 1.2) - camera.position.y, dz = tp.z - camera.position.z, d = Math.hypot(dx, dy, dz); if (d > 16 || d < 0.3) continue; const c = (dx * fwd.x + dy * fwd.y + dz * fwd.z) / d; if (c > best) { best = c; pp.gazeAt = v.a.id; pp.gazeT = w.realTime; } } } }
+    Dust.tick(dt, w);
     { const fx = w.horror.fx, st = fx.state, pp = w.player;
       A.tick(w, dt, { heartbeat: fx.heartbeat, intensity: settings.fx, occOf: occlusionOf, female: !!pp.female,
         dread: settings.fx * (st === 'threat' ? 0.9 : st === 'paranoia' ? 0.55 : st === 'tension' ? 0.25 : 0) * (pp.roomId === 'nullfloor' ? 0 : 1),

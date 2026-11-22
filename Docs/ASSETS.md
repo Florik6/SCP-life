@@ -146,6 +146,21 @@
 |---|---|---|---|---|---|---|
 | `ual_mannequin.glb` | Скелетный манекен (53 кости) + 27 анимаций: ходьба, деловая ходьба, бег трусцой, спринт, ожидание, разговор, фонарь, пистолет, присед, сидя (вход/ожидание/разговор/выход), печать (Driving_Loop), взаимодействие, подъём предмета, ремонт на коленях, толкание, вздрагивания, падение, оборона, приземление | Quaternius | CC0 1.0 | https://quaternius.itch.io/universal-animation-library | https://github.com/J-Ponzo/gltf-universal-animation-library | Весь персонал и класс D (Web/js/humans.js), силуэты галлюцинаций и меню; гуманоидные аномалии LF-139, LF-142, LF-144, LF-146 |
 
+## Текстуры (PBR)
+
+| Материал | Карты | Автор | Лицензия | Оригинал | Откуда скачано | Где используется |
+|---|---|---|---|---|---|---|
+| `Concrete034` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Concrete034 | https://github.com/petroulacl/fps-asset-kit | Стены технических и тяжёлых зон, тоннели |
+| `Concrete047A` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Concrete047A | https://github.com/petroulacl/fps-asset-kit | Бетонные полы, стены камер содержания |
+| `Concrete048` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Concrete048 | https://github.com/petroulacl/fps-asset-kit | Стены коридоров сектора С и Т-2 |
+| `Metal049A` | Color, NormalGL, Roughness, Metalness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Metal049A | https://github.com/petroulacl/fps-asset-kit | Двери, гермодвери, металлические панели |
+| `Metal055A` | Color, NormalGL, Roughness, Metalness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Metal055A | https://github.com/petroulacl/fps-asset-kit | Решётки и настилы, лестницы, лифты |
+| `Metal063` | Color, NormalGL, Roughness, Metalness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Metal063 | https://github.com/petroulacl/fps-asset-kit | Ржавый металл: насосная, генераторы, трубы |
+| `Plaster001` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Plaster001 | https://github.com/petroulacl/fps-asset-kit | Стены административных помещений |
+| `Plaster007` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Plaster007 | https://github.com/petroulacl/fps-asset-kit | Стены лабораторий и медблока |
+| `Asphalt031` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Asphalt031 | https://github.com/petroulacl/fps-asset-kit | Пол тоннелей и приёмного шлюза (грязный) |
+| `Wood092` | Color, NormalGL, Roughness | ambientCG (Lennart Demes) | CC0 1.0 | https://ambientcg.com/view?id=Wood092 | https://github.com/petroulacl/fps-asset-kit | Столы, двери кабинетов |
+
 ## Что НЕ удалось скачать
 
 Сайты из задания недоступны из среды сборки (прокси отвечает 403): sonniss.com (GDC bundle), freesound.org (напрямую), kenney.nl, polyhaven.com, quaternius.com, sketchfab.com, fab.com, mixamo.com, poly.pizza, а также CDN jsdelivr/unpkg. Расширение доступа к этим сайтам владелец среды не одобрил. Поэтому ресурсы взяты только из зеркал на GitHub и в npm, где лицензия указана в самом репозитории. Ничего из недоступных источников в проекте нет.

@@ -1,4 +1,4 @@
-/* SCP LIFE 2.0 — anomalies that act on perception (SCP-LF-133…138) and objects arriving from other sites (LF-139, LF-140). */
+/* SCP LIFE 2.0 — anomalies that act on perception (SCP-LF-133…138) and objects arriving from other sites (LF-147, LF-148). */
 (function (root) {
   'use strict';
   const S = root.SCP, { V, clamp, fmtTime, fmtStamp, durationText, EV, Hm } = S, A = S.Anoms, H = A.H, def = A.def;
@@ -209,7 +209,7 @@
 
   // ================================================================== arriving objects
   def({
-    id: 'SCP-LF-139', name: 'Тёплый камень', cls: 'Безопасный', kind: 'object', temper: 'passive', room: null, obs: null, model: 'stone', arrived: false, knowledge0: 5,
+    id: 'SCP-LF-147', name: 'Тёплый камень', cls: 'Безопасный', kind: 'object', temper: 'passive', room: null, obs: null, model: 'stone', arrived: false, knowledge0: 5,
     desc: 'Гладкий базальтовый валун массой 40 кг, постоянно тёплый (≈41 °C). Поступил из филиала «Восток-2» после закрытия объекта. Рядом с ним люди быстрее успокаиваются.',
     contain: 'Стандартная камера. Контроль температуры. Не оставлять рядом легковоспламеняющиеся материалы.',
     triggers: 'одиночество: температура камня растёт, когда рядом никого нет',
@@ -235,7 +235,7 @@
     }
   });
   def({
-    id: 'SCP-LF-140', name: 'Шкатулка-эхо', cls: 'Безопасный', kind: 'object', temper: 'passive', room: null, obs: null, model: 'box', arrived: false, knowledge0: 5,
+    id: 'SCP-LF-148', name: 'Шкатулка-эхо', cls: 'Безопасный', kind: 'object', temper: 'passive', room: null, obs: null, model: 'box', arrived: false, knowledge0: 5,
     desc: 'Музыкальная шкатулка. Вместо мелодии воспроизводит последние фразы, сказанные рядом с ней, — иногда фразы, которые ещё не были сказаны. Изъята при полевой операции МОГ.',
     contain: 'Стандартная камера. Записывать воспроизведения. Не обсуждать секретные данные в радиусе 5 м.',
     triggers: 'разговоры поблизости',

@@ -173,6 +173,11 @@
     Silhouette: null
   };
   function spec(npc) {
+    if (npc.custom) {
+      const c = npc.custom, r = rng(hashOf(npc.id || 'x') ^ 0x51ed27);
+      return { role: 'Custom', custom: c, U: c.clothes, female: !!c.female, age: c.age || 40, r, skin: c.skin, hair: c.hair || c.skin, style: c.hair ? (c.style || 'short') : 'bald', beard: false, moustache: !!c.moustache, glasses: false, hat: false, iris: c.iris || 0x1a1410,
+        key: 'custom|' + (c.key || npc.id) };
+    }
     const r = rng(hashOf(npc.id || 'x') ^ 0x9e3779b9), role = UNI.hasOwnProperty(npc.role) ? npc.role : 'Scientist', female = !!npc.female;
     const age = npc.age || (25 + Math.floor(r() * 35));
     const s = { role, female, age, r };
@@ -186,9 +191,10 @@
   }
   function outfit(s) {
     if (H.outfits[s.key]) return H.outfits[s.key];
-    const B = H.base, G = H.geo, hd = B.head, b = new Builder(), role = s.role, U = UNI[role];
+    const B = H.base, G = H.geo, hd = B.head, b = new Builder(), role = s.role, U = s.U || UNI[role], cu = s.custom || {};
     if (!U) { b.base(() => R.skin); return (H.outfits[s.key] = b.build()); }
     const bald = s.style === 'bald' || role === 'MTF';
+    if (cu.coatShell) U.coat = U.coat || U.shirt;
     b.base(rg => rg === R.hair && bald ? R.skin : rg);
     const hx = (hd.max.x - hd.min.x) / 2, hz = (hd.max.z - hd.min.z) / 2, cx = (hd.max.x + hd.min.x) / 2, cz = (hd.max.z + hd.min.z) / 2, top = hd.max.y, hy = hd.min.y, hh = B.hh, fz = hd.max.z;
     // clothing shells
@@ -215,21 +221,22 @@
       if (role === 'MTF') { b.rigid(G.dome, 'DEF-head', R.hat, cx, top - 0.06, cz, hx * 1.25, 0.12, hz * 1.25); b.rigid(G.box, 'DEF-head', R.visor, cx, hy + hh * 0.62, fz + 0.012, hx * 1.6, 0.035, 0.012); }
       if (role === 'Cook') b.rigid(G.cyl, 'DEF-head', R.hat, cx, top + 0.04, cz, hx * 1.05, 0.12, hz * 1.05);
     }
-    // face
-    const ey = hy + hh * 0.58, ex = hx * 0.36, ez = fz - 0.012;
-    for (const sd of [-1, 1]) {
-      b.rigid(G.sph, 'DEF-head', R.sclera, cx + sd * ex, ey, ez, 0.0105, 0.0084, 0.0063);
-      b.rigid(G.disc, 'DEF-head', R.iris, cx + sd * ex, ey, ez + 0.0068, 0.0055, 0.0055, 1);
+    // face (anomalous humanoids: no face at all, or oversized lidless eyes)
+    const ey = hy + hh * 0.58, ex = hx * 0.36, ez = fz - 0.012, big = cu.bigEyes ? 1.9 : 1;
+    if (!cu.noFace) for (const sd of [-1, 1]) {
+      b.rigid(G.sph, 'DEF-head', R.sclera, cx + sd * ex * (cu.bigEyes ? 1.15 : 1), ey, ez, 0.0105 * big, 0.0084 * big, 0.0063 * big);
+      b.rigid(G.disc, 'DEF-head', R.iris, cx + sd * ex * (cu.bigEyes ? 1.15 : 1), ey, ez + 0.0068 * big, 0.0055 * big * (cu.bigEyes ? 1.3 : 1), 0.0055 * big * (cu.bigEyes ? 1.3 : 1), 1);
+      if (cu.bigEyes) continue;
       const closed = new T.Matrix4().compose(new T.Vector3(cx + sd * ex, ey + 0.0092, ez + 0.0062), new T.Quaternion(), new T.Vector3(0.024, 0.019, 0.004));
       b.rigid(G.lid, 'DEF-head', R.skin, cx + sd * ex, ey + 0.0092, ez + 0.0062, 0.024, 0.0028, 0.004, 0, 0, 0, closed);
       b.rigid(G.box, 'DEF-head', R.hair, cx + sd * ex, ey + 0.022, ez + 0.004, 0.028, s.female ? 0.004 : 0.006, 0.006, 0, 0, -sd * 0.08);
       b.rigid(G.sph, 'DEF-head', R.skin, cx + sd * hx, ey - 0.01, cz - 0.005, 0.012, 0.024, 0.016);
     }
-    b.rigid(G.box, 'DEF-head', R.skin, cx, ey - 0.026, fz + 0.001, 0.013, 0.028, 0.014, -0.25);
-    b.rigid(G.box, 'DEF-head', R.lip, cx, hy + hh * 0.3, fz - 0.004, 0.034, 0.005, 0.006);
+    if (!cu.noFace) { b.rigid(G.box, 'DEF-head', R.skin, cx, ey - 0.026, fz + 0.001, 0.013, 0.028, 0.014, -0.25); b.rigid(G.box, 'DEF-head', R.lip, cx, hy + hh * 0.3, fz - 0.004, cu.bigEyes ? 0.02 : 0.034, 0.005, 0.006); }
     if (s.moustache) b.rigid(G.box, 'DEF-head', R.beard, cx, hy + hh * 0.36, fz - 0.002, 0.04, 0.008, 0.01);
     if (s.glasses) { for (const sd of [-1, 1]) b.rigid(G.box, 'DEF-head', R.frame, cx + sd * ex, ey, fz + 0.006, 0.026, 0.018, 0.002); b.rigid(G.box, 'DEF-head', R.frame, cx, ey + 0.004, fz + 0.006, 0.02, 0.003, 0.002); }
     // gear
+    if (role === 'Custom') return (H.outfits[s.key] = b.build());
     if (role === 'Guard' || role === 'MTF') { b.rigid(G.box, 'DEF-spine.003', R.gear, 0.09, 1.36, 0.12, 0.04, 0.07, 0.025); b.rigid(G.box, 'DEF-hips', R.gear, -0.2, 0.95, 0.0, 0.05, 0.14, 0.08); }
     if (role !== 'DClass') b.rigid(G.box, 'DEF-spine.003', R.badge, -0.09, 1.33, 0.135, 0.05, 0.065, 0.004);
     if (role === 'DClass') b.rigid(G.box, 'DEF-spine.003', R.badge, 0.08, 1.38, 0.13, 0.09, 0.03, 0.004);
@@ -237,7 +244,7 @@
     return (H.outfits[s.key] = b.build());
   }
   function palette(s) {
-    const U = UNI[s.role] || {}, c = [];
+    const U = s.U || UNI[s.role] || {}, c = [];
     c[R.skin] = s.skin; c[R.hair] = s.hair; c[R.beard] = s.hair; c[R.shirt] = U.shirt; c[R.sleeve] = U.sleeve; c[R.hand] = U.gloves || s.skin; c[R.pants] = U.pants; c[R.shoe] = U.shoe; c[R.belt] = U.belt; c[R.collar] = U.collar;
     c[R.coat] = U.coat || U.shirt; c[R.vest] = U.vest || U.shirt; c[R.apron] = U.apron || U.shirt; c[R.hat] = U.hat || s.hair; c[R.gear] = U.gear || 0x151515; c[R.badge] = U.badge || 0xe4e4e0;
     c[R.sclera] = 0xd8d3ca; c[R.iris] = s.iris; c[R.mouth] = 0x2a1612; c[R.frame] = 0x111111; c[R.visor] = U.visor || 0x0a0a0a; c[R.stripe] = U.stripe || 0xe8e8e8; c[R.lip] = s.female ? 0x9a5a52 : 0x7a4a40;
@@ -266,19 +273,22 @@
       const mesh = this.mesh = new T.SkinnedMesh(this.geoNear, sil ? H.silMat : H.mat); mesh.frustumCulled = true; parent.add(mesh); mesh.bind(skeleton, bindMatrix); mesh.updateMorphTargets(); this.meshes = [mesh];
       // body proportions (bone scales persist: the clips only rotate bones). The source mannequin is athletic: slimmed, then varied.
       const female = s.female, age = s.age;
-      const height = (female ? 0.92 : 0.98) * (0.95 + r() * 0.1), build = female ? 0.78 + r() * 0.1 : 0.84 + r() * 0.13, belly = age > 40 && r() < 0.4 ? 1.1 + r() * 0.12 : 1;
+      const cu = s.custom || {};
+      const height = cu.height || (female ? 0.92 : 0.98) * (0.95 + r() * 0.1), build = cu.build || (female ? 0.78 + r() * 0.1 : 0.84 + r() * 0.13), belly = !cu.build && age > 40 && r() < 0.4 ? 1.1 + r() * 0.12 : 1;
       this.root.scale.setScalar(height);
       for (const k of ['sp1', 'sp2']) this.b[k].scale.set(build * (k === 'sp1' && belly > 1 ? 1.05 : 1), 1, (k === 'sp1' ? build * belly : build) * 1.02);
       this.b.sp3.scale.set(build * (female ? 0.93 : 0.98), 1, build * 0.96);
       const inv = new T.Vector3(1 / (this.b.sp1.scale.x * this.b.sp2.scale.x * this.b.sp3.scale.x), 1, 1 / (this.b.sp1.scale.z * this.b.sp2.scale.z * this.b.sp3.scale.z));
       for (const k of ['neck', 'shL', 'shR']) this.b[k].scale.copy(inv);
-      const limb = female ? 0.74 + r() * 0.06 : 0.8 + r() * 0.1;
+      const limb = cu.limb || (female ? 0.74 + r() * 0.06 : 0.8 + r() * 0.1);
       for (const k of ['uaL', 'uaR']) this.b[k].scale.set(limb, 1, limb);
       for (const n of ['DEF-thigh.L', 'DEF-thigh.R']) { const bb = bone(n); if (bb) bb.scale.set(female ? 0.86 : 0.9, 1, female ? 0.86 : 0.9); }
       for (const n of ['DEF-hand.L', 'DEF-hand.R']) { const bb = bone(n); if (bb) bb.scale.setScalar(1 / limb * (female ? 0.86 : 0.92)); }
-      this.b.head.scale.setScalar(0.96 + r() * 0.08);
-      this.stoop = age > 55 ? 4 + r() * 5 : 0;
-      this.lids = !sil;
+      this.b.head.scale.setScalar(cu.head || 0.96 + r() * 0.08);
+      if (cu.armLen) for (const n of ['DEF-upper_arm.L', 'DEF-upper_arm.R', 'DEF-forearm.L', 'DEF-forearm.R']) { const bb = bone(n); if (bb) bb.scale.y = cu.armLen; }
+      this.lids = !sil && !cu.noFace && !cu.bigEyes && !cu.noBlink;
+      this.og = og;
+      this.stoop = !cu.height && age > 55 ? 4 + r() * 5 : 0;
       // animation
       this.mixer = new T.AnimationMixer(this.model); this.acts = {};
       for (const n in H.clips) { const a = this.mixer.clipAction(H.clips[n]); a.enabled = true; a._on = false; this.acts[n] = a; }
@@ -291,6 +301,18 @@
       if (!sil) { this.proxy = new T.Mesh(new T.CylinderGeometry(0.32, 0.32, 1.8, 6), new T.MeshBasicMaterial({ visible: false })); this.proxy.position.y = 0.9; this.root.add(this.proxy); this.proxy.userData.interact = { kind: 'npc', id: npc.id }; }
       this.mixer.update(0);
     }
+    // recolour in place (the mimic takes on the colours of whoever it copies)
+    setColors(sp) {
+      const pal = palette(sp);
+      for (const [g, src] of [[this.geoNear, this.og], [this.geoFar, this.og.userData.far]]) { const reg = src.userData.reg, col = g.attributes.color; if (!col) continue; for (let i = 0; i < reg.length; i++) { const c = pal[reg[i]]; col.array[i * 3] = c.r * 255; col.array[i * 3 + 1] = c.g * 255; col.array[i * 3 + 2] = c.b * 255; } col.needsUpdate = true; }
+    }
+    // direct control for anomalous humanoids: want = { clip: { w, t (fixed time) | ts (time scale) } }; the rest fades out
+    drive(dt, want, k) {
+      k = k == null ? Math.min(1, dt * 5) : k;
+      for (const n in this.acts) { const o = want[n]; this.setW(n, o ? o.w : 0, o && o.snap ? 1 : k); const a = this.acts[n]; if (!o || !a._on) continue; if (o.t != null) { a.timeScale = 0; a.time = Math.max(0, Math.min(H.clips[n].duration - 0.001, o.t)); } else a.timeScale = o.ts == null ? 1 : o.ts; }
+      this.mixer.update(dt);
+    }
+    clipDur(n) { return H.clips[n] ? H.clips[n].duration : 1; }
     // only clips with weight are active in the mixer (a person blends 1-3 clips, not all 27)
     setW(n, target, k) {
       const a = this.acts[n]; if (!a) return; const cur = this.w[n] || 0; let v = cur + (target - cur) * k; if (v < 0.002) v = 0; this.w[n] = v;
@@ -378,5 +400,6 @@
   const _q1 = new T.Quaternion(), _q2 = new T.Quaternion(), _q3 = new T.Quaternion(), _q4 = new T.Quaternion(), _v1 = new T.Vector3(), _v2 = new T.Vector3(), _v3 = new T.Vector3();
   H.SkinnedHuman = SkinnedHuman;
   H.create = npc => H.ready ? new SkinnedHuman(npc) : null;
+  H.specOf = spec; H.UNI = UNI;
   S.Humans = H;
 })(typeof window !== 'undefined' ? window : globalThis);

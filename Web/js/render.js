@@ -75,25 +75,40 @@
   function texPanel(base, line, seed) { const s = 128, c = canvas(s, s), g = c.getContext('2d'), r = rnd(seed); g.fillStyle = base; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(0,0,0,' + (r() * 0.1) + ')'; g.fillRect(0, r() * s, s, 1 + r() * 3); } g.fillStyle = line; for (let x = 0; x < s; x += 32) g.fillRect(x, 0, 2, s); return tex(c); }
 
   // ------------------------------------------------------------------ materials and zone styles
+  // PBR: ambientCG CC0 texture sets (Web/assets/textures, 512 px on phones, 1024 px on «high»); canvas patterns get a normal map
+  // computed from their own relief. Quality 0 keeps the cheap Phong materials.
+  const QUAL = { q: 1 };
+  function normalFromCanvas(src, strength) {
+    const w = src.width, h = src.height, g = src.getContext('2d'), d = g.getImageData(0, 0, w, h).data, c = canvas(w, h), o = c.getContext('2d'), out = o.createImageData(w, h);
+    const L = (x, y) => { x = (x + w) % w; y = (y + h) % h; const i = (y * w + x) * 4; return (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dx = (L(x + 1, y) - L(x - 1, y)) * strength, dy = (L(x, y + 1) - L(x, y - 1)) * strength, l = Math.hypot(dx, dy, 1), i = (y * w + x) * 4; out.data[i] = (-dx / l * 0.5 + 0.5) * 255; out.data[i + 1] = (dy / l * 0.5 + 0.5) * 255; out.data[i + 2] = (1 / l * 0.5 + 0.5) * 255; out.data[i + 3] = 255; }
+    o.putImageData(out, 0, 0); const t = new T.CanvasTexture(c); t.wrapS = t.wrapT = T.RepeatWrapping; return t;
+  }
   function makeMaterials() {
-    const phong = (map, color, shin) => new T.MeshPhongMaterial({ map: map || null, color: color || 0xffffff, shininess: shin || 8, specular: 0x151515 });
+    const phong0 = (map, color, shin) => new T.MeshPhongMaterial({ map: map || null, color: color || 0xffffff, shininess: shin || 8, specular: 0x151515 });
+    const Q = QUAL.q, base = (root.SCP_ASSET_BASE || 'assets/') + 'textures/' + (Q >= 2 ? 1024 : 512) + '/', loader = new T.TextureLoader(), TX = {};
+    const tx = name => { if (TX[name]) return TX[name]; const t = loader.load(base + name + '.jpg'); t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = Q >= 2 ? 4 : 2; return (TX[name] = t); };
+    const METAL = { Metal049A: 1, Metal055A: 1, Metal063: 1 };
+    const pbr = (set, o) => { o = o || {}; if (!Q) return phong0(null, o.tint || 0x9a9a9a, o.metal ? 30 : 8); return new T.MeshStandardMaterial({ map: tx(set + '_Color'), normalMap: tx(set + '_NormalGL'), roughnessMap: tx(set + '_Roughness'), metalnessMap: METAL[set] ? tx(set + '_Metalness') : null, color: o.tint || 0xffffff, roughness: o.rough == null ? 1 : o.rough, metalness: o.metal || 0, normalScale: new T.Vector2(o.ns || 1, o.ns || 1) }); };
+    const phong = (map, color, shin) => { if (!Q || !map) return Q && !map ? new T.MeshStandardMaterial({ color: color || 0xffffff, roughness: shin >= 60 ? 0.25 : shin >= 25 ? 0.45 : 0.75, metalness: shin >= 25 ? 0.25 : 0 }) : phong0(map, color, shin); return new T.MeshStandardMaterial({ map, normalMap: map.image ? normalFromCanvas(map.image, 2.2) : null, color: color || 0xffffff, roughness: shin >= 25 ? 0.55 : 0.85, metalness: shin >= 25 ? 0.2 : 0 }); };
     const basic = (color, map) => new T.MeshBasicMaterial({ color, map: map || null });
     const flat = c => new T.MeshLambertMaterial({ color: c });
     const m = {
-      concrete: phong(texConcrete('#6b6b69', 0.35, 1)), tiles: phong(texTiles('#a3a6a4', '#4e5050', 4, 2)), corridorFloor: phong(texTiles('#5d6260', '#323434', 2, 3)),
-      wallUpper: phong(texConcrete('#b3b5ae', 0.12, 4, 128)), wallLower: phong(texConcrete('#515b5b', 0.18, 5, 128)), ceiling: phong(texConcrete('#4b4b4e', 0.25, 6, 128)),
-      stripe: phong(null, 0xc08c1f), hazard: phong(texStripes('#e6b814', '#141414')), chamber: phong(texConcrete('#7f7f84', 0.42, 13)),
-      metal: phong(null, 0x8c9198, 30), dark: phong(null, 0x37393d, 20), door: phong(null, 0x606a75, 25), fabric: flat(0x3d5373), mattress: flat(0xc7c7bd),
-      wood: flat(0x735438), plastic: phong(null, 0xd2d2cd, 20), black: flat(0x080809), white: flat(0xe5e5e1), orange: flat(0xf2730f),
+      concrete: Q ? pbr('Concrete047A', { tint: 0x9d9d99 }) : phong(texConcrete('#6b6b69', 0.35, 1)), tiles: phong(texTiles('#a3a6a4', '#4e5050', 4, 2)), corridorFloor: phong(texTiles('#5d6260', '#323434', 2, 3)),
+      wallUpper: Q ? pbr('Plaster001', { tint: 0xc9cbc4 }) : phong(texConcrete('#b3b5ae', 0.12, 4, 128)), wallLower: Q ? pbr('Concrete034', { tint: 0x6c7777 }) : phong(texConcrete('#515b5b', 0.18, 5, 128)), ceiling: Q ? pbr('Concrete034', { tint: 0x5c5c60 }) : phong(texConcrete('#4b4b4e', 0.25, 6, 128)),
+      stripe: phong(null, 0xc08c1f), hazard: phong(texStripes('#e6b814', '#141414')), chamber: Q ? pbr('Concrete048', { tint: 0xa3a3a9 }) : phong(texConcrete('#7f7f84', 0.42, 13)),
+      metal: Q ? pbr('Metal049A', { tint: 0xb4b9bf, metal: 0.35 }) : phong(null, 0x8c9198, 30), dark: phong(null, 0x37393d, 20), door: Q ? pbr('Metal049A', { tint: 0x7f8996, metal: 0.3 }) : phong(null, 0x606a75, 25), fabric: flat(0x3d5373), mattress: flat(0xc7c7bd),
+      rust: Q ? pbr('Metal063', { tint: 0xb0a090, metal: 0.25 }) : phong(null, 0x6a4a3a, 10), asphalt: Q ? pbr('Asphalt031', { tint: 0x8a8a88 }) : phong(texConcrete('#3a3a3a', 0.3, 40)),
+      wood: Q ? pbr('Wood092', { tint: 0xc0a080 }) : flat(0x735438), plastic: phong(null, 0xd2d2cd, 20), black: flat(0x080809), white: flat(0xe5e5e1), orange: flat(0xf2730f),
       glass: new T.MeshPhongMaterial({ color: 0x8cb3cc, transparent: true, opacity: 0.22, shininess: 80, depthWrite: false }),
       light: basic(0xfff8e6), lightOff: basic(0x55554f), screenG: basic(0xffffff, texScreen('#4dff80', 14)), screenB: basic(0xffffff, texScreen('#66b3ff', 15)), screenA: basic(0xffffff, texScreen('#ffb84d', 16)),
       red: basic(0xff2a1f), green: basic(0x33ff66), amber: basic(0xffa020), alarm: basic(0x5a0a0a), alarmOn: basic(0xff2020),
       // 2.0 zone materials
-      carpet: phong(texCarpet('#3a4655', 21)), woodPanel: phong(texPanel('#5a3d26', 'rgba(0,0,0,0.35)', 22)), cream: phong(texConcrete('#d6cfbd', 0.08, 23, 128)), ceilingTile: phong(texTiles('#cfcfc8', '#9a9a94', 4, 24)),
-      whiteTile: phong(texTiles('#dfe3e3', '#9aa3a3', 6, 25)), wallLight: phong(texConcrete('#d8dcdb', 0.06, 26, 128)), blueStripe: phong(null, 0x2b6fb3),
-      darkConcrete: phong(texConcrete('#3f3f40', 0.35, 27)), greenPaint: phong(texConcrete('#4f6b55', 0.25, 28, 128)), grating: phong(texGrating(29), 0xffffff, 30), metalWall: phong(texPanel('#4b5157', 'rgba(0,0,0,0.4)', 30)),
-      paleFloor: phong(texTiles('#a8a389', '#8a8670', 3, 31)), paleWall: phong(texConcrete('#c9c2a0', 0.05, 32, 128)),
-      brass: phong(null, 0xb08d3c, 60), paper: flat(0xf2efe4), suit: flat(0xe0c21a), visor: phong(null, 0x101418, 90), mirror: phong(null, 0x9fb3c1, 120), curtain: flat(0x5c1d1d), stone: phong(texConcrete('#2c2a28', 0.4, 33), 0xffffff, 4),
+      carpet: phong(texCarpet('#3a4655', 21)), woodPanel: Q ? pbr('Wood092', { tint: 0x8a6448 }) : phong(texPanel('#5a3d26', 'rgba(0,0,0,0.35)', 22)), cream: Q ? pbr('Plaster007', { tint: 0xe0d9c6 }) : phong(texConcrete('#d6cfbd', 0.08, 23, 128)), ceilingTile: phong(texTiles('#cfcfc8', '#9a9a94', 4, 24)),
+      whiteTile: phong(texTiles('#dfe3e3', '#9aa3a3', 6, 25)), wallLight: Q ? pbr('Plaster007', { tint: 0xe4e8e8 }) : phong(texConcrete('#d8dcdb', 0.06, 26, 128)), blueStripe: phong(null, 0x2b6fb3),
+      darkConcrete: Q ? pbr('Concrete047A', { tint: 0x5c5c5e }) : phong(texConcrete('#3f3f40', 0.35, 27)), greenPaint: Q ? pbr('Plaster001', { tint: 0x6d8b73 }) : phong(texConcrete('#4f6b55', 0.25, 28, 128)), grating: phong(texGrating(29), 0xffffff, 30), metalWall: Q ? pbr('Metal055A', { tint: 0x8a9098, metal: 0.3 }) : phong(texPanel('#4b5157', 'rgba(0,0,0,0.4)', 30)),
+      paleFloor: phong(texTiles('#a8a389', '#8a8670', 3, 31)), paleWall: Q ? pbr('Plaster001', { tint: 0xd8d1ae }) : phong(texConcrete('#c9c2a0', 0.05, 32, 128)),
+      brass: phong(null, 0xb08d3c, 60), paper: flat(0xf2efe4), suit: flat(0xe0c21a), visor: phong(null, 0x101418, 90), mirror: phong(null, 0x9fb3c1, 120), curtain: flat(0x5c1d1d), stone: Q ? pbr('Concrete034', { tint: 0x3d3a37 }) : phong(texConcrete('#2c2a28', 0.4, 33), 0xffffff, 4),
       orb: basic(0xbfe3ff), orbBlue: basic(0x5aa0ff), silhouette: new T.MeshBasicMaterial({ color: 0x050505, transparent: true, opacity: 0.88 }), hallFrame: phong(null, 0x2b2d30, 20)
     };
     m.colored = (hex) => m['c' + hex] || (m['c' + hex] = flat(hex));
@@ -278,7 +293,16 @@
       const m = this.m;
       switch (r.type) {
         case 'Corridor': case 'Tunnel': this.corridorGeneric(r); break;
-        case 'Generator': this.box(m.dark, (r.minX + r.maxX) / 2, 1.1, (r.minZ + r.maxZ) / 2, Math.min(8, r.width - 4), 2.2, Math.min(4, r.depth - 4), true); this.box(m.orange, (r.minX + r.maxX) / 2, 2.25, (r.minZ + r.maxZ) / 2, Math.min(8, r.width - 4) * 0.9, 0.1, 0.3); for (let i = 0; i < 3; i++) this.box(m.metal, r.minX + 2 + i * 2.5, r.height - 0.4, r.maxZ - 0.5, 0.4, 0.4, r.depth * 0.3); break;
+        case 'Generator': { const cx = (r.minX + r.maxX) / 2, cz = (r.minZ + r.maxZ) / 2, L = Math.min(8, r.width - 4), D = Math.min(3.6, r.depth - 4);
+          this.box(m.rust, cx, 0.15, cz, L + 0.6, 0.3, D + 0.6, true);                                   // skid
+          this.box(m.door, cx - L * 0.12, 1.15, cz, L * 0.7, 1.7, D * 0.8, true);                       // engine block
+          this.box(m.grating, cx + L * 0.36, 1.2, cz, L * 0.22, 1.8, D * 0.85, true);                  // radiator
+          this.box(m.metal, cx - L * 0.12, 2.1, cz, L * 0.6, 0.2, D * 0.5);                             // valve cover
+          for (let i = 0; i < 4; i++) this.box(m.dark, cx - L * 0.4 + i * L * 0.18, 2.25, cz - D * 0.25, 0.18, 0.12, 0.18);
+          for (const zz of [-0.35, 0.35]) { this.box(m.rust, cx - L * 0.3, (r.height + 2.3) / 2, cz + zz * D, 0.22, r.height - 2.3, 0.22); }  // exhaust stacks
+          this.box(m.orange, cx, 2.0, cz + D * 0.41, L * 0.7, 0.08, 0.02); this.box(m.hazard, cx, 0.32, cz + D / 2 + 0.31, L + 0.6, 0.04, 0.02);
+          this.box(m.metalWall, r.minX + 1.2, 1.0, cz + D / 2 + 1.0, 1.0, 2.0, 0.6, true); this.box(m.screenG, r.minX + 1.2, 1.4, cz + D / 2 + 1.31, 0.5, 0.3, 0.02); // control cabinet
+          for (let i = 0; i < 3; i++) this.box(m.rust, r.minX + 2 + i * 2.5, r.height - 0.4, r.maxZ - 0.5, 0.4, 0.4, r.depth * 0.3); break; }
         case 'Servers': break;
         case 'Command': { const wz = r.maxZ - 0.15; for (let i = 0; i < 8; i++) { const x = r.minX + 1 + i * (r.width - 2) / 8 + 0.5; this.box(m.dark, x, 2.0, wz - 0.05, 1.2, 0.75, 0.08); this.box(i % 3 ? m.screenB : m.screenG, x, 2.0, wz - 0.1, 1.1, 0.65, 0.02); } this.sign('КОМАНДНЫЙ ЦЕНТР · SCP LIFE', 'S', (r.minX + r.maxX) / 2, 2.5, 2.6, '#14171a', '#e8e8e0'); break; }
         case 'Meeting': this.box(m.wood, (r.minX + r.maxX) / 2, 0.74, (r.minZ + r.maxZ) / 2, 3.6, 0.06, 1.3, true); this.box(m.dark, (r.minX + r.maxX) / 2, 0.36, (r.minZ + r.maxZ) / 2, 3.0, 0.72, 0.6); break;
@@ -745,5 +769,5 @@
     return { group: g, pivot: pv, led, lens, cam };
   }
 
-  S.Render = { FacilityView, Humanoid, TallymanView, AnomalyView, cameraModel, MB, setLayer, HALLU, LOOKS };
+  S.Render = { setQuality(q) { QUAL.q = q; }, FacilityView, Humanoid, TallymanView, AnomalyView, cameraModel, MB, setLayer, HALLU, LOOKS };
 })(typeof window !== 'undefined' ? window : globalThis);
