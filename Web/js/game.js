@@ -878,7 +878,7 @@
     G.cctv = false; G.playing = true; G.hudHidden = false; $('hud').hidden = false; UI.syncTouch(); $('pSpeed').textContent = 'СКОРОСТЬ ВРЕМЕНИ: ×1';
     world.horror.settings.intensity = Math.max(0.3, settings.fx);
   }
-  function expose() { window.__scp = G; G.P = P; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; }
+  function expose() { window.__scp = G; G.P = P; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
   function loadGame() {
     A.start();
     for (const k of [SAVE_KEY, BAK_KEY]) { const s = store.get(k); if (!s) continue; try { begin(S.World.load(s)); UI.msg('Сохранение загружено: ' + S.fmtStamp(G.world.now), '#fff'); return true; } catch (e) { console.warn('save unreadable', e); } }
