@@ -1,9 +1,10 @@
-/* SCP LIFE — WebGL presentation (Three.js r128): procedural facility, doors, people, SCP-L-001, cameras. */
+/* SCP LIFE 2.0 — WebGL presentation (Three.js r128): two-level procedural facility with zone styles, lazy room building,
+   doors, windows, people of every profession, models of all anomalies, CCTV cameras and the player-only hallucination layer. */
 (function (root) {
   'use strict';
   const S = root.SCP, T = root.THREE;
-  const WALL = 0.15, LOWER = 1.1, STRIPE = 0.1, CHUNK = 13;
-  const WINDOWS = [{ a: 'obs', b: 'chamber', min: 11.0, max: 15.7, y0: 1.0, y1: 2.4 }];
+  const WALL = 0.15, LOWER = 1.1, STRIPE = 0.1, CHUNK = 13, HALLU = 1;
+  const V1 = { corridor: 1, dorm: 1, canteen: 1, lab: 1, obs: 1, airlock: 1, chamber: 1, post: 1, med: 1, dblock: 1, cell1: 1, cell2: 1, cell3: 1, cell4: 1, eng: 1 };
 
   // ------------------------------------------------------------------ procedural textures
   function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -69,7 +70,11 @@
     }
   }
 
-  // ------------------------------------------------------------------ materials
+  function texCarpet(base, seed) { const s = 128, c = canvas(s, s), g = c.getContext('2d'), r = rnd(seed); g.fillStyle = base; g.fillRect(0, 0, s, s); for (let i = 0; i < 3000; i++) { g.fillStyle = r() > 0.5 ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.05)'; g.fillRect(r() * s, r() * s, 1, 1); } g.strokeStyle = 'rgba(0,0,0,0.15)'; for (let i = 0; i < s; i += 32) { g.strokeRect(i, i, s - 2 * i, s - 2 * i); } return tex(c); }
+  function texGrating(seed) { const s = 128, c = canvas(s, s), g = c.getContext('2d'); g.fillStyle = '#1d2022'; g.fillRect(0, 0, s, s); g.fillStyle = '#5a5f63'; for (let i = 0; i < s; i += 8) { g.fillRect(i, 0, 3, s); g.fillRect(0, i, s, 2); } return tex(c); }
+  function texPanel(base, line, seed) { const s = 128, c = canvas(s, s), g = c.getContext('2d'), r = rnd(seed); g.fillStyle = base; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.fillStyle = 'rgba(0,0,0,' + (r() * 0.1) + ')'; g.fillRect(0, r() * s, s, 1 + r() * 3); } g.fillStyle = line; for (let x = 0; x < s; x += 32) g.fillRect(x, 0, 2, s); return tex(c); }
+
+  // ------------------------------------------------------------------ materials and zone styles
   function makeMaterials() {
     const phong = (map, color, shin) => new T.MeshPhongMaterial({ map: map || null, color: color || 0xffffff, shininess: shin || 8, specular: 0x151515 });
     const basic = (color, map) => new T.MeshBasicMaterial({ color, map: map || null });
@@ -81,12 +86,31 @@
       metal: phong(null, 0x8c9198, 30), dark: phong(null, 0x37393d, 20), door: phong(null, 0x606a75, 25), fabric: flat(0x3d5373), mattress: flat(0xc7c7bd),
       wood: flat(0x735438), plastic: phong(null, 0xd2d2cd, 20), black: flat(0x080809), white: flat(0xe5e5e1), orange: flat(0xf2730f),
       glass: new T.MeshPhongMaterial({ color: 0x8cb3cc, transparent: true, opacity: 0.22, shininess: 80, depthWrite: false }),
-      light: basic(0xfff8e6), lightOff: basic(0x55554f), screenG: basic(0xffffff, texScreen('#4dff80', 14)), screenB: basic(0xffffff, texScreen('#66b3ff', 15)),
-      red: basic(0xff2a1f), green: basic(0x33ff66), amber: basic(0xffa020), alarm: basic(0x5a0a0a), alarmOn: basic(0xff2020)
+      light: basic(0xfff8e6), lightOff: basic(0x55554f), screenG: basic(0xffffff, texScreen('#4dff80', 14)), screenB: basic(0xffffff, texScreen('#66b3ff', 15)), screenA: basic(0xffffff, texScreen('#ffb84d', 16)),
+      red: basic(0xff2a1f), green: basic(0x33ff66), amber: basic(0xffa020), alarm: basic(0x5a0a0a), alarmOn: basic(0xff2020),
+      // 2.0 zone materials
+      carpet: phong(texCarpet('#3a4655', 21)), woodPanel: phong(texPanel('#5a3d26', 'rgba(0,0,0,0.35)', 22)), cream: phong(texConcrete('#d6cfbd', 0.08, 23, 128)), ceilingTile: phong(texTiles('#cfcfc8', '#9a9a94', 4, 24)),
+      whiteTile: phong(texTiles('#dfe3e3', '#9aa3a3', 6, 25)), wallLight: phong(texConcrete('#d8dcdb', 0.06, 26, 128)), blueStripe: phong(null, 0x2b6fb3),
+      darkConcrete: phong(texConcrete('#3f3f40', 0.35, 27)), greenPaint: phong(texConcrete('#4f6b55', 0.25, 28, 128)), grating: phong(texGrating(29), 0xffffff, 30), metalWall: phong(texPanel('#4b5157', 'rgba(0,0,0,0.4)', 30)),
+      paleFloor: phong(texTiles('#a8a389', '#8a8670', 3, 31)), paleWall: phong(texConcrete('#c9c2a0', 0.05, 32, 128)),
+      brass: phong(null, 0xb08d3c, 60), paper: flat(0xf2efe4), suit: flat(0xe0c21a), visor: phong(null, 0x101418, 90), mirror: phong(null, 0x9fb3c1, 120), curtain: flat(0x5c1d1d), stone: phong(texConcrete('#2c2a28', 0.4, 33), 0xffffff, 4),
+      orb: basic(0xbfe3ff), orbBlue: basic(0x5aa0ff), silhouette: new T.MeshBasicMaterial({ color: 0x050505, transparent: true, opacity: 0.88 }), hallFrame: phong(null, 0x2b2d30, 20)
     };
     m.colored = (hex) => m['c' + hex] || (m['c' + hex] = flat(hex));
     return m;
   }
+  function makeStyles(m) {
+    return {
+      standard: { floor: m.concrete, lower: m.wallLower, stripe: m.stripe, upper: m.wallUpper, ceil: m.ceiling },
+      admin: { floor: m.carpet, lower: m.woodPanel, stripe: m.wood, upper: m.cream, ceil: m.ceilingTile },
+      research: { floor: m.tiles, lower: m.whiteTile, stripe: m.blueStripe, upper: m.wallLight, ceil: m.ceilingTile },
+      heavy: { floor: m.darkConcrete, lower: m.chamber, stripe: m.hazard, upper: m.chamber, ceil: m.ceiling, full: m.chamber },
+      dclass: { floor: m.concrete, lower: m.greenPaint, stripe: m.orange, upper: m.wallUpper, ceil: m.ceiling },
+      tech: { floor: m.grating, lower: m.metalWall, stripe: m.stripe, upper: m.wallUpper, ceil: m.ceiling },
+      null: { floor: m.paleFloor, lower: m.paleWall, stripe: m.paleWall, upper: m.paleWall, ceil: m.paleWall }
+    };
+  }
+  function setLayer(o, l) { o.traverse(x => x.layers.set(l)); }
 
   // ------------------------------------------------------------------ mesh builder (world-space UVs, one mesh per room)
   class MB {
@@ -124,61 +148,64 @@
     }
   }
 
-  // ------------------------------------------------------------------ facility builder
+  // ------------------------------------------------------------------ facility builder (rooms are built lazily when first needed)
   class FacilityView {
     constructor(world, scene) {
-      this.w = world; this.scene = scene; this.m = makeMaterials();
-      this.rooms = {}; this.colliders = []; this.interact = []; this.doors = {}; this.beacons = []; this.grid = new Map();
+      this.w = world; this.scene = scene; this.m = makeMaterials(); this.styles = makeStyles(this.m);
+      this.rooms = {}; this.colliders = []; this.interact = []; this.doors = {}; this.beacons = []; this.grid = new Map(); this.windows = []; this.extra = [];
       this.root = new T.Group(); scene.add(this.root);
-      for (const r of world.fac.roomList) this.buildRoom(r);
-      for (const d of world.fac.doorList) this.buildDoor(d);
+      for (const r of world.fac.roomList) this.rooms[r.id] = { room: r, group: null, lights: this.lightAnchors(r), fixtures: null, visible: false, built: false, doors: [] };
+      for (const d of world.fac.doorList) if (!d.isTransit) { this.buildDoor(d); this.rooms[d.roomA].doors.push(d.id); this.rooms[d.roomB].doors.push(d.id); }
       this.buildWindows();
-      for (const c of this.colliders) this.indexCollider(c);
     }
+    ensure(id) { const v = this.rooms[id]; if (!v || v.built) return v; this.buildRoom(v.room); return v; }
     indexCollider(c) { for (let x = Math.floor(c.x0 / 2); x <= Math.floor(c.x1 / 2); x++) for (let z = Math.floor(c.z0 / 2); z <= Math.floor(c.z1 / 2); z++) { const k = x + ',' + z; let a = this.grid.get(k); if (!a) this.grid.set(k, a = []); a.push(c); } }
-    nearColliders(x, z) { const out = new Set(); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const a = this.grid.get((Math.floor(x / 2) + i) + ',' + (Math.floor(z / 2) + j)); if (a) for (const c of a) out.add(c); } return out; }
-    col(cx, cz, sx, sz, h) { if ((h || 1) < 0.3) return; this.colliders.push({ x0: cx - sx / 2, x1: cx + sx / 2, z0: cz - sz / 2, z1: cz + sz / 2 }); }
-    mb(x) { const r = this.cur; let key = r.id; if (r.type === 'Corridor') key += '#' + Math.max(0, Math.min(9, Math.floor((x - r.minX) / CHUNK))); let b = this.builders[key]; if (!b) b = this.builders[key] = new MB(); return b; }
+    nearColliders(x, z, y) { const out = new Set(); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) { const a = this.grid.get((Math.floor(x / 2) + i) + ',' + (Math.floor(z / 2) + j)); if (a) for (const c of a) if (y == null || Math.abs(c.lv - y) < 2) out.add(c); } return out; }
+    col(cx, cz, sx, sz, h) { if ((h || 1) < 0.3) return; const c = { x0: cx - sx / 2, x1: cx + sx / 2, z0: cz - sz / 2, z1: cz + sz / 2, lv: this.cur.floorY }; this.colliders.push(c); this.indexCollider(c); }
+    mb(x) { const r = this.cur; let key = r.id; if (r.width > CHUNK * 1.5) key += '#' + Math.max(0, Math.floor((x - r.minX) / CHUNK)); let b = this.builders[key]; if (!b) b = this.builders[key] = new MB(); return b; }
     box(mat, cx, cy, cz, sx, sy, sz, collide, uv) { this.mb(cx).box(mat, cx, cy, cz, sx, sy, sz, uv); if (collide) this.col(cx, cz, sx, sz, sy); }
+    style(room) { if (room.type === 'Containment' && !room.style) return this.styles.heavy; return this.styles[room.style] || this.styles.standard; }
 
     buildRoom(room) {
-      this.cur = room; this.builders = {}; const t = WALL, h = room.height, m = this.m;
-      const view = { room, group: new T.Group(), lights: [], fixtures: null, visible: true };
-      this.rooms[room.id] = view; this.root.add(view.group); this.view = view;
-      const floor = room.type === 'Corridor' ? m.corridorFloor : ['Laboratory', 'MedicalBay', 'Observation', 'Canteen'].indexOf(room.type) >= 0 ? m.tiles : m.concrete;
+      this.cur = room; this.builders = {}; const t = WALL, h = room.height, m = this.m, st = this.style(room);
+      const view = this.rooms[room.id]; view.group = new T.Group(); view.group.position.y = room.floorY; view.built = true; view.group.visible = false;
+      this.root.add(view.group); this.view = view;
+      let floor = st.floor;
+      if (room.style === 'standard' || !room.style) floor = room.type === 'Corridor' ? m.corridorFloor : ['Laboratory', 'MedicalBay', 'Observation', 'Canteen', 'Kitchen', 'Shower'].indexOf(room.type) >= 0 ? m.tiles : m.concrete;
       const cz = (room.minZ + room.maxZ) / 2, dz = room.depth + 2 * t;
       for (let x = room.minX - t; x < room.maxX + t - 0.01; x += CHUNK) {
         const x1 = Math.min(x + CHUNK, room.maxX + t), cx = (x + x1) / 2;
-        this.mb(cx).box(floor, cx, -0.05, cz, x1 - x, 0.1, dz, 2.5); this.mb(cx).box(m.ceiling, cx, h + 0.05, cz, x1 - x, 0.1, dz, 3);
+        this.mb(cx).box(floor, cx, -0.05, cz, x1 - x, 0.1, dz, 2.5); this.mb(cx).box(st.ceil, cx, h + 0.05, cz, x1 - x, 0.1, dz, 3);
       }
-      this.buildWalls(room); this.props(room); this.lighting(room);
+      this.buildWalls(room, st);
+      if (V1[room.id]) this.v1props(room); else this.furnish(room);
+      this.poiProxies(room); this.fixtures(room);
       for (const k in this.builders) { const mesh = this.builders[k].build(); if (mesh) view.group.add(mesh); }
     }
-    buildWalls(room) {
+    buildWalls(room, st) {
       for (const side of ['N', 'S', 'E', 'W']) {
         const ops = [];
         for (const did of room.doorIds) {
-          const d = this.w.fac.door(did); if (this.doorSide(room, d) !== side) continue;
+          const d = this.w.fac.door(did); if (d.isTransit || this.doorSide(room, d) !== side) continue;
           const along = d.alongX ? d.pos.z : d.pos.x, w = d.kind === 'Archway' ? d.width : d.width + 0.24, hh = d.kind === 'Archway' ? 2.6 : d.height + 0.12;
           ops.push({ a0: along - w / 2, a1: along + w / 2, y0: 0, y1: hh });
         }
-        for (const win of WINDOWS) {
+        for (const win of this.w.fac.windows) {
           if (win.a !== room.id && win.b !== room.id) continue;
           const other = this.w.fac.room(win.a === room.id ? win.b : win.a);
           if (this.sideTowards(room, other) === side) ops.push({ a0: win.min, a1: win.max, y0: win.y0, y1: win.y1 });
         }
-        this.wallSide(room, side, ops);
+        this.wallSide(room, side, ops, st);
       }
     }
     doorSide(r, d) { return d.alongX ? (d.pos.x > (r.minX + r.maxX) / 2 ? 'E' : 'W') : (d.pos.z > (r.minZ + r.maxZ) / 2 ? 'N' : 'S'); }
     sideTowards(r, o) { if (o.minZ >= r.maxZ - 0.01) return 'N'; if (o.maxZ <= r.minZ + 0.01) return 'S'; if (o.minX >= r.maxX - 0.01) return 'E'; return 'W'; }
-    wallSide(room, side, ops) {
+    wallSide(room, side, ops, st) {
       const t = WALL, ax = side === 'N' || side === 'S';
       const a0 = ax ? room.minX - t : room.minZ, a1 = ax ? room.maxX + t : room.maxZ;
       const plane = side === 'N' ? room.maxZ + t / 2 : side === 'S' ? room.minZ - t / 2 : side === 'E' ? room.maxX + t / 2 : room.minX - t / 2;
       const cuts = [a0, a1]; for (const o of ops) cuts.push(S.clamp(o.a0, a0, a1), S.clamp(o.a1, a0, a1)); for (let c = a0 + 12; c < a1; c += 12) cuts.push(c);
       cuts.sort((x, y) => x - y);
-      const m = this.m, chamber = room.type === 'Containment';
       for (let i = 0; i + 1 < cuts.length; i++) {
         const s0 = cuts[i], s1 = cuts[i + 1]; if (s1 - s0 < 0.01) continue; const mid = (s0 + s1) / 2;
         let solid = [[0, room.height]];
@@ -187,13 +214,136 @@
           if (r[1] - r[0] < 0.01) continue;
           const piece = (y0, y1, mat) => { y0 = Math.max(y0, r[0]); y1 = Math.min(y1, r[1]); if (y1 - y0 < 0.005) return; const cy = (y0 + y1) / 2, cl = (s0 + s1) / 2;
             if (ax) this.mb(cl).box(mat, cl, cy, plane, s1 - s0, y1 - y0, t, 2, false); else this.mb(plane).box(mat, plane, cy, cl, t, y1 - y0, s1 - s0, 2, false); };
-          if (chamber) piece(0, room.height, m.chamber);
-          else { piece(0, LOWER, m.wallLower); piece(LOWER, LOWER + STRIPE, m.stripe); piece(LOWER + STRIPE, room.height, m.wallUpper); }
+          if (st.full || room.type === 'Containment') piece(0, room.height, st.full || this.m.chamber);
+          else { piece(0, LOWER, st.lower); piece(LOWER, LOWER + STRIPE, st.stripe); piece(LOWER + STRIPE, room.height, st.upper); }
           if (r[0] < 1.5) { const cl = (s0 + s1) / 2; if (ax) this.col(cl, plane, s1 - s0, t, 2); else this.col(plane, cl, t, s1 - s0, 2); }
         }
       }
     }
+    v1props(room) {
+      const fn = { Corridor: this.corridor, Dormitory: this.dorm, Canteen: this.canteen, Laboratory: this.lab, Observation: this.observation, Airlock: this.airlock, Containment: this.chamberProps, SecurityPost: this.post, MedicalBay: this.medbay, DClassCommon: this.dblock, DClassCell: this.cell, Engineering: this.eng }[room.type];
+      if (fn) fn.call(this, room);
+      this.markers(room);
+    }
+    // Patrol points and electrical panels (all rooms)
+    markers(room) {
+      const m = this.m;
+      for (const p of this.pois('PatrolPoint')) { const f = this.fwd(p.yaw), x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55; this.box(m.dark, x, 0.6, z, 0.1, 1.2, 0.1); this.box(m.hazard, x, 1.25, z, 0.22, 0.16, 0.22, false, 0.3); this.proxy('cp', x, 1.2, z, 0.5, 0.6, 0.5, { kind: 'checkpoint', id: p.id, label: p.label }); }
+      for (const p of this.pois('Panel')) { const f = this.fwd(p.yaw), x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55, s = this.sz(f, 0.18, 0.6, 0.8); this.box(m.metal, x, 1.35, z, s[0], s[1], s[2]); this.box(m.green, x - f.x * 0.1, 1.63, z - f.z * 0.1, 0.06, 0.04, 0.06); this.box(m.red, x - f.x * 0.1 + f.z * 0.12, 1.63, z - f.z * 0.1 + f.x * 0.12, 0.06, 0.04, 0.06); }
+    }
+    // Interaction proxies for points of interest that duties use.
+    poiProxies(room) {
+      const P = { Console: [0.9, 0.9, 0.9, 'console'], GuardPost: [0.9, 0.9, 0.9, 'console'], Desk: [1.2, 0.9, 1.2, 'desk'], Workbench: [1.4, 1.0, 1.0, 'poi'], Stove: [1.0, 1.0, 1.0, 'poi'], Shelf: [1.2, 1.8, 0.7, 'poi'], Rack: [0.8, 2.0, 0.9, 'poi'], Panel: [0.8, 0.9, 0.6, 'poi'], FoodCounter: [2, 1.1, 1, 'poi'], MedBed: [1.0, 0.8, 2.0, 'poi'], Bed: [1.0, 0.8, 2.0, 'bed'], CellBunk: [1.0, 0.8, 2.0, 'bed'], Terminal: [0.6, 1.2, 0.5, 'poi'], Hazmat: [0.7, 1.9, 0.6, 'hazmat'], Stand: [0.8, 0.4, 0.8, 'spot'], Seat: [0.6, 0.6, 0.6, 'seat'] };
+      for (const p of room.pois) {
+        const d = P[p.type]; if (!d) continue; const f = this.fwd(p.yaw), off = ['Console', 'GuardPost', 'Desk', 'Panel', 'Terminal', 'Shelf', 'Rack', 'Stove'].indexOf(p.type) >= 0 ? 0.55 : 0;
+        this.proxy('poi', p.pos.x + f.x * off, d[1] / 2 + 0.2, p.pos.z + f.z * off, d[0], d[1], d[2], { kind: d[3], id: p.id, type: p.type, label: p.label });
+      }
+      if (room.terminal && !V1[room.id]) { const t = room.terminal, f = this.fwd(t.yaw); this.box(this.m.dark, t.x, 1.3, t.z, Math.abs(f.x) ? 0.16 : 1.0, 0.7, Math.abs(f.x) ? 1.0 : 0.16); this.box(this.m.screenG, t.x - f.x * 0.09, 1.35, t.z - f.z * 0.09, Math.abs(f.x) ? 0.02 : 0.85, 0.5, Math.abs(f.x) ? 0.85 : 0.02); this.proxy('terminal', t.x - f.x * 0.2, 1.3, t.z - f.z * 0.2, 0.9, 0.9, 0.9, { kind: 'terminal' }); }
+      if (room.intercom) { const t = room.intercom; this.box(this.m.dark, t.x, 1.4, t.z, 0.3, 0.4, 0.08); this.box(this.m.green, t.x, 1.55, t.z + (t.yaw === 0 ? -0.05 : 0.05), 0.05, 0.03, 0.02); this.proxy('intercom', t.x, 1.4, t.z, 0.6, 0.6, 0.5, { kind: 'intercom', room: room.id }); }
+      if (room.type === 'Lift' || room.type === 'Stairs') {
+        for (const did of room.doorIds) { const d = this.w.fac.door(did); if (!d.isTransit) continue; const c = room.center, side = room.minX < -80 ? 'W' : room.maxX > 110 ? 'E' : 'N';
+          const x = side === 'W' ? room.minX + 0.2 : side === 'E' ? room.maxX - 0.2 : c.x, z = side === 'N' ? room.maxZ - 0.2 : c.z + 1.2;
+          const lbl = d.kind === 'Lift' ? 'ЛИФТ' : 'ЛЕСТНИЦА'; this.liftDecor(room, side, x, z, d);
+          this.proxy('transit', x, 1.2, z, side === 'N' ? 1.8 : 0.6, 2.2, side === 'N' ? 0.6 : 1.8, { kind: 'transit', door: d.id, from: room.id, label: lbl + ': ' + d.name }); }
+      }
+    }
+    liftDecor(room, side, x, z, d) {
+      const m = this.m, horiz = side === 'N';
+      if (d.kind === 'Lift') { this.box(m.dark, x, 1.3, z, horiz ? 2.0 : 0.12, 2.6, horiz ? 0.12 : 2.0); this.box(m.door, x + (horiz ? -0.44 : 0), 1.25, z + (horiz ? 0 : -0.44), horiz ? 0.84 : 0.06, 2.5, horiz ? 0.06 : 0.84); this.box(m.door, x + (horiz ? 0.44 : 0), 1.25, z + (horiz ? 0 : 0.44), horiz ? 0.84 : 0.06, 2.5, horiz ? 0.06 : 0.84); this.box(m.amber, x + (horiz ? 1.2 : 0), 1.3, z + (horiz ? 0 : 1.2), 0.1, 0.16, 0.1); }
+      else { for (let i = 0; i < 6; i++) this.box(m.concrete, x + (horiz ? 0 : (side === 'W' ? i * 0.3 : -i * 0.3)), 0.1 + i * 0.2, z + (horiz ? -i * 0.3 : 0), horiz ? 1.6 : 0.3, 0.2, horiz ? 0.3 : 1.6); this.box(m.metal, x, 1.0, z + (horiz ? 0.4 : 0.9), 0.06, 1.0, 0.06); }
+      this.sign((d.kind === 'Lift' ? 'ЛИФТ · ' : 'ЛЕСТНИЦА · ') + (room.level === 4 ? 'НА УРОВЕНЬ 3' : room.id === 'liftOld' ? 'СЛУЖЕБНЫЙ · 00:00–05:00 НЕ ИСПОЛЬЗОВАТЬ' : 'НА УРОВЕНЬ 4'), side === 'W' ? 'W' : side === 'E' ? 'E' : 'N', horiz ? x : z, 2.85, 2.2, '#d9a619', '#111');
+    }
+    fixtures(r) {
+      const m = this.m, h = r.height, fb = new MB(), view = this.view;
+      if (r.dark) return;
+      for (const a of view.lights) { const along = r.width >= r.depth; fb.box(m.light, a.x, h - 0.03, a.z, along ? 1.1 : 0.28, 0.05, along ? 0.28 : 1.1, 1); }
+      const nx = Math.max(1, Math.round(r.width / 3.6)), nz = Math.max(1, Math.round(r.depth / 3.6));
+      if (r.type !== 'Corridor' && r.type !== 'Tunnel') for (let ix = 0; ix < nx; ix++) for (let iz = 0; iz < nz; iz++) { const x = r.minX + (ix + 0.5) * r.width / nx, z = r.minZ + (iz + 0.5) * r.depth / nz; if (view.lights.some(a => Math.abs(a.x - x) < 0.8 && Math.abs(a.z - z) < 0.8)) continue; fb.box(m.light, x, h - 0.03, z, 1.1, 0.05, 0.28, 1); }
+      const fx = fb.build(); if (fx) { fx.material = m.light; view.fixtures = fx; view.group.add(fx); }
+    }
+    lightAnchors(r) {
+      const out = []; if (r.dark) return out;
+      const long = r.type === 'Corridor' || r.type === 'Tunnel';
+      const count = long ? Math.max(3, Math.round(Math.max(r.width, r.depth) / 8)) : r.type === 'DClassCommon' || r.area > 120 ? 3 : r.area < 30 ? 1 : 2;
+      let color = 0xfff2db, inten = 1.15; const st = r.style;
+      if (r.type === 'Containment' || st === 'heavy') color = 0xcce6ff; if (st === 'dclass') color = 0xe6ffe0; if (st === 'tech' || r.type === 'Engineering') color = 0xffe0b3; if (st === 'admin') color = 0xffe6c4; if (st === 'research') color = 0xf2f7ff; if (st === 'null') { color = 0xfff0b0; inten = 0.9; }
+      if (r.type === 'Tunnel') inten = 0.85;
+      const alongX = r.width >= r.depth;
+      for (let i = 0; i < count; i++) { const f = (i + 0.5) / count; out.push({ x: alongX ? r.minX + f * r.width : (r.minX + r.maxX) / 2, y: r.floorY + r.height - 0.4, z: alongX ? (r.minZ + r.maxZ) / 2 : r.minZ + f * r.depth, color, intensity: inten, range: S.clamp(Math.max(r.width / count, r.depth) * 1.1, 6, 11), room: r.id }); }
+      return out;
+    }
 
+    // --- generic furniture from points of interest and room purpose (all 2.0 rooms)
+    furnish(r) {
+      const m = this.m;
+      switch (r.type) {
+        case 'Corridor': case 'Tunnel': this.corridorGeneric(r); break;
+        case 'Generator': this.box(m.dark, (r.minX + r.maxX) / 2, 1.1, (r.minZ + r.maxZ) / 2, Math.min(8, r.width - 4), 2.2, Math.min(4, r.depth - 4), true); this.box(m.orange, (r.minX + r.maxX) / 2, 2.25, (r.minZ + r.maxZ) / 2, Math.min(8, r.width - 4) * 0.9, 0.1, 0.3); for (let i = 0; i < 3; i++) this.box(m.metal, r.minX + 2 + i * 2.5, r.height - 0.4, r.maxZ - 0.5, 0.4, 0.4, r.depth * 0.3); break;
+        case 'Servers': break;
+        case 'Command': { const wz = r.maxZ - 0.15; for (let i = 0; i < 8; i++) { const x = r.minX + 1 + i * (r.width - 2) / 8 + 0.5; this.box(m.dark, x, 2.0, wz - 0.05, 1.2, 0.75, 0.08); this.box(i % 3 ? m.screenB : m.screenG, x, 2.0, wz - 0.1, 1.1, 0.65, 0.02); } this.sign('КОМАНДНЫЙ ЦЕНТР · SCP LIFE', 'S', (r.minX + r.maxX) / 2, 2.5, 2.6, '#14171a', '#e8e8e0'); break; }
+        case 'Meeting': this.box(m.wood, (r.minX + r.maxX) / 2, 0.74, (r.minZ + r.maxZ) / 2, 3.6, 0.06, 1.3, true); this.box(m.dark, (r.minX + r.maxX) / 2, 0.36, (r.minZ + r.maxZ) / 2, 3.0, 0.72, 0.6); break;
+        case 'Shelter': this.sign('АВАРИЙНОЕ УБЕЖИЩЕ · ЗАПАС НА 72 Ч', 'S', (r.minX + r.maxX) / 2, 2.3, 2.4, '#1f5a2a', '#e8e8e0'); break;
+        case 'Barracks': case 'Quarters': for (let x = r.maxX - 3; x < r.maxX - 0.3; x += 0.6) this.locker(x, r.minZ + 0.28); break;
+        case 'MTF': this.sign('МОГ «КЛЮЧ-9» · ДЕЖУРНАЯ ЧАСТЬ', 'N', (r.minX + r.maxX) / 2, 2.4, 2.4, '#14171a', '#e8e8e0'); for (let x = r.maxX - 4; x < r.maxX - 0.5; x += 0.7) this.box(m.dark, x, 1.0, r.maxZ - 0.3, 0.5, 1.8, 0.4, true); break;
+        case 'Quarantine': this.box(m.hazard, (r.minX + r.maxX) / 2, 0.005, r.minZ + 0.5, r.width - 1, 0.01, 0.6, false, 0.5); this.sign('КАРАНТИН · СИЗ ОБЯЗАТЕЛЬНЫ', 'N', (r.minX + r.maxX) / 2, 2.4, 2.2, '#8c1010', '#e8e8e0'); break;
+        case 'Dock': for (let i = 0; i < 4; i++) this.box(m.wood, r.minX + 2 + i * 1.6, 0.45, r.minZ + 1.2, 1.2, 0.9, 1.0, true); this.box(m.hazard, (r.minX + r.maxX) / 2, 0.005, r.maxZ - 1.2, r.width - 2, 0.01, 0.5, false, 0.5); break;
+        case 'TempHold': case 'Containment': if (r.vacant) this.box(m.hazard, (r.minX + r.maxX) / 2, 0.005, (r.minZ + r.maxZ) / 2, 2, 0.01, 2, false, 0.5); break;
+        case 'Shower': for (let x = r.minX + 0.8; x < r.maxX - 0.5; x += 1.2) { this.box(m.metal, x, 2.1, r.maxZ - 0.3, 0.1, 0.1, 0.4); this.box(m.white, x + 0.6, 1.0, r.maxZ - 0.5, 0.05, 2.0, 1.0); } break;
+        case 'Pumps': case 'Workshop': for (let x = r.minX + 1; x < r.maxX - 1; x += 3) this.box(m.orange, x, r.height - 0.5, r.maxZ - 0.4, 2.6, 0.25, 0.25); break;
+        case 'Janitor': this.box(m.colored(0x2d6aa3), r.minX + 1, 0.4, r.maxZ - 0.6, 0.6, 0.8, 0.5, true); break;
+        case 'Kitchen': this.box(m.metal, (r.minX + r.maxX) / 2, 0.45, r.minZ + 0.6, r.width - 2, 0.9, 0.6, true); break;
+        case 'NullFloor': for (let x = r.minX + 2; x < r.maxX - 1; x += 3.5) { this.box(m.door, x, 1.15, r.maxZ - 0.05, 0.9, 2.2, 0.06); this.box(m.door, x + 1.7, 1.15, r.minZ + 0.05, 0.9, 2.2, 0.06); } this.liftDecor(r, 'W', r.minX + 0.2, (r.minZ + r.maxZ) / 2, { kind: 'Lift', name: '—' }); break;
+        case 'Observation': this.sign('НАБЛЮДЕНИЕ · ' + (this.scpOfObs(r) || 'КАМЕРА'), this.windowSide(r) || 'N', (r.minX + r.maxX) / 2 + 2.6, 2.6, 2.0, '#14171a', '#e8e8e0'); break;
+      }
+      // furniture by point type
+      for (const p of r.pois) {
+        const f = this.fwd(p.yaw);
+        switch (p.type) {
+          case 'Desk': this.desk(p); break;
+          case 'Console': case 'GuardPost': { const cx = p.pos.x + f.x * 0.6, cz = p.pos.z + f.z * 0.6; let s = this.sz(f, 0.7, 1.2, 0.85); this.box(m.dark, cx, 0.42, cz, s[0], s[1], s[2], true); s = this.sz(f, 0.75, 1.25, 0.04); this.box(m.plastic, cx, 0.86, cz, s[0], s[1], s[2]); s = this.sz(f, 0.05, 0.6, 0.4); this.box(p.type === 'GuardPost' ? m.screenG : m.screenB, cx + f.x * 0.25, 1.15, cz + f.z * 0.25, s[0], s[1], s[2]); this.chair(p, m.fabric); break; }
+          case 'Seat': if (r.type === 'DClassCommon' || r.type === 'Shelter' || r.type === 'MTF') { const s = this.sz(f, 0.4, 0.9, 0.45); this.box(m.metal, p.pos.x, 0.22, p.pos.z, s[0], s[1], s[2]); } else if (r.type !== 'Canteen') this.chair(p, r.style === 'admin' ? m.colored(0x6b2b2b) : m.fabric); break;
+          case 'Bed': if (p.bunk) { this.bed(p, m.dark, m.colored(0x3a4a33), 0.4); const s = this.sz(f, 2.0, 0.9, 0.05); this.box(m.dark, p.pos.x, 1.45, p.pos.z, s[0], s[1], s[2]); this.box(m.mattress, p.pos.x, 1.52, p.pos.z, s[0] * 0.97, 0.1, s[2] * 0.95); } else this.bed(p, r.style === 'admin' ? m.wood : m.dark, m.fabric, 0.4); break;
+          case 'CellBunk': this.bed(p, m.dark, m.orange, 0.45); if (p.bunk) { const s = this.sz(f, 2.0, 0.9, 0.05); this.box(m.dark, p.pos.x, 1.45, p.pos.z, s[0], s[1], s[2]); this.box(m.orange, p.pos.x, 1.52, p.pos.z, s[0] * 0.97, 0.1, s[2] * 0.95); } break;
+          case 'MedBed': this.bed(p, m.metal, m.white, 0.6); break;
+          case 'Workbench': { const cx = p.pos.x + f.x * 0.55, cz = p.pos.z + f.z * 0.55; let s = this.sz(f, 0.7, 1.5, 0.9); this.box(r.style === 'research' ? m.white : m.metal, cx, 0.45, cz, s[0], s[1], s[2], true); s = this.sz(f, 0.25, 0.5, 0.2); this.box(r.style === 'research' ? m.glass : m.orange, cx, 1.0, cz, s[0], s[1], s[2]); break; }
+          case 'Stove': { const cx = p.pos.x + f.x * 0.5, cz = p.pos.z + f.z * 0.5; this.box(m.metal, cx, 0.45, cz, 0.8, 0.9, 0.7, true); this.box(m.black, cx, 0.92, cz, 0.6, 0.02, 0.5); this.box(m.red, cx - 0.2, 0.75, cz - f.z * 0.36 - f.x * 0, 0.05, 0.05, 0.05); break; }
+          case 'Shelf': { const cx = p.pos.x + f.x * 0.45, cz = p.pos.z + f.z * 0.45; const s = this.sz(f, 0.45, 1.3, 1.9); this.box(m.dark, cx, 0.95, cz, s[0], s[1], s[2], true); for (let k = 0; k < 4; k++) { const ss = this.sz(f, 0.4, 1.2, 0.2); this.box(k % 2 ? m.wood : m.colored(0x8b7d5a), cx, 0.25 + k * 0.45, cz, ss[0], ss[1], ss[2]); } break; }
+          case 'Rack': { const cx = p.pos.x + f.x * 0.45, cz = p.pos.z + f.z * 0.45; const s = this.sz(f, 0.8, 0.6, 2.0); this.box(m.black, cx, 1.0, cz, s[0], s[1], s[2], true); for (let k = 0; k < 6; k++) this.box(k % 3 ? m.green : m.amber, cx - f.x * 0.41, 0.4 + k * 0.28, cz - f.z * 0.41, 0.04, 0.02, 0.04); break; }
+          case 'FoodCounter': { const s = this.sz(f, 0.7, 2.2, 0.95); this.box(m.metal, p.pos.x + f.x * 0.5, 0.47, p.pos.z + f.z * 0.5, s[0], s[1], s[2], true); break; }
+          case 'Hazmat': this.hazmat(p); break;
+          case 'Terminal': { const x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55; this.box(m.dark, x, 0.55, z, 0.4, 1.1, 0.3, true); this.box(m.screenG, x - f.x * 0.16, 1.0, z - f.z * 0.16, 0.3, 0.2, 0.02); break; }
+        }
+      }
+      this.markers(r);
+      if (r.type !== 'Corridor' && r.type !== 'Tunnel' && r.type !== 'Containment' && r.type !== 'Lift' && r.type !== 'Stairs' && r.type !== 'NullFloor') { const s = this.mainDoorSide(r); if (s) this.sign(r.name.toUpperCase(), s === 'N' ? 'S' : s === 'S' ? 'N' : s === 'E' ? 'W' : 'E', s === 'N' || s === 'S' ? (r.minX + r.maxX) / 2 : (r.minZ + r.maxZ) / 2, 2.55, Math.min(3, r.width - 0.4), '#14171a', '#e8e8e0'); }
+    }
+    hazmat(p) {
+      // a protective suit hanging on a stand: at a distance in poor light it looks like a standing person
+      const m = this.m, x = p.pos.x, z = p.pos.z;
+      this.box(m.dark, x, 0.03, z, 0.5, 0.06, 0.5); this.box(m.metal, x, 1.0, z, 0.04, 2.0, 0.04);
+      this.box(m.suit, x, 1.25, z, 0.46, 0.65, 0.26); this.box(m.suit, x, 0.62, z, 0.36, 0.6, 0.22); this.box(m.suit, x, 1.72, z, 0.24, 0.28, 0.26); this.box(m.visor, x + 0.0, 1.73, z + 0.12, 0.16, 0.1, 0.03);
+      this.box(m.suit, x - 0.3, 1.2, z, 0.1, 0.55, 0.1); this.box(m.suit, x + 0.3, 1.2, z, 0.1, 0.55, 0.1);
+    }
+    scpOfObs(r) { for (const k in this.w.fac.blocks) if (this.w.fac.blocks[k].obs === r.id) return k; return null; }
+    windowSide(r) { const win = this.w.fac.windows.find(x => x.a === r.id); if (!win) return null; return this.sideTowards(r, this.w.fac.room(win.b)); }
+    mainDoorSide(r) { for (const id of r.doorIds) { const d = this.w.fac.door(id); if (d.isTransit) continue; return this.doorSide(r, d); } return null; }
+    corridorGeneric(r) {
+      const m = this.m, h = r.height, tun = r.type === 'Tunnel';
+      for (let x = r.minX; x < r.maxX; x += 12) { const x1 = Math.min(x + 12, r.maxX), cx = (x + x1) / 2;
+        this.box(m.metal, cx, h - 0.25, r.maxZ - 0.3, x1 - x, 0.16, 0.16); this.box(m.dark, cx, h - 0.25, r.maxZ - 0.55, x1 - x, 0.12, 0.12);
+        if (tun) { this.box(m.orange, cx, h - 0.5, r.minZ + 0.25, x1 - x, 0.12, 0.12); this.box(m.metal, cx, 0.35, r.minZ + 0.2, x1 - x, 0.2, 0.2); } else this.box(m.hazard, cx, h - 0.42, r.minZ + 0.3, x1 - x, 0.08, 0.08, false, 0.5); }
+      for (let x = r.minX + 6; x < r.maxX - 2; x += 13) { if (!tun) this.box(m.red, x, 0.55, r.minZ + 0.12, 0.18, 0.5, 0.18); const b = new T.Mesh(new T.BoxGeometry(0.2, 0.2, 0.12), m.alarm); b.position.set(x + 1, h - 0.35, r.maxZ - 0.12); this.view.group.add(b); this.beacons.push(b); }
+      for (const did of r.doorIds) {
+        const d = this.w.fac.door(did); if (d.isTransit) continue; const o = this.w.fac.room(d.other(r.id)), side = this.doorSide(r, d);
+        let text = o.name.toUpperCase(); if (d.kind !== 'Archway' && d.req.min > 0) text += '\nДОПУСК ' + S.describeReq(d.req);
+        const red = o.type === 'Airlock' || o.type === 'Containment' || o.style === 'heavy', yel = o.type === 'DClassCommon' || o.type === 'Generator';
+        if (side === 'N' || side === 'S') this.sign(text, side, d.pos.x + d.width / 2 + 0.95, 2.05, 1.5, red ? '#8c1010' : yel ? '#d9a619' : '#14171a', yel ? '#111' : '#e8e8e0');
+        else this.sign(text, side, d.pos.z + d.width / 2 + 0.95, 2.05, 1.3, red ? '#8c1010' : '#14171a', '#e8e8e0');
+      }
+      const lvl = r.level === 4 ? 'УРОВЕНЬ 4 · ТЕХНИЧЕСКИЙ' : 'УРОВЕНЬ 3 · СЕКТОР ' + r.sector;
+      this.sign('ЗОНА-19 · ' + lvl, 'W', (r.minZ + r.maxZ) / 2, 2.0, Math.min(2.6, r.depth - 0.4), '#14171a', '#e8e8e0');
+    }
+    corridor(r) { this.corridorGeneric(r); this.box(this.m.hazard, 19.5, 0.005, 1.2, 3.0, 0.01, 0.5, false, 0.5); }
     // --- props
     fwd(yaw) { const r = yaw * Math.PI / 180; return { x: Math.round(Math.sin(r)), z: Math.round(Math.cos(r)) }; }
     sz(f, len, wid, hgt) { return Math.abs(f.x) > 0.5 ? [len, hgt, wid] : [wid, hgt, len]; }
@@ -231,41 +381,6 @@
     proxy(name, x, y, z, sx, sy, sz, data, parent) {
       const mesh = new T.Mesh(new T.BoxGeometry(sx, sy, sz), new T.MeshBasicMaterial({ visible: false }));
       mesh.position.set(x, y, z); mesh.userData.interact = data; (parent || this.view.group).add(mesh); this.interact.push(mesh); return mesh;
-    }
-    props(room) {
-      const m = this.m, r = room;
-      const fn = { Corridor: this.corridor, Dormitory: this.dorm, Canteen: this.canteen, Laboratory: this.lab, Observation: this.observation, Airlock: this.airlock, Containment: this.chamberProps, SecurityPost: this.post, MedicalBay: this.medbay, DClassCommon: this.dblock, DClassCell: this.cell, Engineering: this.eng }[r.type];
-      if (fn) fn.call(this, r);
-      for (const p of this.pois('PatrolPoint')) {
-        const f = this.fwd(p.yaw), x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55;
-        this.box(m.dark, x, 0.6, z, 0.1, 1.2, 0.1); this.box(m.hazard, x, 1.25, z, 0.22, 0.16, 0.22, false, 0.3);
-        this.proxy('cp', x, 1.2, z, 0.5, 0.6, 0.5, { kind: 'checkpoint', id: p.id, label: p.label });
-      }
-      for (const p of this.pois('Panel')) {
-        const f = this.fwd(p.yaw), x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55; const s = this.sz(f, 0.18, 0.6, 0.8);
-        this.box(m.metal, x, 1.35, z, s[0], s[1], s[2]); this.box(m.green, x - f.x * 0.1, 1.63, z - f.z * 0.1, 0.06, 0.04, 0.06); this.box(m.red, x - f.x * 0.1 + f.z * 0.12, 1.63, z - f.z * 0.1 + f.x * 0.12, 0.06, 0.04, 0.06);
-      }
-    }
-    corridor(r) {
-      const m = this.m, h = r.height;
-      for (let x = r.minX; x < r.maxX; x += 12) { const x1 = Math.min(x + 12, r.maxX), cx = (x + x1) / 2;
-        this.box(m.metal, cx, h - 0.25, r.maxZ - 0.3, x1 - x, 0.16, 0.16); this.box(m.dark, cx, h - 0.25, r.maxZ - 0.55, x1 - x, 0.12, 0.12); this.box(m.hazard, cx, h - 0.42, r.minZ + 0.3, x1 - x, 0.08, 0.08, false, 0.5); }
-      for (let x = r.minX + 6; x < r.maxX - 2; x += 13) {
-        this.box(m.red, x, 0.55, r.minZ + 0.12, 0.18, 0.5, 0.18);
-        const b = new T.Mesh(new T.BoxGeometry(0.2, 0.2, 0.12), m.alarm); b.position.set(x + 1, h - 0.35, r.maxZ - 0.12); this.view.group.add(b); this.beacons.push(b);
-      }
-      this.box(m.hazard, 19.5, 0.005, 1.2, 3.0, 0.01, 0.5, false, 0.5);
-      const ex = r.maxX - 0.08;
-      this.box(m.dark, ex, 1.3, -0.95, 0.12, 2.6, 0.2); this.box(m.dark, ex, 1.3, 0.95, 0.12, 2.6, 0.2); this.box(m.dark, ex, 2.7, 0, 0.12, 0.2, 2.1);
-      this.box(m.door, ex - 0.02, 1.25, -0.43, 0.06, 2.5, 0.84); this.box(m.door, ex - 0.02, 1.25, 0.43, 0.06, 2.5, 0.84); this.box(m.hazard, ex - 0.05, 1.25, 0, 0.02, 2.5, 0.04, false, 0.3);
-      this.sign('ЛИФТ Б-3 · УРОВНИ 1–8\nОБСЛУЖИВАНИЕ — ДВИЖЕНИЕ ПРИОСТАНОВЛЕНО', 'E', 0, 3.0, 2.2, '#d9a619', '#111');
-      this.sign('ЗОНА-19 · УРОВЕНЬ 3 · СЕКТОР Б-3\nСЕКТОР СОДЕРЖАНИЯ', 'W', 0, 2.0, 2.6, '#14171a', '#e8e8e0');
-      for (const did of r.doorIds) {
-        const d = this.w.fac.door(did), o = this.w.fac.room(d.other(r.id)), north = d.pos.z > 0;
-        let text = o.name.toUpperCase(); if (d.kind !== 'Archway' && d.req.min > 0) text += '\nДОПУСК ' + S.describeReq(d.req);
-        const red = o.type === 'Airlock', yel = o.type === 'DClassCommon';
-        this.sign(text, north ? 'N' : 'S', d.pos.x + d.width / 2 + 0.95, 2.05, 1.5, red ? '#8c1010' : yel ? '#d9a619' : '#14171a', yel ? '#111' : '#e8e8e0');
-      }
     }
     dorm(r) {
       const m = this.m; for (const b of this.pois('Bed')) this.bed(b, m.dark, m.fabric, 0.4);
@@ -349,23 +464,9 @@
       this.box(m.orange, 18.1, 0.45, -9.6, 0.6, 0.9, 0.6, true); this.box(m.dark, 17.3, 0.45, -9.6, 0.6, 0.9, 0.6, true);
       this.sign('ИНЖЕНЕРНЫЙ БЛОК · ВЫСОКОЕ НАПРЯЖЕНИЕ', 'N', 10.5, 2.5, 2.2, '#d9a619', '#111');
     }
-    lighting(r) {
-      const m = this.m, h = r.height, fb = new MB();
-      const nx = Math.max(1, Math.round(r.width / (r.type === 'Corridor' ? 4 : 3.5))), nz = r.type === 'Corridor' ? 1 : Math.max(1, Math.round(r.depth / 3.5));
-      for (let ix = 0; ix < nx; ix++) for (let iz = 0; iz < nz; iz++) { const x = r.minX + (ix + 0.5) * r.width / nx, z = r.minZ + (iz + 0.5) * r.depth / nz; fb.box(m.light, x, h - 0.03, z, 1.1, 0.05, 0.28, 1); }
-      const fx = fb.build(); fx.material = m.light; this.view.fixtures = fx; this.view.group.add(fx);
-      const count = r.type === 'Corridor' ? 7 : r.type === 'DClassCommon' ? 3 : ['DClassCell', 'Airlock', 'Observation'].indexOf(r.type) >= 0 ? 1 : 2;
-      let color = 0xfff2db, inten = 1.15; if (r.type === 'Containment') color = 0xcce6ff; if (r.type === 'DClassCommon' || r.type === 'DClassCell') color = 0xe6ffe0; if (r.type === 'Engineering') color = 0xffe0b3;
-      const alongX = r.width >= r.depth;
-      for (let i = 0; i < count; i++) {
-        const f = (i + 0.5) / count;
-        this.view.lights.push({ x: alongX ? r.minX + f * r.width : (r.minX + r.maxX) / 2, y: h - 0.4, z: alongX ? (r.minZ + r.maxZ) / 2 : r.minZ + f * r.depth, color, intensity: inten, range: S.clamp(Math.max(r.width / count, r.depth) * 1.1, 6, 11) });
-      }
-    }
-
-    // --- doors
+    // --- doors (built for all doors up front: cheap, and the game hides doors of invisible rooms)
     buildDoor(d) {
-      const m = this.m, g = new T.Group(); g.position.set(d.pos.x, 0, d.pos.z); g.rotation.y = d.alongX ? Math.PI / 2 : 0; this.root.add(g);
+      const m = this.m, g = new T.Group(); g.position.set(d.pos.x, d.pos.y, d.pos.z); g.rotation.y = d.alongX ? Math.PI / 2 : 0; this.root.add(g); g.visible = false;
       const w = d.width, h = d.kind === 'Archway' ? 2.6 : d.height, depth = WALL * 2 + 0.06, jamb = 0.12, fm = d.kind === 'Heavy' ? m.hazard : m.dark;
       const add = (mat, x, y, z, sx, sy, sz, parent) => { const b = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mat); b.position.set(x, y, z); (parent || g).add(b); return b; };
       add(fm, -(w / 2 + jamb / 2), h / 2, 0, jamb, h + 0.12, depth); add(fm, w / 2 + jamb / 2, h / 2, 0, jamb, h + 0.12, depth); add(fm, 0, h + 0.06, 0, w + jamb * 2, 0.12, depth);
@@ -374,8 +475,7 @@
       if (d.kind === 'Archway') return;
       const lm = d.kind === 'Heavy' ? m.dark : d.kind === 'Cell' ? m.metal : m.door, th = d.kind === 'Heavy' ? 0.22 : 0.08;
       if (d.kind === 'Heavy' || d.kind === 'Security') {
-        for (const s of [-1, 1]) { const leaf = add(lm, s * w / 4, h / 2, 0, w / 2, h, th); leaf.userData = { closed: s * w / 4, open: s * w / 4 + s * w / 2 };
-          if (d.kind === 'Heavy') { add(m.hazard, 0, -h * 0.15, 0, w / 2 + 0.01, 0.2, th + 0.02, leaf); } view.leaves.push(leaf); }
+        for (const s of [-1, 1]) { const leaf = add(lm, s * w / 4, h / 2, 0, w / 2, h, th); leaf.userData = { closed: s * w / 4, open: s * w / 4 + s * w / 2 }; if (d.kind === 'Heavy') add(m.hazard, 0, -h * 0.15, 0, w / 2 + 0.01, 0.2, th + 0.02, leaf); view.leaves.push(leaf); }
       } else {
         const leaf = add(lm, 0, h / 2, 0, w, h, th); leaf.userData = { closed: 0, open: w * 0.98 }; view.leaves.push(leaf);
         add(d.kind === 'Cell' ? m.black : m.glass, 0, 0.45, 0, 0.4, 0.3, th + 0.02, leaf);
@@ -385,49 +485,66 @@
         add(m.dark, rx, 1.25, z, 0.13, 0.2, 0.05);
         view.leds.push(add(m.amber, rx, 1.31, z + side * 0.03, 0.06, 0.025, 0.01));
         const wp = new T.Vector3(0, 0, side * 0.9).applyAxisAngle(new T.Vector3(0, 1, 0), g.rotation.y).add(g.position);
-        const room = this.w.fac.roomAt({ x: wp.x, y: 0, z: wp.z });
-        const px = this.proxy('reader', rx, 1.25, z, 0.35, 0.4, 0.2, { kind: 'reader', door: d.id, side: room ? room.id : d.roomA }, g);
+        const room = this.w.fac.roomAt({ x: wp.x, y: d.pos.y, z: wp.z });
+        const mesh = new T.Mesh(new T.BoxGeometry(0.35, 0.4, 0.2), new T.MeshBasicMaterial({ visible: false })); mesh.position.set(rx, 1.25, z); mesh.userData.interact = { kind: 'reader', door: d.id, side: room ? room.id : d.roomA }; g.add(mesh); this.interact.push(mesh);
       }
     }
     buildWindows() {
       const m = this.m;
-      for (const win of WINDOWS) {
-        const a = this.w.fac.room(win.a), b = this.w.fac.room(win.b), z = (a.maxZ + b.minZ) / 2, cx = (win.min + win.max) / 2, w = win.max - win.min, cy = (win.y0 + win.y1) / 2, hh = win.y1 - win.y0;
+      for (const win of this.w.fac.windows) {
+        const a = this.w.fac.room(win.a), b = this.w.fac.room(win.b), y = a.floorY, alongX = Math.abs(a.maxZ - b.minZ) < 0.6 || Math.abs(a.minZ - b.maxZ) < 0.6;
+        const z = Math.abs(a.maxZ - b.minZ) < 0.6 ? (a.maxZ + b.minZ) / 2 : (a.minZ + b.maxZ) / 2, cx = (win.min + win.max) / 2, w = win.max - win.min, cy = y + (win.y0 + win.y1) / 2, hh = win.y1 - win.y0;
+        if (!alongX) continue;
         const glass = new T.Mesh(new T.BoxGeometry(w, hh, 0.04), m.glass); glass.position.set(cx, cy, z); glass.renderOrder = 5; this.root.add(glass);
-        glass.userData.interact = { kind: 'window', id: 'SCP-L-001' }; this.interact.push(glass);
-        this.colliders.push({ x0: win.min, x1: win.max, z0: z - 0.15, z1: z + 0.15 });
+        glass.userData.interact = { kind: 'window', room: win.b, id: win.scp }; this.interact.push(glass);
+        const c = { x0: win.min, x1: win.max, z0: z - 0.15, z1: z + 0.15, lv: y }; this.colliders.push(c); this.indexCollider(c);
         const fr = new MB(), t = 0.08;
-        fr.box(m.dark, cx, win.y1 + t / 2, z, w + 2 * t, t, 0.36); fr.box(m.dark, cx, win.y0 - t / 2, z, w + 2 * t, t, 0.36); fr.box(m.dark, win.min - t / 2, cy, z, t, hh, 0.36); fr.box(m.dark, win.max + t / 2, cy, z, t, hh, 0.36);
+        fr.box(m.dark, cx, cy + hh / 2 + t / 2, z, w + 2 * t, t, 0.36); fr.box(m.dark, cx, cy - hh / 2 - t / 2, z, w + 2 * t, t, 0.36); fr.box(m.dark, win.min - t / 2, cy, z, t, hh, 0.36); fr.box(m.dark, win.max + t / 2, cy, z, t, hh, 0.36);
         for (let i = 1; i < 3; i++) fr.box(m.dark, win.min + w * i / 3, cy, z, 0.04, hh, 0.06);
-        this.root.add(fr.build());
+        const frame = fr.build(); this.root.add(frame);
+        this.windows.push({ win, glass, frame, rooms: [win.a, win.b], z, cx, cy, w, hh });
       }
     }
-    // Closed door leaves block movement.
-    doorBlockers() {
+    doorBlockers(y) {
       const out = [];
       for (const id in this.doors) {
-        const v = this.doors[id], d = v.door; if (!d.hasLeaf || d.openness > 0.8) continue;
+        const v = this.doors[id], d = v.door; if (!d.hasLeaf || d.openness > 0.8) continue; if (y != null && Math.abs(d.pos.y - y) > 2) continue;
         const half = d.width / 2 + 0.15;
-        if (d.alongX) out.push({ x0: d.pos.x - 0.15, x1: d.pos.x + 0.15, z0: d.pos.z - half, z1: d.pos.z + half });
-        else out.push({ x0: d.pos.x - half, x1: d.pos.x + half, z0: d.pos.z - 0.15, z1: d.pos.z + 0.15 });
+        if (d.alongX) out.push({ x0: d.pos.x - 0.15, x1: d.pos.x + 0.15, z0: d.pos.z - half, z1: d.pos.z + half, lv: d.pos.y });
+        else out.push({ x0: d.pos.x - half, x1: d.pos.x + half, z0: d.pos.z - 0.15, z1: d.pos.z + 0.15, lv: d.pos.y });
       }
       return out;
     }
     updateDoors(realTime, now, sound) {
       const m = this.m;
       for (const id in this.doors) {
-        const v = this.doors[id], d = v.door, t = d.openness, e = t * t * (3 - 2 * t);
+        const v = this.doors[id], d = v.door; if (!v.group.visible) { v.last = d.state; continue; }
+        const t = d.openness, e = t * t * (3 - 2 * t);
         for (const leaf of v.leaves) leaf.position.x = leaf.userData.closed + (leaf.userData.open - leaf.userData.closed) * e;
         if (v.last !== d.state) { if ((d.state === S.DS.Opening || d.state === S.DS.Closing) && sound) sound(d.kind === 'Heavy' ? 'heavy' : 'servo', d.pos); v.last = d.state; }
         if (!v.leds.length) continue;
         const age = realTime - d.lastResultTime; let mat = m.amber;
-        if (d.locked || d.lockdown) mat = m.red;
+        if (d.locked || d.lockdown || d.restricted) mat = m.red;
         if (age < 2.5) mat = S.isSuccess(d.lastResult) ? m.green : d.lastResult === S.R.Await ? ((realTime * 3) % 1 > 0.5 ? m.green : m.amber) : m.red;
         else if (d.pendingCard) mat = (realTime * 3) % 1 > 0.5 ? m.green : m.amber;
-        if (d.faultUntil > now) mat = (realTime * 7) % 1 > 0.5 ? m.red : m.black;
+        if (d.faultUntil > now || (d.readerFault && (realTime * 0.7) % 1 > 0.85)) mat = (realTime * 7) % 1 > 0.5 ? m.red : m.black;
         for (const led of v.leds) led.material = mat;
       }
     }
+    // --- subjective layer: fake doors (SCP-LF-134). Lives on the hallucination layer, never seen by CCTV.
+    fakeDoors(roomId, seed) {
+      const key = roomId + ':' + seed; if (this._fake && this._fake.key === key) return this._fake.group;
+      if (this._fake) { this.root.remove(this._fake.group); this._fake = null; }
+      const r = this.w.fac.room(roomId); if (!r) return null; const g = new T.Group(), m = this.m; let s = 0; for (const c of key) s = (s * 31 + c.charCodeAt(0)) | 0; const rn = rnd(s);
+      for (let i = 0; i < 4; i++) {
+        const x = r.minX + 3 + rn() * (r.width - 6), north = rn() > 0.5, z = north ? r.maxZ - 0.02 : r.minZ + 0.02;
+        if (r.doorIds.some(id => { const d = this.w.fac.door(id); return Math.abs(d.pos.x - x) < 2.5; })) continue;
+        const add = (mat, px, py, sx, sy, sz) => { const b = new T.Mesh(new T.BoxGeometry(sx, sy, sz), mat); b.position.set(px, r.floorY + py, z); g.add(b); };
+        add(m.hallFrame, x - 0.86, 1.25, 0.12, 2.5, 0.08); add(m.hallFrame, x + 0.86, 1.25, 0.12, 2.5, 0.08); add(m.hallFrame, x, 2.52, 1.84, 0.12, 0.08); add(m.door, x, 1.2, 1.6, 2.4, 0.04);
+      }
+      setLayer(g, HALLU); this.root.add(g); this._fake = { key, group: g }; return g;
+    }
+    clearFakeDoors() { if (this._fake) { this.root.remove(this._fake.group); this._fake = null; } }
   }
 
   // ------------------------------------------------------------------ characters
@@ -435,37 +552,46 @@
   function part(parent, mat, x, y, z, sx, sy, sz) { const b = new T.Mesh(BOX, mat); b.scale.set(sx, sy, sz); b.position.set(x, y, z); parent.add(b); return b; }
   function pivot(parent, x, y, z) { const g = new T.Group(); g.position.set(x, y, z); parent.add(g); return g; }
   const BOX = new T.BoxGeometry(1, 1, 1);
+  // uniform colours: jacket, trousers, accent
+  const LOOKS = { Guard: [0x212933, 0x1a1c21, 0x0d0d0f], Scientist: [0x8cadd1, 0x40424d, 0xebebe6], Technician: [0xdb8c1f, 0xd1851a, 0xd9d933], Medic: [0x9ed1c7, 0x94c7bd, 0xcc1a1a], DClass: [0xf2730f, 0xeb6e12, 0x262626],
+    MTF: [0x3b4231, 0x2f3428, 0x1a1d16], Admin: [0x252b3d, 0x252b3d, 0xe8e8e8], Janitor: [0x4c6175, 0x4c6175, 0xd0d0d0], Cook: [0xf0f0ea, 0x3a3a3a, 0xf0f0ea], Silhouette: [0x050505, 0x050505, 0x050505] };
 
   class Humanoid {
     constructor(npc, mats) {
       this.npc = npc; this.root = new T.Group(); this.phase = 0; this.speed = 0;
-      const role = npc.role, v = npc.colorVariant + Math.abs(hash(npc.id) % 5), col = mats.colored;
-      const U = { Guard: [0x212933, 0x1a1c21, 0x0d0d0f], Scientist: [0x8cadd1, 0x40424d, 0xebebe6], Technician: [0xdb8c1f, 0xd1851a, 0xd9d933], Medic: [0x9ed1c7, 0x94c7bd, 0xcc1a1a], DClass: [0xf2730f, 0xeb6e12, 0x262626] }[role];
-      const uni = col(U[0]), pants = col(U[1]), acc = col(U[2]), skin = col(SKIN[v % 5]), hair = col(HAIR[(v * 7 + 3) % 5]), shoe = col(0x0f0f0f);
+      const role = LOOKS[npc.role] ? npc.role : 'Scientist', v = (npc.colorVariant || 0) + Math.abs(hash(npc.id) % 5), col = mats.colored, sil = role === 'Silhouette';
+      const U = LOOKS[role];
+      const uni = sil ? mats.silhouette : col(U[0]), pants = sil ? mats.silhouette : col(U[1]), acc = sil ? mats.silhouette : col(U[2]), skin = sil ? mats.silhouette : col(SKIN[v % 5]), hair = sil ? mats.silhouette : col(HAIR[(v * 7 + 3) % 5]), shoe = sil ? mats.silhouette : col(0x0f0f0f);
       const body = this.body = pivot(this.root, 0, 0, 0); body.rotation.order = 'YXZ';
       const hips = this.hips = pivot(body, 0, 0.95, 0); part(hips, pants, 0, 0, 0, 0.34, 0.18, 0.2);
       const torso = this.torso = pivot(hips, 0, 0.08, 0);
       part(torso, uni, 0, 0.27, 0, npc.female ? 0.36 : 0.4, 0.5, 0.22);
-      if (role === 'Guard') { part(torso, acc, 0, 0.3, 0, 0.43, 0.38, 0.25); }
+      if (role === 'Guard') part(torso, acc, 0, 0.3, 0, 0.43, 0.38, 0.25);
+      if (role === 'MTF') { part(torso, acc, 0, 0.3, 0, 0.46, 0.42, 0.28); part(torso, col(0x111111), 0.12, 0.2, 0.15, 0.1, 0.18, 0.06); }
       if (role === 'Scientist') { part(torso, acc, -0.12, 0.12, 0, 0.18, 0.78, 0.25); part(torso, acc, 0.12, 0.12, 0, 0.18, 0.78, 0.25); }
+      if (role === 'Admin') { part(torso, acc, 0, 0.36, 0.112, 0.1, 0.28, 0.01); part(torso, col(0x8c1d1d), 0, 0.32, 0.114, 0.03, 0.22, 0.01); }
       if (role === 'Technician') { part(torso, col(0xe6e6e6), 0, 0.32, 0, 0.41, 0.04, 0.23); part(torso, col(0xe6e6e6), 0, 0.15, 0, 0.41, 0.04, 0.23); }
+      if (role === 'Janitor') part(torso, col(0x2d3b47), 0, 0.12, 0, 0.42, 0.08, 0.23);
+      if (role === 'Cook') part(torso, col(0xffffff), 0, 0.1, 0.115, 0.32, 0.45, 0.01);
       if (role === 'Medic') part(torso, acc, 0.24, 0.38, 0, 0.1, 0.06, 0.12);
       if (role === 'DClass') part(torso, acc, 0.09, 0.4, 0.11, 0.12, 0.06, 0.01);
       const head = this.head = pivot(torso, 0, 0.56, 0);
       part(head, skin, 0, -0.02, 0, 0.1, 0.08, 0.1); part(head, skin, 0, 0.12, 0, 0.19, 0.23, 0.21);
-      part(head, mats.black, -0.045, 0.14, 0.105, 0.03, 0.02, 0.01); part(head, mats.black, 0.045, 0.14, 0.105, 0.03, 0.02, 0.01);
+      if (!sil) { part(head, mats.black, -0.045, 0.14, 0.105, 0.03, 0.02, 0.01); part(head, mats.black, 0.045, 0.14, 0.105, 0.03, 0.02, 0.01); }
       if (role === 'Guard') { part(head, col(0x14171a), 0, 0.245, 0, 0.22, 0.07, 0.23); part(head, col(0x14171a), 0, 0.22, 0.13, 0.2, 0.02, 0.08); }
+      else if (role === 'MTF') { part(head, col(0x2a2f24), 0, 0.23, 0, 0.24, 0.13, 0.25); part(head, col(0x0d0d0d), 0, 0.15, 0.11, 0.18, 0.05, 0.02); }
       else if (role === 'Technician') part(head, col(0xf2cc1a), 0, 0.24, 0, 0.24, 0.1, 0.26);
+      else if (role === 'Cook') part(head, col(0xffffff), 0, 0.29, 0, 0.2, 0.14, 0.21);
+      else if (role === 'Janitor') { part(head, col(0x2d3b47), 0, 0.235, 0, 0.21, 0.06, 0.22); part(head, col(0x2d3b47), 0, 0.215, 0.12, 0.19, 0.02, 0.08); }
       else part(head, hair, 0, 0.2, -0.015, 0.205, npc.female ? 0.12 : 0.08, 0.22);
-      if (npc.female && role !== 'Guard' && role !== 'Technician') part(head, hair, 0, 0.08, -0.1, 0.18, 0.22, 0.05);
+      if (npc.female && ['Guard', 'Technician', 'MTF', 'Cook', 'Janitor'].indexOf(role) < 0) part(head, hair, 0, 0.08, -0.1, 0.18, 0.22, 0.05);
       const sleeve = role === 'Scientist' ? acc : uni;
       this.shL = pivot(torso, -0.25, 0.47, 0); this.shR = pivot(torso, 0.25, 0.47, 0);
       for (const sh of [this.shL, this.shR]) { part(sh, sleeve, 0, -0.15, 0, 0.1, 0.3, 0.1); const el = pivot(sh, 0, -0.3, 0); part(el, sleeve, 0, -0.13, 0, 0.09, 0.26, 0.09); part(el, skin, 0, -0.29, 0, 0.08, 0.09, 0.08); sh.userData.el = el; }
       this.hipL = pivot(hips, -0.1, -0.05, 0); this.hipR = pivot(hips, 0.1, -0.05, 0);
       for (const hp of [this.hipL, this.hipR]) { part(hp, pants, 0, -0.22, 0, 0.14, 0.44, 0.14); const kn = pivot(hp, 0, -0.44, 0); part(kn, pants, 0, -0.2, 0, 0.11, 0.4, 0.11); part(kn, shoe, 0, -0.43, 0.05, 0.11, 0.07, 0.24); hp.userData.kn = kn; }
       this.seed = v * 1.37;
-      this.proxy = new T.Mesh(new T.CylinderGeometry(0.32, 0.32, 1.8, 6), new T.MeshBasicMaterial({ visible: false })); this.proxy.position.y = 0.9; this.root.add(this.proxy);
-      this.proxy.userData.interact = { kind: 'npc', id: npc.id };
+      if (!sil) { this.proxy = new T.Mesh(new T.CylinderGeometry(0.32, 0.32, 1.8, 6), new T.MeshBasicMaterial({ visible: false })); this.proxy.position.y = 0.9; this.root.add(this.proxy); this.proxy.userData.interact = { kind: 'npc', id: npc.id }; }
     }
     animate(dt, speed, posture, lookYaw, t) {
       const k = Math.min(1, dt * 8), walk = Math.min(1, speed / 1.4); this.speed += (walk - this.speed) * Math.min(1, dt * 4); const bl = this.speed;
@@ -493,7 +619,7 @@
     }
     headWorld(v) { return this.head.getWorldPosition(v).add(new T.Vector3(0, 0.32, 0)); }
   }
-  function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+  function hash(s) { s = String(s); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
 
   class TallymanView {
     constructor(a, mats, w, fv) {
@@ -510,17 +636,19 @@
       for (const kn of [this.knL, this.knR]) { part(kn, skin, 0, -0.34, 0, 0.07, 0.7, 0.07); part(kn, skin, 0, -0.69, 0.05, 0.08, 0.04, 0.22); }
       this.proxy = new T.Mesh(new T.CylinderGeometry(0.35, 0.35, 2.6, 6), new T.MeshBasicMaterial({ visible: false })); this.proxy.position.y = 1.3; this.root.add(this.proxy);
       this.proxy.userData.interact = { kind: 'anomaly', id: a.id };
-      // Chamber wall decals with the tally marks.
-      const ch = w.fac.room(a.containRoom); this.decals = [];
+      this.w = w; this.fv = fv; this.decals = null; this.lastTally = -1; this.lastLearned = -2; this.decalT = 0;
+    }
+    makeDecals() {
+      const ch = this.w.fac.room(this.a.containRoom), v = this.fv.ensure(ch.id); this.decals = [];
       const dec = (x, y, z, ry, wd, ht, cw) => { const c = canvas(cw, 256), t = new T.CanvasTexture(c); const mt = new T.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false });
-        const mesh = new T.Mesh(new T.PlaneGeometry(wd, ht), mt); mesh.position.set(x, y, z); mesh.rotation.y = ry; fv.rooms[ch.id].group.add(mesh); this.decals.push({ c, t }); };
+        const mesh = new T.Mesh(new T.PlaneGeometry(wd, ht), mt); mesh.position.set(x, y, z); mesh.rotation.y = ry; v.group.add(mesh); this.decals.push({ c, t }); };
       dec((ch.minX + ch.maxX) / 2, 2.2, ch.maxZ - 0.012, Math.PI, ch.width - 1.2, 2.8, 512);
       dec(ch.minX + 0.012, 2.0, (ch.minZ + ch.maxZ) / 2 + 1, Math.PI / 2, ch.depth - 3, 2.4, 512);
       dec(ch.maxX - 0.012, 1.9, ch.minZ + 2.6, -Math.PI / 2, 4.2, 2.0, 384);
-      this.lastTally = -1; this.lastLearned = -2; this.decalT = 0;
     }
     updateDecals() {
-      const t = this.a.beh, b = t.strongest(), learned = b >= 0 && t.hist[b] >= 2 ? b : -1;
+      if (!this.decals) this.makeDecals();
+      const t = this.a.tm, b = t.strongest(), learned = b >= 0 && t.hist[b] >= 2 ? b : -1;
       if (t.tally === this.lastTally && learned === this.lastLearned) return; this.lastTally = t.tally; this.lastLearned = learned;
       const share = Math.floor(t.tally / 3);
       this.decals.forEach((d, i) => { drawTally(d.c, i === 2 ? Math.min(share, 200) : share, i === 2 && learned >= 0 ? S.fmtTime(learned * 15) : null, learned >= 0 ? t.hist[learned] : 0); d.t.needsUpdate = true; });
@@ -532,7 +660,7 @@
       let tL = s * 22 * walk, tR = -s * 22 * walk, kL = Math.max(0, -s) * 30 * walk, kR = Math.max(0, s) * 30 * walk, aL = -s * 12 * walk + 3, aR = s * 12 * walk + 3, eL = -8, eR = -8, torso = 8 + sway * 0.5, hp = 0, hy = 0, roll = sway * 2;
       if (this.a.lookAt) {
         const p = w.posOf(this.a.lookAt), hw = this.head.getWorldPosition(new T.Vector3());
-        const dx = p.x - hw.x, dz = p.z - hw.z, dy = 1.6 - hw.y, fl = Math.sqrt(dx * dx + dz * dz);
+        const dx = p.x - hw.x, dz = p.z - hw.z, dy = p.y + 1.6 - hw.y, fl = Math.sqrt(dx * dx + dz * dz);
         if (fl > 0.1) { hy = S.clamp(S.deltaAngle(yaw, Math.atan2(dx, dz) * 180 / Math.PI), -80, 80); hp = S.clamp(-Math.atan2(dy, fl) * 180 / Math.PI, -30, 40); }
       }
       switch (pose) {
@@ -552,6 +680,61 @@
     }
   }
 
+  // ------------------------------------------------------------------ models of the other anomalies (one class, behaviour by model)
+  class AnomalyView {
+    constructor(a, mats, w, fv) {
+      this.a = a; this.m = mats; this.w = w; this.root = new T.Group(); this.parts = {}; this.t = 0; const m = mats, R = this.root, P = this.parts;
+      const proxy = (sx, sy, sz, y) => { const p = new T.Mesh(new T.BoxGeometry(sx, sy, sz), new T.MeshBasicMaterial({ visible: false })); p.position.y = y; p.userData.interact = { kind: 'anomaly', id: a.id }; R.add(p); this.proxy = p; };
+      switch (a.model) {
+        case 'paper': P.c = []; for (let i = 0; i < 12; i++) { const g = new T.Group(); part(g, m.paper, 0, 0.1, 0, 0.12, 0.16, 0.05); part(g, m.paper, -0.08, 0.13, 0, 0.1, 0.03, 0.08); part(g, m.paper, 0.08, 0.13, 0, 0.1, 0.03, 0.08); part(g, m.paper, 0, 0.22, 0, 0.06, 0.06, 0.06); R.add(g); P.c.push(g); } P.free = true; proxy(1, 0.6, 1, 0.3); break;
+        case 'phone': part(R, m.wood, 0, 0.37, 0, 0.9, 0.06, 0.6); part(R, m.dark, 0, 0.18, 0, 0.7, 0.36, 0.4); P.ph = pivot(R, 0, 0.45, 0); part(P.ph, m.black, 0, 0.05, 0, 0.24, 0.1, 0.2); part(P.ph, m.black, 0, 0.13, 0, 0.26, 0.05, 0.06); proxy(0.9, 0.9, 0.7, 0.4); break;
+        case 'bust': part(R, m.dark, 0, 0.55, 0, 0.5, 1.1, 0.5); P.h = pivot(R, 0, 1.1, 0); part(P.h, m.brass, 0, 0.18, 0, 0.26, 0.34, 0.28); part(P.h, m.brass, 0, 0.0, 0, 0.36, 0.1, 0.24); P.eyes = [part(P.h, m.amber, -0.06, 0.22, 0.14, 0.04, 0.02, 0.01), part(P.h, m.amber, 0.06, 0.22, 0.14, 0.04, 0.02, 0.01)]; proxy(0.6, 1.5, 0.6, 0.75); break;
+        case 'mirror': part(R, m.wood, 0, 1.1, 0, 1.3, 2.1, 0.1); part(R, m.mirror, 0, 1.1, 0.055, 1.1, 1.9, 0.01); P.cur = part(R, m.curtain, 0, 1.15, 0.12, 1.4, 2.2, 0.03); proxy(1.4, 2.2, 0.4, 1.1); break;
+        case 'healer': part(R, m.colored(0xb9b6ad), 0, 0.35, 0, 0.36, 0.5, 0.3); part(R, m.colored(0xc9c6bd), 0, 0.72, 0, 0.3, 0.26, 0.28); part(R, m.black, -0.06, 0.75, 0.145, 0.04, 0.04, 0.01); part(R, m.black, 0.06, 0.75, 0.145, 0.04, 0.04, 0.01); P.arm = [pivot(R, -0.22, 0.5, 0), pivot(R, 0.22, 0.5, 0)]; for (const a2 of P.arm) part(a2, m.colored(0xb9b6ad), 0, -0.15, 0, 0.09, 0.3, 0.09); P.free = true; proxy(0.6, 1, 0.6, 0.5); break;
+        case 'fork': part(R, m.wood, 0, 0.45, 0, 0.5, 0.9, 0.5); P.f = pivot(R, 0, 0.9, 0); part(P.f, m.metal, 0, 0.12, 0, 0.04, 0.24, 0.04); part(P.f, m.metal, -0.06, 0.45, 0, 0.03, 0.45, 0.03); part(P.f, m.metal, 0.06, 0.45, 0, 0.03, 0.45, 0.03); part(P.f, m.metal, 0, 0.25, 0, 0.15, 0.03, 0.03); proxy(0.6, 1.5, 0.6, 0.75); break;
+        case 'clock': part(R, m.dark, 0, 1.0, 0, 0.5, 2.0, 0.4); part(R, m.white, 0, 1.7, 0.21, 0.36, 0.36, 0.01); P.hand = pivot(R, 0, 1.7, 0.22); part(P.hand, m.black, 0, 0.08, 0, 0.02, 0.16, 0.01); P.dust = []; for (let i = 0; i < 20; i++) { const d = part(R, m.white, (Math.random() - 0.5) * 6, 0.5 + Math.random() * 2.5, (Math.random() - 0.5) * 6, 0.02, 0.02, 0.02); P.dust.push(d); } proxy(0.6, 2, 0.6, 1); break;
+        case 'light': P.orb = new T.Mesh(new T.SphereGeometry(0.22, 12, 10), m.orb); R.add(P.orb); P.halo = new T.Mesh(new T.SphereGeometry(0.38, 10, 8), new T.MeshBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.22, depthWrite: false })); R.add(P.halo); P.free = true; proxy(0.8, 0.8, 0.8, 0); break;
+        case 'photo': part(R, m.dark, 0, 0.5, 0, 0.6, 1.0, 0.5); part(R, m.wood, 0, 1.25, 0, 0.5, 0.4, 0.04); part(R, m.colored(0xb0a68a), 0, 1.25, 0.025, 0.44, 0.34, 0.01); part(R, m.glass, 0, 1.25, 0, 0.7, 0.7, 0.6); proxy(0.8, 1.6, 0.8, 0.8); break;
+        case 'corridor': for (let i = 0; i < 8; i++) part(R, m.light, 0, 3.2, -4 + i * 1.1, 0.2, 0.04, 0.5); part(R, m.hazard, 0, 0.01, 0, 1.2, 0.01, 9); proxy(1.6, 2.4, 9, 1.2); break;
+        case 'radio': part(R, m.wood, 0, 0.37, 0, 0.9, 0.06, 0.6); part(R, m.dark, 0, 0.18, 0, 0.7, 0.36, 0.4); part(R, m.wood, 0, 0.62, 0, 0.6, 0.44, 0.3); P.dial = part(R, m.amber, 0.15, 0.62, 0.155, 0.16, 0.08, 0.01); part(R, m.colored(0x3a3020), -0.12, 0.62, 0.155, 0.24, 0.3, 0.01); proxy(0.9, 1, 0.7, 0.45); break;
+        case 'chair': part(R, m.dark, 0, 0.22, 0, 0.06, 0.44, 0.06); part(R, m.colored(0x5b3a2a), 0, 0.47, 0, 0.5, 0.06, 0.5); part(R, m.colored(0x5b3a2a), 0, 0.8, 0.24, 0.5, 0.6, 0.06); for (let i = 0; i < 5; i++) { const an = i / 5 * Math.PI * 2; part(R, m.dark, Math.sin(an) * 0.25, 0.04, Math.cos(an) * 0.25, 0.06, 0.04, 0.06); } proxy(0.7, 1.2, 0.7, 0.6); break;
+        case 'punch': part(R, m.colored(0x6b6f5a), 0, 1.3, 0, 0.5, 0.7, 0.3); part(R, m.white, 0, 1.45, 0.16, 0.26, 0.26, 0.01); P.hand = pivot(R, 0, 1.45, 0.17); part(P.hand, m.black, 0, 0.06, 0, 0.015, 0.12, 0.01); part(R, m.dark, 0.5, 1.2, 0, 0.3, 0.9, 0.1); for (let i = 0; i < 6; i++) part(R, m.paper, 0.5, 0.85 + i * 0.12, 0.06, 0.2, 0.08, 0.01); proxy(1.2, 1.2, 0.6, 1.2); break;
+        case 'void': proxy(1, 2, 1, 1); break;
+        case 'folder': part(R, m.dark, 0, 0.7, 0, 0.6, 1.4, 0.6); part(R, m.wood, 0.9, 0.37, 0, 1.0, 0.06, 0.6); part(R, m.colored(0xc9b27a), 0.9, 0.42, 0, 0.32, 0.04, 0.24); proxy(1.8, 1.4, 0.8, 0.7); break;
+        case 'archive': part(R, m.colored(0x6b5a3a), 0, 0.03, 0, 0.6, 0.06, 0.4); P.pages = []; for (let i = 0; i < 6; i++) { const pg = part(R, m.paper, 0, 1 + i * 0.2, 0, 0.2, 0.01, 0.28); P.pages.push(pg); } proxy(1, 2, 1, 1); break;
+        case 'meeting': part(R, m.wood, 0, 0.74, 0, 3.0, 0.06, 1.2); part(R, m.dark, 0, 0.36, 0, 2.6, 0.72, 0.5); P.ch = []; for (let i = 0; i < 6; i++) { const g = pivot(R, -1.1 + (i % 3) * 1.1, 0, i < 3 ? -1.0 : 1.0); part(g, m.colored(0x6b2b2b), 0, 0.46, 0, 0.44, 0.05, 0.44); part(g, m.colored(0x6b2b2b), 0, 0.72, i < 3 ? -0.2 : 0.2, 0.44, 0.45, 0.05); part(g, m.dark, 0, 0.22, 0, 0.06, 0.44, 0.06); P.ch.push(g); } P.proj = part(R, m.lightOff, 0, 2.9, 0, 0.4, 0.15, 0.4); proxy(3.2, 1.2, 2.6, 0.6); break;
+        case 'stone': P.s = part(R, m.stone, 0, 0.32, 0, 0.8, 0.62, 0.66); part(R, m.stone, 0.18, 0.55, 0.1, 0.4, 0.3, 0.4); proxy(0.9, 0.8, 0.8, 0.4); break;
+        case 'box': part(R, m.wood, 0, 0.37, 0, 0.9, 0.06, 0.6); part(R, m.dark, 0, 0.18, 0, 0.7, 0.36, 0.4); part(R, m.colored(0x5a2e1a), 0, 0.5, 0, 0.3, 0.18, 0.2); P.lid = pivot(R, 0, 0.59, -0.1); part(P.lid, m.colored(0x5a2e1a), 0, 0, 0.1, 0.3, 0.02, 0.2); proxy(0.9, 0.9, 0.7, 0.45); break;
+        default: proxy(1, 1.5, 1, 0.75);
+      }
+      // furniture-type anomalies sit at the centre spot of the cell; mobile ones follow the agent
+      this.place();
+    }
+    place() { if (this.parts.free) return; const a = this.a, r = this.w.fac.room(a.containRoom); if (!r) return; const p = r.pois.find(x => x.type === 'Stand') || { pos: r.center }; this.root.position.set(p.pos.x, r.floorY, p.pos.z); if (a.model === 'mirror' || a.model === 'chair' || a.model === 'punch' || a.model === 'folder') { const back = r.maxZ - 0.6, front = r.minZ + 0.6, north = this.w.fac.blocks[a.id] && this.w.fac.blocks[a.id].side === 'N'; this.root.position.z = north ? back : front; this.root.rotation.y = north ? Math.PI : 0; if (a.model === 'chair') this.root.rotation.y = north ? 0 : Math.PI; } }
+    update(dt, w, t, sound) {
+      const a = this.a, P = this.parts; this.t += dt;
+      if (P.free) { this.root.position.set(a.agent.pos.x, (w.fac.room(a.agent.roomId) || { floorY: 0 }).floorY, a.agent.pos.z); this.root.rotation.y = a.agent.yaw * Math.PI / 180 + Math.PI; }
+      else if (this._room !== a.containRoom) { this._room = a.containRoom; this.place(); }
+      switch (a.model) {
+        case 'paper': { const r = w.fac.room(a.containRoom); this.root.position.set(0, r.floorY, 0); this.root.rotation.y = 0; a.st.c.forEach((c, i) => { const g = P.c[i]; if (!g) return; g.visible = i < (a.st.alive || 0); g.position.set(c.x, (a.st.mood === 'agitated' ? 0.3 + Math.abs(Math.sin(t * 6 + i)) * 0.8 : a.st.mood === 'curious' ? Math.abs(Math.sin(t * 3 + i)) * 0.15 : 0), c.z); g.scale.setScalar(c.f ? 0.6 : 1); g.rotation.y = t * (a.st.mood === 'curious' ? 2 : 0.3) + i; }); if (this.proxy) this.proxy.position.set(r.center.x, 0.3, r.center.z); break; }
+        case 'phone': { const ring = w.now < a.st.ringUntil; P.ph.position.y = 0.45 + (ring ? Math.abs(Math.sin(t * 40)) * 0.02 : 0); if (ring && (t % 2.5) < dt && sound) sound('ring', this.root.position); break; }
+        case 'bust': { if (a.lookAt) { const p = w.posOf(a.lookAt); P.h.rotation.y = Math.atan2(p.x - this.root.position.x, p.z - this.root.position.z) - this.root.rotation.y; } break; }
+        case 'mirror': P.cur.visible = !!a.st.covered; break;
+        case 'healer': P.arm[0].rotation.x = Math.sin(t * 2) * 0.3; P.arm[1].rotation.x = -Math.sin(t * 2) * 0.3; this.root.position.y += a.st.mood === 'lonely' ? 0 : Math.abs(Math.sin(t * 1.5)) * 0.03; break;
+        case 'fork': { const amp = a.st.amp || 0; P.f.rotation.z = Math.sin(t * 90) * 0.02 * amp; break; }
+        case 'clock': P.hand.rotation.z = -t * 0.02; for (const d of P.dust) { d.position.y += Math.sin(t * 0.1 + d.position.x) * 0.0005; } break;
+        case 'light': { const out = !a.contained; P.orb.material = (a.lookAt && (w.now % 2) < 1) ? this.m.orbBlue : this.m.orb; P.halo.scale.setScalar(1 + Math.sin(t * 3) * 0.15); this.root.position.y = a.agent.pos.y + (w.fac.room(a.agent.roomId) || { floorY: 0 }).floorY; break; }
+        case 'radio': P.dial.material = w.infra && w.infra.shield(a.containRoom) < 70 && (t % 1) < 0.5 ? this.m.red : this.m.amber; break;
+        case 'punch': P.hand.rotation.z = -Math.PI * 7 / 6; break;
+        case 'archive': P.pages.forEach((pg, i) => { pg.position.y = 1 + i * 0.2 + Math.sin(t * 0.5 + i) * 0.05; pg.rotation.y = t * 0.1 + i; pg.visible = false; }); break;
+        case 'meeting': (P.ch || []).forEach((g, i) => { g.rotation.y = (a.st.chairs[i] || 0) * Math.PI / 180; }); P.proj.material = a.st.session ? this.m.light : this.m.lightOff; break;
+        case 'stone': P.s.material = (a.st.temp || 41) > 52 ? this.m.colored(0x5a2a1a) : this.m.stone; break;
+        case 'box': P.lid.rotation.x = -0.4 - Math.sin(t * 0.7) * 0.1; break;
+      }
+      this.root.visible = a.arrived && !!a.containRoom;
+    }
+  }
+
   function cameraModel(cam, mats) {
     const g = new T.Group(); g.position.set(cam.pos.x, cam.pos.y, cam.pos.z);
     part(g, mats.dark, 0, 0.12, 0, 0.06, 0.24, 0.06);
@@ -562,5 +745,5 @@
     return { group: g, pivot: pv, led, lens, cam };
   }
 
-  S.Render = { FacilityView, Humanoid, TallymanView, cameraModel, MB };
+  S.Render = { FacilityView, Humanoid, TallymanView, AnomalyView, cameraModel, MB, setLayer, HALLU, LOOKS };
 })(typeof window !== 'undefined' ? window : globalThis);
