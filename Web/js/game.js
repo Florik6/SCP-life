@@ -98,16 +98,34 @@
       if (G.hold) tickHold(dt);
     } else { P.current = null; if (G.hold) cancelHold(); }
     w.player.yaw = P.yaw; w.player.pitch = P.pitch;
-    const speed = dt > 0 ? moved / dt : 0; P.bob += moved * 2.2;
+    const speed = dt > 0 ? moved / dt : 0;
+    // gait: one unit of P.gait = one step; the foot lands (sound + lowest camera point) at every integer value
+    const gait = speed > RUN * 0.8 ? 'run' : speed < WALK * 0.55 ? 'sneak' : 'walk', stride = gait === 'run' ? 1.05 : gait === 'sneak' ? 0.5 : 0.72;
+    if (moved > 0.002 && !P.wasMoving) P.gait = Math.floor(P.gait || 0) + 0.6;
+    const g0 = P.gait || 0; P.gait = g0 + moved / stride;
     const amt = Math.min(1, speed / RUN) * (settings.shake ? 0.015 : 0.045);
-    camera.position.set(p.pos.x, p.pos.y + EYE + Math.sin(P.bob * 2) * amt, p.pos.z);
+    camera.position.set(p.pos.x, p.pos.y + EYE + (Math.abs(Math.sin(Math.PI * P.gait)) - 0.5) * amt * 1.6, p.pos.z);
     const sh = P.shake * (settings.shake ? 0.25 : 1) * settings.fx;
     if (sh > 0) { camera.position.x += (Math.random() - 0.5) * sh * 0.2; camera.position.y += (Math.random() - 0.5) * sh * 0.2; }
     camera.rotation.set(P.pitch * D2R, P.yaw * D2R + Math.PI, sh * Math.sin(performance.now() * 0.04) * 0.14);
     flash.intensity = p.flashlight ? 2.2 : 0;
-    const room = w.fac.room(p.roomId), metal = room && (room.style === 'tech' || room.type === 'Tunnel');
-    P.step += moved; if (P.step > (speed > 3.2 ? 0.85 : 0.7)) { P.step = 0; A.play(metal ? 'stepMetal' : 'step', null, speed > 3.2 ? 0.5 : 0.3, { dry: true }); }
+    const room = w.fac.room(p.roomId), surface = A.surfaceOf(room, w), shoe = shoeOf(p);
+    const stepPos = { x: p.pos.x, y: p.pos.y, z: p.pos.z };
+    if (Math.floor(P.gait) > Math.floor(g0)) A.footstep(stepPos, { surface, gait, shoe, gear: gearOf(p), player: true, vol: 0.36 });
+    else if (P.wasMoving && moved <= 0.002 && P.gait % 1 > 0.3) { A.footstep(stepPos, { surface, gait: 'sneak', shoe, player: true, vol: 0.5 }); P.gait = Math.ceil(P.gait); }
+    P.wasMoving = moved > 0.002; P.speed = speed;
   }
+  // shoes and gear by profession: boots for security, MTF, engineering; soft prison shoes for class D; heels for some admin staff
+  function shoeOf(n) {
+    const pr = n.prof || '', role = n.role || '';
+    if (role === 'DClass' || pr === 'dclass') return 'soft';
+    if (/guard|mtf|security|engineer|technician|electric|containment|janitor|cook/.test(pr) || role === 'Guard' || role === 'MTF') return 'boots';
+    if (n.female && /director|secretary|ethic|admin|records|hr|personnel|archiv/.test(pr) && hashStr(String(n.id || 'p')) % 3 === 0) return 'heels';
+    if (/doctor|medic|nurse|psychiatr/.test(pr)) return 'soft';
+    return 'shoes';
+  }
+  function hashStr(t) { let h = 2166136261; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function gearOf(n) { const pr = n.prof || ''; return /guard|mtf|security/.test(pr) || n.role === 'Guard' || n.role === 'MTF'; }
   function toggleCounting() {
     const w = G.world, p = w.player;
     if (p.counting) { w.stopCounting('вы прекратили счёт'); return; }
@@ -385,13 +403,66 @@
 
   // ------------------------------------------------------------------ world sounds (real events through walls and floors; player-only perception)
   function occlusionOf(roomId) { const w = G.world, pr = w.fac.room(w.player.roomId), r = w.fac.room(roomId); if (!pr || !r) return 1; if (r.level !== pr.level) return 2; if (r.id === pr.id || pr.canSeeInto(r.id)) return 0; return 1; }
+  // People are heard with the same physics as the player: a footstep at every foot contact (one per stride length travelled),
+  // surface of the room they are in, their shoes and gear; nothing while standing. Work at a station is heard too.
+  const ACT_SND = { Desk: ['keyboard', 0.25, 0.22], Console: ['keyboard', 0.25, 0.2], Terminal: ['keyboard', 0.3, 0.2], Workbench: ['computer', 0.12, 0.2], Panel: ['metal_hit', 0.08, 0.25],
+    FoodCounter: ['pot', 0.15, 0.3], Seat: ['cup', 0.05, 0.2], MedBed: ['cloth', 0.06, 0.25], Stand: ['paper', 0.06, 0.25], GuardPost: ['gear', 0.04, 0.2], Hazmat: ['cloth', 0.05, 0.25] };
+  function npcSounds(dt, t) {
+    const w = G.world, P0 = w.player.pos, gs = G.gaits || (G.gaits = {}), night = w.clock.night;
+    for (const n of w.active) {
+      const a = n.agent; if (a.transitT > 0) continue;
+      const dy = Math.abs(a.pos.y - P0.y), d = Math.hypot(a.pos.x - P0.x, a.pos.z - P0.z); if (d > 20 || dy > 8) { delete gs[n.id]; continue; }
+      const v = G.npcViews[n.id], pos = v && v.root.visible && v.drawPos ? v.drawPos : a.pos;
+      let g = gs[n.id]; if (!g) g = gs[n.id] = { x: pos.x, z: pos.z, ph: Math.random(), was: false, act: 1 + Math.random() * 4 };
+      const moved = Math.hypot(pos.x - g.x, pos.z - g.z); g.x = pos.x; g.z = pos.z;
+      const room = w.fac.room(a.roomId), occ = occlusionOf(a.roomId);
+      if (moved > 0.6) { g.was = false; continue; } // teleport / interpolation jump
+      const sp = dt > 0 ? moved / dt : 0, gait = sp > 2.6 ? 'run' : 'walk', stride = gait === 'run' ? 1.0 : 0.68;
+      if (moved > 0.001 && !g.was) g.ph = Math.floor(g.ph) + 0.55;
+      const p0 = g.ph; g.ph += moved / stride; g.was = moved > 0.001; if (v) v.gait = g.ph;
+      if (Math.floor(g.ph) > Math.floor(p0)) A.footstep({ x: pos.x, y: a.pos.y, z: pos.z }, { surface: A.surfaceOf(room, w), gait, shoe: shoeOf(n), gear: gearOf(n), occ, vol: 0.42 });
+      if (g.was || d > 12) continue;
+      // work sounds at a station
+      g.act -= dt; if (g.act > 0) continue; g.act = 2.5 + Math.random() * 6;
+      const poi = n.reservedPoi && w.fac.poi(n.reservedPoi), here = poi && Math.hypot(poi.pos.x - a.pos.x, poi.pos.z - a.pos.z) < 1.2;
+      const spot = { x: a.pos.x, y: a.pos.y + 0.9, z: a.pos.z };
+      if (here && ACT_SND[poi.type] && Math.random() < 0.7) { const [id, vol, dur] = ACT_SND[poi.type]; A.play(id, spot, vol * 2.2, { occ, range: 12, offset: id === 'keyboard' ? 0 : undefined }); }
+      else if (n.activity === 'Eat' && Math.random() < 0.5) A.play('cup', spot, 0.3, { occ, range: 10 });
+      else if (n.role === 'Janitor' && Math.random() < 0.25) A.play('bucket', spot, 0.35, { occ, range: 12 });
+      else if (night && n.activity !== 'Sleep' && n.psy && n.psy.fatigue > 60 && Math.random() < 0.08) A.play('yawn', spot, 0.35, { occ, range: 10, rate: n.female ? 1.15 : 0.95 });
+      else if ((n.sick || (n.needs && n.needs.health < 60)) && Math.random() < 0.2) A.play('cough', spot, 0.4, { occ, range: 12, rate: n.female ? 1.15 : 0.95 });
+      else if (Math.random() < 0.04) A.play('sniff', spot, 0.25, { occ, range: 8 });
+    }
+  }
+  // doors: each kind has its own mechanism; the reader click and the lock are separate events
+  function doorSound(kind, pos, door) {
+    const w = G.world, occ = occlusionOf((w.fac.roomAt(pos) || {}).id), opening = door && door.state === S.DS.Opening, k = door ? door.kind : kind;
+    const at = { x: pos.x, y: (pos.y || 0) + 1.2, z: pos.z };
+    if (k === 'Heavy') { A.play(opening ? 'door_heavy_open' : 'door_heavy_close', at, 0.8, { occ, range: 28 }); if (opening) A.play('hydraulic', at, 0.35, { occ, range: 20, delay: 0.1 }); else A.play('door_lock', at, 0.5, { occ, delay: 1.6 }); }
+    else if (k === 'Airlock') A.play(opening ? 'door_airlock_open' : 'door_airlock_close', at, 0.75, { occ, range: 24 });
+    else if (door && door.lockdown && !opening) A.play('door_blast_close', at, 0.8, { occ, range: 34 });
+    else { A.play(opening ? 'door_slide_open' : 'door_slide_close', at, 0.6, { occ, range: 20 }); if (!opening && k === 'Security') A.play('door_lock', at, 0.35, { occ, delay: 0.9 }); }
+  }
   function playWorldSounds() {
     const w = G.world;
-    while (w.sounds.length) { const s = w.sounds.shift(); const occ = occlusionOf(s.roomId); if (s.kind === 'knock') A.play('metalKnock', s.pos, 0.8, { occ, range: 26 }); else if (s.kind === 'breaker') A.play('breaker', s.pos, 0.7, { occ }); else if (s.kind === 'scream') A.play('scream', s.pos, 0.9, { occ, range: 40 }); }
+    while (w.sounds.length) {
+      const s = w.sounds.shift(), occ = occlusionOf(s.roomId);
+      if (s.kind === 'knock') { A.play('knock_metal', s.pos, 0.85, { occ, range: 26 }); if (Math.random() < 0.5) A.play('knock_metal', s.pos, 0.6, { occ, range: 26, delay: 0.35 + Math.random() * 0.3 }); }
+      else if (s.kind === 'breaker') { A.play('lever', s.pos, 0.7, { occ }); A.play('power_down', s.pos, 0.5, { occ, range: 30, delay: 0.25 }); }
+      else if (s.kind === 'scream') { const self = s.who === 'player'; A.play(self ? (s.female ? 'hurt_f' : 'hurt_m') : (s.female ? 'scream_f' : 'scream_m'), self ? null : s.pos, 0.9, { occ: self ? 0 : occ, range: 40, dry: self }); }
+      else if (s.kind && A.man && A.man[s.kind]) A.play(s.kind, s.pos, s.vol || 0.7, { occ, range: s.range || 22 });
+    }
     const fx = w.horror.fx;
-    while (fx.sounds.length) { const s = fx.sounds.shift(); if (s.kind === 'step_far') A.play('step', s.pos, 0.6 * (s.boost || 1), { occ: occlusionOf((w.fac.roomAt(s.pos) || {}).id), range: 28 }); else if (s.kind === 'step_behind') A.play('step', s.pos, 0.45 * settings.fx, { range: 10 }); else if (s.kind === 'breath') A.play('breath', s.pos, 0.35 * settings.fx, { range: 6 }); }
-    if (fx.whisper && fx.whisper !== G.lastWhisper) { G.lastWhisper = fx.whisper; A.play(fx.whisper.radio ? 'radio' : 'whisper', null, 0.4 * settings.fx, { dry: true }); }
+    while (fx.sounds.length) {
+      const s = fx.sounds.shift(), r = w.fac.roomAt(s.pos);
+      if (s.kind === 'step_far') A.footstep(s.pos, { surface: A.surfaceOf(r, w), shoe: 'boots', vol: 0.55 * (s.boost || 1), occ: occlusionOf((r || {}).id), range: 28 });
+      else if (s.kind === 'step_behind') A.footstep(s.pos, { surface: A.surfaceOf(r, w), shoe: 'shoes', vol: 0.4 * settings.fx, range: 10 });
+      else if (s.kind === 'breath') A.play(Math.random() < 0.5 ? 'breath_m' : 'breath_f', s.pos, 0.3 * settings.fx, { range: 6, offset: Math.random() * 6, dur: 2.2 });
+      else if (A.man && A.man[s.kind]) A.play(s.kind, s.pos, (s.vol || 0.5) * settings.fx, { range: s.range || 14, occ: occlusionOf((r || {}).id) });
+    }
+    if (fx.whisper && fx.whisper !== G.lastWhisper) { G.lastWhisper = fx.whisper; if (fx.whisper.radio) A.play('radio', null, 0.4 * settings.fx, { dry: true }); else A.play('whisper_far', null, 0.35 * settings.fx, { dry: true }); }
   }
+
 
   // ------------------------------------------------------------------ PDA
   const PDA_TABS = [['tasks', 'ЗАДАЧИ'], ['journal', 'ЖУРНАЛ'], ['career', 'КАРЬЕРА'], ['health', 'САМОЧУВСТВИЕ'], ['radio', 'РАЦИЯ'], ['dossier', 'ДОСЬЕ SCP'], ['people', 'ЛЮДИ']];
@@ -784,20 +855,21 @@
       if (n.conv) { const o = w.npc(n.conv); if (o) target = o.agent.pos; } else if (dist < 3.5 && !G.cctv && ['Lying', 'Down', 'Counting'].indexOf(posture) < 0) target = w.player.pos;
       if (target) look = S.deltaAngle(yaw, Math.atan2(target.x - x, target.z - z) / D2R);
       v.rig.animate(dt, v.sp, posture, look, t);
-      if (v.sp > 0.4 && dist < 14) { v.step += moved; if (v.step > 0.75) { v.step = 0; A.play('step', { x, y: n.agent.pos.y, z }, 0.32, { occ: occlusionOf(n.agent.roomId) }); } }
-      if (n.bark && n.bark !== v.lastBark && n.barkUntil > w.now && dist < 12 && t - lastBarkSnd > 0.4) { v.lastBark = n.bark; lastBarkSnd = t; A.play('voice', { x, y: n.agent.pos.y, z }, 0.22, { occ: occlusionOf(n.agent.roomId), rate: n.female ? 1.35 : 1 }); }
+      v.drawPos = { x, y: n.agent.pos.y, z };
     }
-    // people out of sight are still heard: steps through walls and through the floor slab
-    for (const rid of [w.player.roomId]) { const pr = w.fac.room(rid); if (!pr) continue; for (const n of w.active) { if (G.visible.has(n.agent.roomId) || !n.agent.moving) continue; const d = S.V.distXZ(n.agent.pos, w.player.pos); if (d < 12 && Math.random() < dt * 1.2) A.play(n.agent.roomId && w.fac.room(n.agent.roomId) && w.fac.room(n.agent.roomId).style === 'tech' ? 'stepMetal' : 'step', n.agent.pos, 0.3, { occ: occlusionOf(n.agent.roomId), range: 14 }); } }
+    npcSounds(dt, t);
     for (const v of G.anomViews) {
       const a = v.a, x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
       if (v instanceof S.Render.TallymanView) { const fy = (w.fac.room(a.agent.roomId) || { floorY: 0 }).floorY; v.root.position.set(x, fy, z); v.root.rotation.y = yaw * D2R; const moved = Math.hypot(x - v.last.x, z - v.last.z); v.last = { x, y: 0, z }; v.root.visible = G.visible.has(a.agent.roomId); if (v.root.visible || !a.contained) v.animate(dt, dt > 0 ? Math.min(3, moved / dt) : 0, w, yaw, t, (name, pos) => A.play(name, pos, name === 'knock' ? 0.9 : 0.5, { occ: occlusionOf(a.agent.roomId) })); }
       else { v.update(dt, w, t, (name, pos) => A.play(name, pos, 0.6, { occ: occlusionOf(a.containRoom) })); if (v.root.visible) v.root.visible = G.visible.has(a.agent.roomId || a.containRoom); }
     }
     for (const c of G.cams) { c.group.visible = G.visible.has(c.cam.roomId); c.pivot.rotation.y = c.cam.yaw * D2R; c.pivot.rotation.x = c.cam.pitch * D2R; c.led.visible = c.cam.operational && (t % 1.6) < 0.8; }
-    G.fv.updateDoors(w.realTime, w.now, (kind, pos) => A.play(kind, pos, 0.7, { occ: occlusionOf((w.fac.roomAt(pos) || {}).id) }));
+    G.fv.updateDoors(w.realTime, w.now, doorSound);
     syncCards(); updateHallucinations(); playWorldSounds(); processNotifications(); updateHud(dt, gameplay); Terminal.tick(dt); PDA.tick(dt);
-    A.tick(w, dt, { heartbeat: w.horror.fx.heartbeat, intensity: settings.fx });
+    { const fx = w.horror.fx, st = fx.state, pp = w.player;
+      A.tick(w, dt, { heartbeat: fx.heartbeat, intensity: settings.fx, occOf: occlusionOf, female: !!pp.female,
+        dread: settings.fx * (st === 'threat' ? 0.9 : st === 'paranoia' ? 0.55 : st === 'tension' ? 0.25 : 0) * (pp.roomId === 'nullfloor' ? 0 : 1),
+        fear: S.clamp((pp.psy.fear - 40) / 60, 0, 1) * settings.fx, exertion: 1 - P.stamina }); }
     UI.syncTouch();
     renderer.setScissorTest(false); renderer.setViewport(0, 0, window.innerWidth, window.innerHeight); renderer.clear();
     if (G.cctv) {

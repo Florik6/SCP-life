@@ -521,7 +521,7 @@
         const v = this.doors[id], d = v.door; if (!v.group.visible) { v.last = d.state; continue; }
         const t = d.openness, e = t * t * (3 - 2 * t);
         for (const leaf of v.leaves) leaf.position.x = leaf.userData.closed + (leaf.userData.open - leaf.userData.closed) * e;
-        if (v.last !== d.state) { if ((d.state === S.DS.Opening || d.state === S.DS.Closing) && sound) sound(d.kind === 'Heavy' ? 'heavy' : 'servo', d.pos); v.last = d.state; }
+        if (v.last !== d.state) { if ((d.state === S.DS.Opening || d.state === S.DS.Closing) && sound) sound(d.kind === 'Heavy' ? 'heavy' : 'servo', d.pos, d); v.last = d.state; }
         if (!v.leds.length) continue;
         const age = realTime - d.lastResultTime; let mat = m.amber;
         if (d.locked || d.lockdown || d.restricted) mat = m.red;

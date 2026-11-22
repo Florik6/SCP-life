@@ -1,0 +1,18 @@
+Oculus Audio Pack 01 — Oculus VR, LLC — CC BY 4.0 — https://developers.meta.com/vr/downloads/package/oculus-audio-pack-1/
+  "Oculus Audio Pack 01" by Oculus VR, LLC (https://developers.meta.com/vr/downloads/package/oculus-audio-pack-1/), licensed under CC BY 4.0. Files renamed to the UCS naming convention; OGG previews transcoded from the original WAVs. Further trimmed, normalised and re-encoded for SCP LIFE.
+Sound Effects Pack — Owlish Media (OpenGameArt) — CC0 1.0 — https://opengameart.org/content/sound-effects-pack
+  mirror: https://github.com/EternityForest/Free-SFX
+Electricity game sound pack — OpenGameArt contributor (via EternityForest/Free-SFX) — CC0 1.0 — https://opengameart.org/content/electricity-game-sound-pack
+  mirror: https://github.com/EternityForest/Free-SFX
+critters creeping — jhumbucker (Freesound) — CC0 1.0 — https://freesound.org/people/jhumbucker/sounds/250540/
+  mirror: https://github.com/EternityForest/Free-SFX
+water trickling — kaydinhamby (Freesound) — CC0 1.0 — https://freesound.org/people/kaydinhamby/sounds/381202/
+  mirror: https://github.com/EternityForest/Free-SFX
+Wind 01 - Inside a metallic squeaking building — Julien Matthey (Freesound) — CC0 1.0 — https://freesound.org/people/Julien%20Matthey/sounds/557188/
+  mirror: https://github.com/EternityForest/Free-SFX
+Impact Sounds — Kenney (kenney.nl) — CC0 1.0 — https://kenney.nl/assets/impact-sounds
+  mirror: https://github.com/Boyquotes/kenney-impact-sounds-for-godot
+RPG Audio — Kenney (kenney.nl) — CC0 1.0 — https://kenney.nl/assets/rpg-audio
+  mirror: https://github.com/Boyquotes/kenney-rpg-audio-for-godot
+Sci-fi Sounds — Kenney (kenney.nl) — CC0 1.0 — https://kenney.nl/assets/sci-fi-sounds
+  mirror: https://github.com/Boyquotes/kenney-sci-fi-sounds-for-godot

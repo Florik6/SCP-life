@@ -1,0 +1,2359 @@
+{
+ "sources": {
+  "oculus": {
+   "name": "Oculus Audio Pack 01",
+   "author": "Oculus VR, LLC",
+   "url": "https://developers.meta.com/vr/downloads/package/oculus-audio-pack-1/",
+   "mirror": "https://github.com/facebookincubator/Meta-open-sound",
+   "license": "CC BY 4.0",
+   "credit": "\"Oculus Audio Pack 01\" by Oculus VR, LLC (https://developers.meta.com/vr/downloads/package/oculus-audio-pack-1/), licensed under CC BY 4.0. Files renamed to the UCS naming convention; OGG previews transcoded from the original WAVs. Further trimmed, normalised and re-encoded for SCP LIFE."
+  },
+  "owlish": {
+   "name": "Sound Effects Pack",
+   "author": "Owlish Media (OpenGameArt)",
+   "url": "https://opengameart.org/content/sound-effects-pack",
+   "mirror": "https://github.com/EternityForest/Free-SFX",
+   "license": "CC0 1.0"
+  },
+  "electricity": {
+   "name": "Electricity game sound pack",
+   "author": "OpenGameArt contributor (via EternityForest/Free-SFX)",
+   "url": "https://opengameart.org/content/electricity-game-sound-pack",
+   "mirror": "https://github.com/EternityForest/Free-SFX",
+   "license": "CC0 1.0"
+  },
+  "fs_critters": {
+   "name": "critters creeping",
+   "author": "jhumbucker (Freesound)",
+   "url": "https://freesound.org/people/jhumbucker/sounds/250540/",
+   "mirror": "https://github.com/EternityForest/Free-SFX",
+   "license": "CC0 1.0"
+  },
+  "fs_water": {
+   "name": "water trickling",
+   "author": "kaydinhamby (Freesound)",
+   "url": "https://freesound.org/people/kaydinhamby/sounds/381202/",
+   "mirror": "https://github.com/EternityForest/Free-SFX",
+   "license": "CC0 1.0"
+  },
+  "fs_wind": {
+   "name": "Wind 01 - Inside a metallic squeaking building",
+   "author": "Julien Matthey (Freesound)",
+   "url": "https://freesound.org/people/Julien%20Matthey/sounds/557188/",
+   "mirror": "https://github.com/EternityForest/Free-SFX",
+   "license": "CC0 1.0"
+  },
+  "k_impact": {
+   "name": "Impact Sounds",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/impact-sounds",
+   "mirror": "https://github.com/Boyquotes/kenney-impact-sounds-for-godot",
+   "license": "CC0 1.0"
+  },
+  "k_rpg": {
+   "name": "RPG Audio",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/rpg-audio",
+   "mirror": "https://github.com/Boyquotes/kenney-rpg-audio-for-godot",
+   "license": "CC0 1.0"
+  },
+  "k_scifi": {
+   "name": "Sci-fi Sounds",
+   "author": "Kenney (kenney.nl)",
+   "url": "https://kenney.nl/assets/sci-fi-sounds",
+   "mirror": "https://github.com/Boyquotes/kenney-sci-fi-sounds-for-godot",
+   "license": "CC0 1.0"
+  }
+ },
+ "sounds": {
+  "step_concrete_walk": {
+   "files": [
+    "step_concrete_walk_1.ogg",
+    "step_concrete_walk_2.ogg",
+    "step_concrete_walk_3.ogg",
+    "step_concrete_walk_4.ogg",
+    "step_concrete_walk_5.ogg",
+    "step_concrete_walk_6.ogg",
+    "step_concrete_walk_7.ogg",
+    "step_concrete_walk_8.ogg",
+    "step_concrete_walk_9.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.185,
+    0.173,
+    0.313,
+    0.225,
+    0.147,
+    0.476,
+    0.447,
+    0.532,
+    0.389
+   ],
+   "use": "Шаги: бетон, обычная обувь (игрок и NPC)",
+   "sources": [
+    "oculus",
+    "owlish"
+   ],
+   "orig": [
+    "FEETHmn_ShoeConcreteWalk_OS_01.ogg",
+    "FEETHmn_ShoeConcreteWalk_OS_02.ogg",
+    "FEETHmn_ShoeConcreteWalk_OS_03.ogg",
+    "FEETHmn_ShoeConcreteWalk_OS_04.ogg",
+    "FEETHmn_ShoeConcreteWalk_OS_05.ogg",
+    "Footsteps/hard-footstep1.opus",
+    "Footsteps/hard-footstep2.opus",
+    "Footsteps/hard-footstep3.opus",
+    "Footsteps/hard-footstep4.opus"
+   ]
+  },
+  "step_concrete_run": {
+   "files": [
+    "step_concrete_run_1.ogg",
+    "step_concrete_run_2.ogg",
+    "step_concrete_run_3.ogg",
+    "step_concrete_run_4.ogg",
+    "step_concrete_run_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.225,
+    0.181,
+    0.189,
+    0.152,
+    0.185
+   ],
+   "use": "Бег по бетону",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeConcreteRun_OS_01.ogg",
+    "FEETHmn_ShoeConcreteRun_OS_02.ogg",
+    "FEETHmn_ShoeConcreteRun_OS_03.ogg",
+    "FEETHmn_ShoeConcreteRun_OS_04.ogg",
+    "FEETHmn_ShoeConcreteRun_OS_05.ogg"
+   ]
+  },
+  "step_concrete_land": {
+   "files": [
+    "step_concrete_land_1.ogg",
+    "step_concrete_land_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.226,
+    0.219
+   ],
+   "use": "Тяжёлые ботинки (слой удара пятки), остановка",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeConcreteLand_OS_01.ogg",
+    "FEETHmn_ShoeConcreteLand_OS_02.ogg"
+   ]
+  },
+  "step_metal_walk": {
+   "files": [
+    "step_metal_walk_1.ogg",
+    "step_metal_walk_2.ogg",
+    "step_metal_walk_3.ogg",
+    "step_metal_walk_4.ogg",
+    "step_metal_walk_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.456,
+    0.396,
+    0.351,
+    0.365,
+    0.327
+   ],
+   "use": "Шаги: металлическая решётка, мостки, тоннели",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeMetalWalk_OS_01.ogg",
+    "FEETHmn_ShoeMetalWalk_OS_02.ogg",
+    "FEETHmn_ShoeMetalWalk_OS_03.ogg",
+    "FEETHmn_ShoeMetalWalk_OS_04.ogg",
+    "FEETHmn_ShoeMetalWalk_OS_05.ogg"
+   ]
+  },
+  "step_metal_run": {
+   "files": [
+    "step_metal_run_1.ogg",
+    "step_metal_run_2.ogg",
+    "step_metal_run_3.ogg",
+    "step_metal_run_4.ogg",
+    "step_metal_run_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.237,
+    0.246,
+    0.249,
+    0.256,
+    0.244
+   ],
+   "use": "Бег по металлу",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeMetalRun_OS_01.ogg",
+    "FEETHmn_ShoeMetalRun_OS_02.ogg",
+    "FEETHmn_ShoeMetalRun_OS_03.ogg",
+    "FEETHmn_ShoeMetalRun_OS_04.ogg",
+    "FEETHmn_ShoeMetalRun_OS_05.ogg"
+   ]
+  },
+  "step_metal_land": {
+   "files": [
+    "step_metal_land_1.ogg",
+    "step_metal_land_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.323,
+    0.309
+   ],
+   "use": "Тяжёлые ботинки по металлу",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeMetalLand_OS_01.ogg",
+    "FEETHmn_ShoeMetalLand_OS_02.ogg"
+   ]
+  },
+  "step_grit_walk": {
+   "files": [
+    "step_grit_walk_1.ogg",
+    "step_grit_walk_2.ogg",
+    "step_grit_walk_3.ogg",
+    "step_grit_walk_4.ogg",
+    "step_grit_walk_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.432,
+    0.517,
+    0.503,
+    0.48,
+    0.467
+   ],
+   "use": "Шаги: технический пол с песком и пылью, мокрый/грязный пол (слой)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeDirtWalk_OS_01.ogg",
+    "FEETHmn_ShoeDirtWalk_OS_02.ogg",
+    "FEETHmn_ShoeDirtWalk_OS_03.ogg",
+    "FEETHmn_ShoeDirtWalk_OS_04.ogg",
+    "FEETHmn_ShoeDirtWalk_OS_05.ogg"
+   ]
+  },
+  "step_grit_run": {
+   "files": [
+    "step_grit_run_1.ogg",
+    "step_grit_run_2.ogg",
+    "step_grit_run_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.315,
+    0.337,
+    0.355
+   ],
+   "use": "Бег по грязному техническому полу",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeDirtRun_OS_01.ogg",
+    "FEETHmn_ShoeDirtRun_OS_02.ogg",
+    "FEETHmn_ShoeDirtRun_OS_03.ogg"
+   ]
+  },
+  "step_panel_walk": {
+   "files": [
+    "step_panel_walk_1.ogg",
+    "step_panel_walk_2.ogg",
+    "step_panel_walk_3.ogg",
+    "step_panel_walk_4.ogg",
+    "step_panel_walk_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.216,
+    0.229,
+    0.212,
+    0.229,
+    0.248
+   ],
+   "use": "Шаги: фальшпол (серверные, диспетчерская) — полый отзвук",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "FEETHmn_ShoeWoodWalk_OS_01.ogg",
+    "FEETHmn_ShoeWoodWalk_OS_02.ogg",
+    "FEETHmn_ShoeWoodWalk_OS_03.ogg",
+    "FEETHmn_ShoeWoodWalk_OS_04.ogg",
+    "FEETHmn_ShoeWoodWalk_OS_05.ogg"
+   ]
+  },
+  "step_tile_walk": {
+   "files": [
+    "step_tile_walk_1.ogg",
+    "step_tile_walk_2.ogg",
+    "step_tile_walk_3.ogg",
+    "step_tile_walk_4.ogg",
+    "step_tile_walk_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.103,
+    0.105,
+    0.11,
+    0.108,
+    0.111
+   ],
+   "use": "Шаги: кафель (лаборатории, медблок, кухня)",
+   "sources": [
+    "k_impact"
+   ],
+   "orig": [
+    "footstep_concrete_000.ogg",
+    "footstep_concrete_001.ogg",
+    "footstep_concrete_002.ogg",
+    "footstep_concrete_003.ogg",
+    "footstep_concrete_004.ogg"
+   ]
+  },
+  "step_carpet_walk": {
+   "files": [
+    "step_carpet_walk_1.ogg",
+    "step_carpet_walk_2.ogg",
+    "step_carpet_walk_3.ogg",
+    "step_carpet_walk_4.ogg",
+    "step_carpet_walk_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.131,
+    0.142,
+    0.142,
+    0.127,
+    0.127
+   ],
+   "use": "Шаги: ковролин (кабинеты администрации, жилой блок)",
+   "sources": [
+    "k_impact"
+   ],
+   "orig": [
+    "footstep_carpet_000.ogg",
+    "footstep_carpet_001.ogg",
+    "footstep_carpet_002.ogg",
+    "footstep_carpet_003.ogg",
+    "footstep_carpet_004.ogg"
+   ]
+  },
+  "step_heels": {
+   "files": [
+    "step_heels_1.ogg",
+    "step_heels_2.ogg",
+    "step_heels_3.ogg",
+    "step_heels_4.ogg",
+    "step_heels_5.ogg",
+    "step_heels_6.ogg",
+    "step_heels_7.ogg",
+    "step_heels_8.ogg",
+    "step_heels_9.ogg",
+    "step_heels_10.ogg",
+    "step_heels_11.ogg",
+    "step_heels_12.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.201,
+    0.117,
+    0.103,
+    0.26,
+    0.137,
+    0.147,
+    0.14,
+    0.157,
+    0.11,
+    0.11,
+    0.119,
+    0.113
+   ],
+   "use": "Шаги: женская обувь на каблуке по твёрдому полу (администрация)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Footsteps/Womens_shoes_1.opus",
+    "Footsteps/Womens_shoes_1.opus",
+    "Footsteps/Womens_shoes_1.opus",
+    "Footsteps/Womens_shoes_1.opus",
+    "Footsteps/Womens_shoes_2.opus",
+    "Footsteps/Womens_shoes_2.opus",
+    "Footsteps/Womens_shoes_2.opus",
+    "Footsteps/Womens_shoes_2.opus",
+    "Footsteps/Womens_shoes_3.opus",
+    "Footsteps/Womens_shoes_3.opus",
+    "Footsteps/Womens_shoes_3.opus",
+    "Footsteps/Womens_shoes_3.opus"
+   ]
+  },
+  "stumble": {
+   "files": [
+    "stumble.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.651
+   ],
+   "use": "Спотыкание (реакция испуга)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Footsteps/stumble.opus"
+   ]
+  },
+  "cloth": {
+   "files": [
+    "cloth_1.ogg",
+    "cloth_2.ogg",
+    "cloth_3.ogg",
+    "cloth_4.ogg",
+    "cloth_5.ogg",
+    "cloth_6.ogg",
+    "cloth_7.ogg",
+    "cloth_8.ogg"
+   ],
+   "loop": false,
+   "gain": 0.7,
+   "dur": [
+    0.582,
+    0.528,
+    0.877,
+    0.776,
+    0.61,
+    0.381,
+    0.477,
+    0.384
+   ],
+   "use": "Шорох одежды при движении, посадке, жестах",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "CLOTHMvmt_ClothingMovement_OS_01.ogg",
+    "CLOTHMvmt_ClothingMovement_OS_02.ogg",
+    "CLOTHMvmt_ClothingMovement_OS_03.ogg",
+    "CLOTHMvmt_ClothingMovement_OS_04.ogg",
+    "cloth_1.ogg",
+    "cloth_2.ogg",
+    "cloth_3.ogg",
+    "cloth_4.ogg"
+   ]
+  },
+  "gear": {
+   "files": [
+    "gear_1.ogg",
+    "gear_2.ogg",
+    "gear_3.ogg",
+    "gear_4.ogg",
+    "gear_5.ogg",
+    "gear_6.ogg"
+   ],
+   "loop": false,
+   "gain": 0.7,
+   "dur": [
+    0.891,
+    0.527,
+    0.966,
+    0.99,
+    0.264,
+    0.451
+   ],
+   "use": "Снаряжение охраны и МОГ (бряцание при ходьбе и беге)",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "CLOTHMvmt_MovementWithGear_OS_01.ogg",
+    "CLOTHMvmt_MovementWithGear_OS_02.ogg",
+    "CLOTHMvmt_MovementWithGear_OS_03.ogg",
+    "CLOTHMvmt_MovementWithGear_OS_04.ogg",
+    "belt_handle_1.ogg",
+    "belt_handle_2.ogg"
+   ]
+  },
+  "door_slide_open": {
+   "files": [
+    "door_slide_open_1.ogg",
+    "door_slide_open_2.ogg",
+    "door_slide_open_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.781,
+    0.532,
+    0.529
+   ],
+   "use": "Обычная раздвижная дверь: открытие",
+   "sources": [
+    "k_scifi",
+    "oculus"
+   ],
+   "orig": [
+    "DOORSlid_SlidingDoorOpen_OS_01.ogg",
+    "door_open_000.ogg",
+    "door_open_001.ogg"
+   ]
+  },
+  "door_slide_close": {
+   "files": [
+    "door_slide_close_1.ogg",
+    "door_slide_close_2.ogg",
+    "door_slide_close_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.35,
+    0.526,
+    0.524
+   ],
+   "use": "Обычная раздвижная дверь: закрытие",
+   "sources": [
+    "k_scifi",
+    "oculus"
+   ],
+   "orig": [
+    "DOORSlid_SlidingDoorClose_OS_01.ogg",
+    "door_close_000.ogg",
+    "door_close_001.ogg"
+   ]
+  },
+  "door_heavy_open": {
+   "files": [
+    "door_heavy_open.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.078
+   ],
+   "use": "Гермодверь камеры содержания: открытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORMetl_HatchOpen_OS_01.ogg"
+   ]
+  },
+  "door_heavy_close": {
+   "files": [
+    "door_heavy_close.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.584
+   ],
+   "use": "Гермодверь камеры содержания: закрытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORMetl_HatchClose_OS_01.ogg"
+   ]
+  },
+  "door_blast_open": {
+   "files": [
+    "door_blast_open.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Взрывозащитная дверь при локдауне: открытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORMetl_GarageDoorOpen_OS_01.ogg"
+   ]
+  },
+  "door_blast_close": {
+   "files": [
+    "door_blast_close.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Взрывозащитная дверь при локдауне: закрытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORMetl_GarageDoorClose_OS_01.ogg"
+   ]
+  },
+  "door_airlock_open": {
+   "files": [
+    "door_airlock_open.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.484
+   ],
+   "use": "Шлюз (пневматика): открытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "TRNDoor_TrainDoorsOpen_OS_01.ogg"
+   ]
+  },
+  "door_airlock_close": {
+   "files": [
+    "door_airlock_close.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.886
+   ],
+   "use": "Шлюз (пневматика): закрытие",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "TRNDoor_TrainDoorsClose_OS_01.ogg"
+   ]
+  },
+  "hydraulic": {
+   "files": [
+    "hydraulic.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    4.437
+   ],
+   "use": "Гидравлика шлюза, лифта, тяжёлых затворов",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHInd_Hydraulic_OS_01.ogg"
+   ]
+  },
+  "door_lock": {
+   "files": [
+    "door_lock_1.ogg",
+    "door_lock_2.ogg",
+    "door_lock_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.428,
+    0.399,
+    1.208
+   ],
+   "use": "Замок двери, блокировка",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORHdwr_SlidingDoorLock_OS_01.ogg",
+    "DOORHdwr_OfficeDoorLock_OS_01.ogg",
+    "MECHLock_DoorLockKey_OS_01.ogg"
+   ]
+  },
+  "door_unlock": {
+   "files": [
+    "door_unlock_1.ogg",
+    "door_unlock_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.415,
+    0.697
+   ],
+   "use": "Отпирание",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MECHLock_DoorUnlockKey_OS_01.ogg",
+    "DOORHdwr_OfficeDoorKnob_OS_01.ogg"
+   ]
+  },
+  "card_ok": {
+   "files": [
+    "card_ok.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.394
+   ],
+   "use": "Считыватель карты: доступ разрешён",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIClick_ScifiHightechConfirm_OS_01.ogg"
+   ]
+  },
+  "card_deny": {
+   "files": [
+    "card_deny.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.24
+   ],
+   "use": "Считыватель карты: отказ",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIAlert_ScifiHightechError_OS_01.ogg"
+   ]
+  },
+  "knock_door": {
+   "files": [
+    "knock_door.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.139
+   ],
+   "use": "Стук в дверь",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DOORKnck_OfficeDoorKnock_OS_01.ogg"
+   ]
+  },
+  "knock_metal": {
+   "files": [
+    "knock_metal_1.ogg",
+    "knock_metal_2.ogg",
+    "knock_metal_3.ogg",
+    "knock_metal_4.ogg",
+    "knock_metal_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.284,
+    0.236,
+    0.215,
+    0.366,
+    0.21
+   ],
+   "use": "Стук в воздуховоде/по металлу (вентиляция, сущности)",
+   "sources": [
+    "k_impact"
+   ],
+   "orig": [
+    "impact_metal_light_000.ogg",
+    "impact_metal_light_001.ogg",
+    "impact_metal_light_002.ogg",
+    "impact_metal_light_003.ogg",
+    "impact_metal_light_004.ogg"
+   ]
+  },
+  "glass_tap": {
+   "files": [
+    "glass_tap_1.ogg",
+    "glass_tap_2.ogg",
+    "glass_tap_3.ogg",
+    "glass_tap_4.ogg",
+    "glass_tap_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.186,
+    0.187,
+    0.207,
+    0.199,
+    0.186
+   ],
+   "use": "Касание/постукивание по стеклу смотрового окна",
+   "sources": [
+    "k_impact"
+   ],
+   "orig": [
+    "impact_glass_light_000.ogg",
+    "impact_glass_light_001.ogg",
+    "impact_glass_light_002.ogg",
+    "impact_glass_light_003.ogg",
+    "impact_glass_light_004.ogg"
+   ]
+  },
+  "glass_hit": {
+   "files": [
+    "glass_hit_1.ogg",
+    "glass_hit_2.ogg",
+    "glass_hit_3.ogg",
+    "glass_hit_4.ogg",
+    "glass_hit_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.466,
+    0.46,
+    0.456,
+    0.461,
+    0.409
+   ],
+   "use": "Удар по стеклу (существо у стекла)",
+   "sources": [
+    "k_impact"
+   ],
+   "orig": [
+    "impact_glass_medium_000.ogg",
+    "impact_glass_medium_001.ogg",
+    "impact_glass_medium_002.ogg",
+    "impact_glass_medium_003.ogg",
+    "impact_glass_medium_004.ogg"
+   ]
+  },
+  "amb_machine": {
+   "files": [
+    "amb_machine.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    32.0
+   ],
+   "use": "Фон машинного зала, генераторная",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "AMBInd_RoomToneMachineRoom_LOOP_01.ogg"
+   ]
+  },
+  "amb_hvac": {
+   "files": [
+    "amb_hvac.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    18.816
+   ],
+   "use": "Вентиляция (работает по реальному состоянию систем)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHHvac_HVAC_LOOP_01.ogg"
+   ]
+  },
+  "amb_fan": {
+   "files": [
+    "amb_fan.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    15.0
+   ],
+   "use": "Вентилятор в помещении, серверные стойки",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHFan_Fan_LOOP_01.ogg"
+   ]
+  },
+  "amb_hum1": {
+   "files": [
+    "amb_hum1.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    30.0
+   ],
+   "use": "Гул лабораторного оборудования",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHMisc_MachineHum_LOOP_01.ogg"
+   ]
+  },
+  "amb_hum2": {
+   "files": [
+    "amb_hum2.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    30.0
+   ],
+   "use": "Гул щитовых, трансформаторов",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHMisc_MachineHum_LOOP_02.ogg"
+   ]
+  },
+  "amb_machine2": {
+   "files": [
+    "amb_machine2.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    32.0
+   ],
+   "use": "Мастерская, насосы",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHMisc_MachineGeneric_LOOP_01.ogg"
+   ]
+  },
+  "amb_machine3": {
+   "files": [
+    "amb_machine3.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    32.0
+   ],
+   "use": "Генератор (позиционный источник)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHMisc_MachineGeneric_LOOP_02.ogg"
+   ]
+  },
+  "amb_room1": {
+   "files": [
+    "amb_room1.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    32.0
+   ],
+   "use": "Тихий тон помещения: кабинеты, жилой блок",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "AMBHome_RoomTone_LOOP_01.ogg"
+   ]
+  },
+  "amb_room2": {
+   "files": [
+    "amb_room2.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    32.0
+   ],
+   "use": "Тихий тон помещения: наблюдательные",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "AMBHome_RoomTone_LOOP_02.ogg"
+   ]
+  },
+  "amb_canteen": {
+   "files": [
+    "amb_canteen.ogg"
+   ],
+   "loop": true,
+   "gain": 0.6,
+   "dur": [
+    32.0
+   ],
+   "use": "Гомон столовой (громкость по числу людей)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "CRWDConv_Restaurant_LOOP_01.ogg"
+   ]
+  },
+  "amb_water": {
+   "files": [
+    "amb_water.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    30.0
+   ],
+   "use": "Вода на кухне, в душевых",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "WATRPlmb_FaucetWaterRun_LOOP_01.ogg"
+   ]
+  },
+  "amb_drip": {
+   "files": [
+    "amb_drip.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    24.0
+   ],
+   "use": "Протечка (высокая влажность, неисправность)",
+   "sources": [
+    "fs_water"
+   ],
+   "orig": [
+    "381202__kaydinhamby__water-trickling.opus"
+   ]
+  },
+  "amb_shaft": {
+   "files": [
+    "amb_shaft.ogg"
+   ],
+   "loop": true,
+   "gain": 0.7,
+   "dur": [
+    30.0
+   ],
+   "use": "Сквозняк и скрип металла: шахты, тоннели уровня 4",
+   "sources": [
+    "fs_wind"
+   ],
+   "orig": [
+    "557188__julien-matthey__jm_natural-elements_wind-01-tornado-inside-a-metalic-squeaking-building.opus"
+   ]
+  },
+  "amb_dread1": {
+   "files": [
+    "amb_dread1.ogg"
+   ],
+   "loop": true,
+   "gain": 0.6,
+   "dur": [
+    32.0
+   ],
+   "use": "Тревожный фон (только состояния «паранойя/угроза» директора хоррора)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DSGNDron_DroneCreepy_OS_01.ogg"
+   ]
+  },
+  "amb_dread2": {
+   "files": [
+    "amb_dread2.ogg"
+   ],
+   "loop": true,
+   "gain": 0.6,
+   "dur": [
+    32.0
+   ],
+   "use": "Тревожный фон, нулевой этаж",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DSGNDron_DroneCreepy_OS_02.ogg"
+   ]
+  },
+  "hvac_on": {
+   "files": [
+    "hvac_on.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    6.185
+   ],
+   "use": "Пуск вентиляции после отключения",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHHvac_HVACOn_OS_01.ogg"
+   ]
+  },
+  "hvac_off": {
+   "files": [
+    "hvac_off.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    3.312
+   ],
+   "use": "Остановка вентиляции",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHHvac_HVACOff_OS_01.ogg"
+   ]
+  },
+  "fan_start": {
+   "files": [
+    "fan_start.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Раскрутка вентилятора",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHFan_FanStart_OS_01.ogg"
+   ]
+  },
+  "fan_off": {
+   "files": [
+    "fan_off.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Остановка вентилятора",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MACHFan_FanOff_OS_01.ogg"
+   ]
+  },
+  "power_down": {
+   "files": [
+    "power_down.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.993
+   ],
+   "use": "Отключение питания сектора",
+   "sources": [
+    "electricity"
+   ],
+   "orig": [
+    "powerdown.opus"
+   ]
+  },
+  "power_up": {
+   "files": [
+    "power_up.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.392
+   ],
+   "use": "Восстановление питания",
+   "sources": [
+    "electricity"
+   ],
+   "orig": [
+    "powerup.opus"
+   ]
+  },
+  "spark": {
+   "files": [
+    "spark.ogg"
+   ],
+   "loop": true,
+   "gain": 0.6,
+   "dur": [
+    0.375
+   ],
+   "use": "Искрение неисправной проводки",
+   "sources": [
+    "electricity"
+   ],
+   "orig": [
+    "crackleelectricityloop.opus"
+   ]
+  },
+  "servo": {
+   "files": [
+    "servo_1.ogg",
+    "servo_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.5,
+    2.5
+   ],
+   "use": "Сервопривод поворотной камеры, манипулятор",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MOTRSrvo_Servo_OS_01.ogg",
+    "MOTRSrvo_Servo_OS_02.ogg"
+   ]
+  },
+  "lever": {
+   "files": [
+    "lever_1.ogg",
+    "lever_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.513,
+    1.112
+   ],
+   "use": "Рубильник, аварийный рычаг",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MECHLvr_LeverPull_OS_01.ogg",
+    "MECHLvr_LeverPull_OS_02.ogg"
+   ]
+  },
+  "switch_on": {
+   "files": [
+    "switch_on.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.226
+   ],
+   "use": "Выключатель",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MECHSwtch_SwitchSmallOn_OS_01.ogg"
+   ]
+  },
+  "switch_off": {
+   "files": [
+    "switch_off.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.312
+   ],
+   "use": "Выключатель",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "MECHSwtch_SwitchSmallOff_OS_01.ogg"
+   ]
+  },
+  "panel_open": {
+   "files": [
+    "panel_open.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.023
+   ],
+   "use": "Электрощит открыт (ремонт)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "METLHndl_ElectricBoxOpen_OS_01.ogg"
+   ]
+  },
+  "valve": {
+   "files": [
+    "valve.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.76
+   ],
+   "use": "Вентиль (сантехника, увлажнение)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "WATRPlmb_ValveTurn_OS_01.ogg"
+   ]
+  },
+  "keyboard": {
+   "files": [
+    "keyboard_1.ogg",
+    "keyboard_2.ogg",
+    "keyboard_3.ogg",
+    "keyboard_4.ogg",
+    "keyboard_5.ogg",
+    "keyboard_6.ogg",
+    "keyboard_7.ogg",
+    "keyboard_8.ogg",
+    "keyboard_9.ogg",
+    "keyboard_10.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.171,
+    0.289,
+    0.065,
+    1.44,
+    0.635,
+    0.295,
+    0.076,
+    0.482,
+    0.349,
+    0.861
+   ],
+   "use": "Печать на клавиатуре терминала (NPC и игрок)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg",
+    "UIClick_KeyboardTyping_OS_01.ogg"
+   ]
+  },
+  "computer": {
+   "files": [
+    "computer_1.ogg",
+    "computer_2.ogg",
+    "computer_3.ogg",
+    "computer_4.ogg"
+   ],
+   "loop": false,
+   "gain": 0.6,
+   "dur": [
+    5.0,
+    5.0,
+    5.0,
+    5.0
+   ],
+   "use": "Сигналы терминалов и приборов",
+   "sources": [
+    "k_scifi"
+   ],
+   "orig": [
+    "computer_noise_000.ogg",
+    "computer_noise_001.ogg",
+    "computer_noise_002.ogg",
+    "computer_noise_003.ogg"
+   ]
+  },
+  "ui_open": {
+   "files": [
+    "ui_open.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.141
+   ],
+   "use": "Интерфейс КПК/терминала: открыть",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIClick_ScifiHightechOpen_OS_01.ogg"
+   ]
+  },
+  "ui_close": {
+   "files": [
+    "ui_close.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.147
+   ],
+   "use": "Интерфейс: закрыть",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIClick_ScifiHightechClose_OS_01.ogg"
+   ]
+  },
+  "ui_notify": {
+   "files": [
+    "ui_notify.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.154
+   ],
+   "use": "Уведомление КПК",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "UIAlert_Notification_OS_01.ogg"
+   ]
+  },
+  "alarm": {
+   "files": [
+    "alarm.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    12.0
+   ],
+   "use": "Сирена тревоги (локдаун, нарушение содержания)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Scifi/siren.opus"
+   ]
+  },
+  "clock": {
+   "files": [
+    "clock.ogg"
+   ],
+   "loop": true,
+   "gain": 0.5,
+   "dur": [
+    2.99
+   ],
+   "use": "Настенные часы в кабинетах",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Ambience/loopable-ticking-clock.opus"
+   ]
+  },
+  "clock_creepy": {
+   "files": [
+    "clock_creepy.ogg"
+   ],
+   "loop": true,
+   "gain": 0.6,
+   "dur": [
+    5.967
+   ],
+   "use": "Часы в камере LF-140 «Сидящий»",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "CLOCKTick_ClockCreepy_OS_01.ogg"
+   ]
+  },
+  "paper": {
+   "files": [
+    "paper_1.ogg",
+    "paper_2.ogg",
+    "paper_3.ogg",
+    "paper_4.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.0,
+    0.685,
+    0.43,
+    0.204
+   ],
+   "use": "Листание документов, чтение",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "PAPRHndl_BookPageTurns_OS_01.ogg",
+    "book_flip_1.ogg",
+    "book_flip_2.ogg",
+    "book_flip_3.ogg"
+   ]
+  },
+  "paper_crumple": {
+   "files": [
+    "paper_crumple.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.6
+   ],
+   "use": "Мятая бумага",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "PAPRHndl_PaperCrumple_OS_01.ogg"
+   ]
+  },
+  "book_open": {
+   "files": [
+    "book_open_1.ogg",
+    "book_open_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.863,
+    0.151
+   ],
+   "use": "Папка/журнал открыт",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "OBJBook_BookOpen_OS_01.ogg",
+    "book_open.ogg"
+   ]
+  },
+  "book_close": {
+   "files": [
+    "book_close_1.ogg",
+    "book_close_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.222,
+    0.231
+   ],
+   "use": "Папка/журнал закрыт",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "OBJBook_BookClose_OS_01.ogg",
+    "book_close.ogg"
+   ]
+  },
+  "cup": {
+   "files": [
+    "cup_1.ogg",
+    "cup_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.729,
+    0.458
+   ],
+   "use": "Посуда в столовой",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "PLASImpt_PlasticCupDrop_OS_01.ogg",
+    "FOODTware_SpoonDrop_OS_01.ogg"
+   ]
+  },
+  "pot": {
+   "files": [
+    "pot_1.ogg",
+    "pot_2.ogg",
+    "pot_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.35,
+    0.837,
+    0.787
+   ],
+   "use": "Кухня: кастрюли, раздача",
+   "sources": [
+    "k_rpg"
+   ],
+   "orig": [
+    "metal_pot_1.ogg",
+    "metal_pot_2.ogg",
+    "metal_pot_3.ogg"
+   ]
+  },
+  "cart": {
+   "files": [
+    "cart.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.762
+   ],
+   "use": "Тележка, перемещение ящиков",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "WOODFric_LargeWoodMetalDrag_OS_01.ogg"
+   ]
+  },
+  "metal_hit": {
+   "files": [
+    "metal_hit_1.ogg",
+    "metal_hit_2.ogg",
+    "metal_hit_3.ogg",
+    "metal_hit_4.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.622,
+    1.137,
+    0.431,
+    0.688
+   ],
+   "use": "Удар металла (инструмент, падение предмета)",
+   "sources": [
+    "k_scifi",
+    "oculus"
+   ],
+   "orig": [
+    "METLImpt_MetalHitSurface_OS_01.ogg",
+    "METLImpt_MetalHitSurface_OS_02.ogg",
+    "impact_metal_000.ogg",
+    "impact_metal_001.ogg"
+   ]
+  },
+  "bucket": {
+   "files": [
+    "bucket.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.745
+   ],
+   "use": "Ведро уборщика",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "METLImpt_BucketDrop_OS_01.ogg"
+   ]
+  },
+  "toolbag": {
+   "files": [
+    "toolbag.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.618
+   ],
+   "use": "Сумка с инструментом техника",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "OBJBag_ToolBagDrop_OS_01.ogg"
+   ]
+  },
+  "keys": {
+   "files": [
+    "keys.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.492
+   ],
+   "use": "Связка ключей",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "OBJKey_KeyDrop_OS_01.ogg"
+   ]
+  },
+  "latch": {
+   "files": [
+    "latch_1.ogg",
+    "latch_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.247,
+    0.418
+   ],
+   "use": "Защёлка шкафа, кобуры, фиксатор",
+   "sources": [
+    "k_rpg"
+   ],
+   "orig": [
+    "metal_latch.ogg",
+    "metal_click.ogg"
+   ]
+  },
+  "flush": {
+   "files": [
+    "flush.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Санузел",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "WATRPlmb_ToiletFlushEuropean_OS_01.ogg"
+   ]
+  },
+  "breath_m": {
+   "files": [
+    "breath_m_1.ogg",
+    "breath_m_2.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    10.0,
+    9.356
+   ],
+   "use": "Дыхание рядом (усталость, бег, страх)",
+   "sources": [
+    "oculus",
+    "owlish"
+   ],
+   "orig": [
+    "Human/breath-male.opus",
+    "HMNBrth_MaleBreathing_OS_01.ogg"
+   ]
+  },
+  "breath_f": {
+   "files": [
+    "breath_f_1.ogg",
+    "breath_f_2.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    10.0,
+    10.0
+   ],
+   "use": "Дыхание (женский персонаж)",
+   "sources": [
+    "oculus",
+    "owlish"
+   ],
+   "orig": [
+    "Human/breath-female.opus",
+    "HMNBrth_FemaleBreathing_OS_01.ogg"
+   ]
+  },
+  "breath_scared": {
+   "files": [
+    "breath_scared.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    12.0
+   ],
+   "use": "Испуганное дыхание игрока",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/scared-breathing.opus"
+   ]
+  },
+  "gasp": {
+   "files": [
+    "gasp.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.031
+   ],
+   "use": "Резкий вдох (испуг)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/freakedbreath.opus"
+   ]
+  },
+  "cough": {
+   "files": [
+    "cough_1.ogg",
+    "cough_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.958,
+    1.101
+   ],
+   "use": "Кашель (болезнь, пыль)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/cough1.opus",
+    "Human/cough2.opus"
+   ]
+  },
+  "sniff": {
+   "files": [
+    "sniff.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.75
+   ],
+   "use": "Шмыганье",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/sniff.opus"
+   ]
+  },
+  "yawn": {
+   "files": [
+    "yawn.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.739
+   ],
+   "use": "Зевота (ночная смена, усталость)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/yawn1.opus"
+   ]
+  },
+  "shh": {
+   "files": [
+    "shh.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.415
+   ],
+   "use": "«Тсс» (наблюдатели у LF-140, LF-145)",
+   "sources": [
+    "owlish"
+   ],
+   "orig": [
+    "Human/shh1.opus"
+   ]
+  },
+  "hurt_m": {
+   "files": [
+    "hurt_m.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.596
+   ],
+   "use": "Травма (мужской голос) — только при реальной травме",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXMale_Male01Hurt_OS_01.ogg"
+   ]
+  },
+  "hurt_f": {
+   "files": [
+    "hurt_f.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.584
+   ],
+   "use": "Травма (женский голос)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXFem_Female01Hurt_OS_01.ogg"
+   ]
+  },
+  "scream_m": {
+   "files": [
+    "scream_m.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.022
+   ],
+   "use": "Крик — только при реальной травме/атаке",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXScrm_MaleScream_OS_01.ogg"
+   ]
+  },
+  "scream_f": {
+   "files": [
+    "scream_f.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.904
+   ],
+   "use": "Крик (женский)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXScrm_FemaleScream_OS_01.ogg"
+   ]
+  },
+  "effort_m": {
+   "files": [
+    "effort_m.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.321
+   ],
+   "use": "Усилие (подъём, рычаг)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXEfrt_Male01Effort_OS_01.ogg"
+   ]
+  },
+  "effort_f": {
+   "files": [
+    "effort_f.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.767
+   ],
+   "use": "Усилие (женский)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXEfrt_Female01Effort_OS_01.ogg"
+   ]
+  },
+  "crea_breath": {
+   "files": [
+    "crea_breath_1.ogg",
+    "crea_breath_2.ogg",
+    "crea_breath_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    3.29,
+    1.972,
+    2.763
+   ],
+   "use": "Дыхание/хрип существа (LF-141, LF-143)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "CREAMnstr_CreatureCreepy_OS_01.ogg",
+    "CREAMnstr_CreatureCreepy_OS_02.ogg",
+    "CREAMnstr_CreatureCreepy_OS_03.ogg"
+   ]
+  },
+  "crea_breath_far": {
+   "files": [
+    "crea_breath_far_1.ogg",
+    "crea_breath_far_2.ogg",
+    "crea_breath_far_3.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    3.874,
+    2.142,
+    2.826
+   ],
+   "use": "То же из глубины камеры/вентиляции",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "CREAMnstr_CreatureCreepyReverb_OS_01.ogg",
+    "CREAMnstr_CreatureCreepyReverb_OS_02.ogg",
+    "CREAMnstr_CreatureCreepyReverb_OS_03.ogg"
+   ]
+  },
+  "scratch": {
+   "files": [
+    "scratch_1.ogg",
+    "scratch_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.438,
+    2.095
+   ],
+   "use": "Когти по металлу/стеклу (LF-143)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "METLFric_ScratchCreepy_OS_01.ogg",
+    "METLFric_ScratchCreepy_OS_02.ogg"
+   ]
+  },
+  "scratch_far": {
+   "files": [
+    "scratch_far_1.ogg",
+    "scratch_far_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    3.001,
+    2.447
+   ],
+   "use": "Скрежет в воздуховоде",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "METLFric_ScratchCreepyReverb_OS_01.ogg",
+    "METLFric_ScratchCreepyReverb_OS_02.ogg"
+   ]
+  },
+  "creak": {
+   "files": [
+    "creak_1.ogg",
+    "creak_2.ogg",
+    "creak_3.ogg",
+    "creak_4.ogg",
+    "creak_5.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    2.5,
+    2.5,
+    0.605,
+    0.805,
+    0.338
+   ],
+   "use": "Скрип суставов (LF-144), кресла (LF-140)",
+   "sources": [
+    "k_rpg",
+    "oculus"
+   ],
+   "orig": [
+    "WOODFric_CreaksCreepy_OS_01.ogg",
+    "WOODFric_CreaksCreepy_OS_02.ogg",
+    "creak_1.ogg",
+    "creak_2.ogg",
+    "creak_3.ogg"
+   ]
+  },
+  "whisper": {
+   "files": [
+    "whisper.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.0
+   ],
+   "use": "Шёпот (только эффекты восприятия, LF-142)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXWhsp_WhispersCreepy_OS_01.ogg"
+   ]
+  },
+  "whisper_far": {
+   "files": [
+    "whisper_far.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    6.222
+   ],
+   "use": "Шёпот издалека (галлюцинации)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXWhsp_WhispersCreepyReverb_OS_01.ogg"
+   ]
+  },
+  "groan_m": {
+   "files": [
+    "groan_m.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    5.184
+   ],
+   "use": "Стон (LF-139 «Длинношеий» в темноте)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXMale_GroanCreepy_OS_01.ogg"
+   ]
+  },
+  "groan_f": {
+   "files": [
+    "groan_f.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    4.052
+   ],
+   "use": "Низкий напев (LF-145 «Тихая мать»)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "VOXFem_GroanCreepy_OS_01.ogg"
+   ]
+  },
+  "chains": {
+   "files": [
+    "chains_1.ogg",
+    "chains_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    3.0,
+    3.0
+   ],
+   "use": "Фиксаторы, цепи в камере",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "CHAINMvmt_ChainsCreepy_OS_01.ogg",
+    "CHAINMvmt_ChainsCreepy_OS_02.ogg"
+   ]
+  },
+  "bone_crack": {
+   "files": [
+    "bone_crack.ogg"
+   ],
+   "loop": false,
+   "gain": 0.55,
+   "dur": [
+    1.051
+   ],
+   "use": "Хруст позвонков при повороте головы (LF-139, LF-146)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "GOREBone_BonesBreaking_OS_01.ogg"
+   ]
+  },
+  "flesh": {
+   "files": [
+    "flesh_1.ogg",
+    "flesh_2.ogg",
+    "flesh_3.ogg",
+    "flesh_4.ogg"
+   ],
+   "loop": false,
+   "gain": 0.6,
+   "dur": [
+    2.173,
+    2.5,
+    2.5,
+    2.5
+   ],
+   "use": "Влажное движение тела (LF-141 «Ползун», щупальца LF-145)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "GORESqsh_BloodSquishSlimy_OS_01.ogg",
+    "GORESqsh_BloodSquishSlimy_OS_02.ogg",
+    "GORESqsh_BloodSquishSlimy_OS_03.ogg",
+    "GORESqsh_BloodSquishSlimy_OS_04.ogg"
+   ]
+  },
+  "skitter": {
+   "files": [
+    "skitter.ogg"
+   ],
+   "loop": true,
+   "gain": 1.0,
+   "dur": [
+    14.0
+   ],
+   "use": "Скребущее перемещение многих конечностей (LF-141 в вентиляции)",
+   "sources": [
+    "fs_critters"
+   ],
+   "orig": [
+    "250540__jhumbucker__critters-creeping.opus"
+   ]
+  },
+  "slime": {
+   "files": [
+    "slime_1.ogg",
+    "slime_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.499,
+    4.71
+   ],
+   "use": "Слизь, отделение потомства (LF-145)",
+   "sources": [
+    "k_scifi"
+   ],
+   "orig": [
+    "slime_000.ogg",
+    "slime_001.ogg"
+   ]
+  },
+  "field_hum": {
+   "files": [
+    "field_hum_1.ogg",
+    "field_hum_2.ogg",
+    "field_hum_3.ogg"
+   ],
+   "loop": false,
+   "gain": 0.5,
+   "dur": [
+    0.772,
+    0.773,
+    0.772
+   ],
+   "use": "Аномальное поле (локальное искажение у LF-146)",
+   "sources": [
+    "k_scifi"
+   ],
+   "orig": [
+    "force_field_000.ogg",
+    "force_field_001.ogg",
+    "force_field_002.ogg"
+   ]
+  },
+  "sting": {
+   "files": [
+    "sting_1.ogg",
+    "sting_2.ogg",
+    "sting_3.ogg"
+   ],
+   "loop": false,
+   "gain": 0.7,
+   "dur": [
+    2.865,
+    2.728,
+    2.404
+   ],
+   "use": "Редкий акцент для реального события (не для ложных скримеров)",
+   "sources": [
+    "oculus"
+   ],
+   "orig": [
+    "DSGNImpt_ImpactCreepyReverb_OS_01.ogg",
+    "DSGNImpt_ImpactCreepyReverb_OS_02.ogg",
+    "DSGNImpt_ImpactCreepyReverb_OS_03.ogg"
+   ]
+  }
+ }
+}

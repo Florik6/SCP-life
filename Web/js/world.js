@@ -358,13 +358,13 @@
       const p = this.player; if (p.dead) return;
       p.health -= amount; p.stunnedUntil = this.realTime + 2.5; p.psy.fear = clamp(p.psy.fear + 40, 0, 100); this.stopCounting('получен удар');
       this.events.post({ time: this.now, type: EV.Injury, roomId: p.roomId, pos: V.copy(p.pos), actor: src, target: 'player', severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: p.roomId, pos: V.copy(p.pos), cause: 'injury' });
+      this.sounds.push({ t: this.now, kind: 'scream', roomId: p.roomId, pos: V.copy(p.pos), cause: 'injury', who: 'player', female: !!p.female });
       if (p.health <= 0) { p.health = 0; p.dead = true; }
     }
     injureNpc(n, amount, src, text, mins) {
       n.needs.health = clamp(n.needs.health - amount, 0, 100); n.needs.stress = clamp(n.needs.stress + 35, 0, 100); n.psy.fear = clamp(n.psy.fear + 50, 0, 100); n.incapUntil = this.now + mins; n.nextThink = 0;
       this.events.post({ time: this.now, type: EV.Injury, roomId: n.agent.roomId, pos: V.copy(n.agent.pos), actor: src, target: n.id, severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: n.agent.roomId, pos: V.copy(n.agent.pos), cause: 'injury' });
+      this.sounds.push({ t: this.now, kind: 'scream', roomId: n.agent.roomId, pos: V.copy(n.agent.pos), cause: 'injury', who: n.id, female: !!n.female });
       this.life.openCase('injury', 'Травма: ' + n.shortName, n.agent.roomId, { cause: 'anomalous', scp: src });
       if (!this.tasks.hasActive('first_aid', n.id)) this.life.assign('first_aid', ['field_medic', 'doctor', 'operative'], { patient: n.id, target: n.id }, 'SCP LIFE', 30, n.agent.roomId);
     }
