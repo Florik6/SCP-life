@@ -85,11 +85,11 @@
       this.owner.lookAt = irrId || near;
     }
     sessionOn(w) {
-      return w.npcs.some(n => n.activity === 'ObservationSession' && n.arrived && !n.agent.hasPath && !n.incap(w.now) && (n.agent.roomId === this.obsRoom || n.agent.roomId === this.owner.containRoom));
+      return w.active.some(n => n.activity === 'ObservationSession' && n.arrived && !n.agent.hasPath && !n.incap(w.now) && (n.agent.roomId === this.obsRoom || n.agent.roomId === this.owner.containRoom));
     }
     countReaders(w) {
       let c = 0;
-      for (const n of w.npcs) if (n.activity === 'CountingProtocol' && n.posture === 'Counting' && n.followId === this.owner.id && !n.incap(w.now) && w.canCount(n.agent.pos, n.agent.roomId, this.owner)) c++;
+      for (const n of w.active) if (n.activity === 'CountingProtocol' && n.posture === 'Counting' && n.followId === this.owner.id && !n.incap(w.now) && w.canCount(n.agent.pos, n.agent.roomId, this.owner)) c++;
       const p = w.player; if (p.counting && p.countTarget === this.owner.id && !p.dead && w.canCount(p.pos, p.roomId, this.owner)) c++;
       return c;
     }
