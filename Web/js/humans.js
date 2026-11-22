@@ -25,7 +25,9 @@
   H.load = function () {
     if (H.loading || H.ready || H.failed) return; H.loading = true;
     if (!T.GLTFLoader || !T.SkeletonUtils) { H.failed = true; return; }
-    new T.GLTFLoader().load(URL, g => { try { prepare(g); H.ready = true; } catch (e) { H.failed = true; console.warn('humans: prepare failed', e); } H.loading = false; }, null, e => { H.failed = true; H.loading = false; console.warn('humans: model not loaded', e); });
+    // GLB (APK, local server); the same model as glTF JSON with an embedded buffer where .glb is not served
+    const ok = g => { try { prepare(g); H.ready = true; } catch (e) { H.failed = true; console.warn('humans: prepare failed', e); } H.loading = false; };
+    new T.GLTFLoader().load(URL, ok, null, () => new T.GLTFLoader().load(URL.replace(/\.glb$/, '.gltf.json'), ok, null, e => { H.failed = true; H.loading = false; console.warn('humans: model not loaded', e); }));
   };
 
   // ------------------------------------------------------------ preparation (once)

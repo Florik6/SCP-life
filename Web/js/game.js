@@ -1008,6 +1008,19 @@
   $('mDossier').addEventListener('click', () => { $('dosText').innerHTML = dossierHtml(null, false); $('dossier').hidden = false; $('menu').hidden = true; });
   $('dosBack').addEventListener('click', () => { $('dossier').hidden = true; showMenu(); });
   $('mSettings').addEventListener('click', () => { UI.refreshSettings(); $('settings').hidden = false; });
+  // credits: every third-party resource with its author and licence (CC BY 4.0 for the Oculus Audio Pack requires it)
+  $('mCredits').addEventListener('click', () => {
+    const base = (window.SCP_ASSET_BASE || 'assets/'), get = f => fetch(base + f).then(r => r.ok ? r.json() : null).catch(() => null);
+    Promise.all([get('audio/sounds.json'), get('models/models.json'), get('textures/textures.json')]).then(([snd, mdl, tex]) => {
+      const L = ['Звуки:'];
+      if (snd) for (const k in snd.sources) { const s = snd.sources[k]; L.push('• «' + s.name + '» — ' + s.author + ', ' + s.license + (s.credit ? '. ' + s.credit : ' (' + s.url + ')')); }
+      L.push('3D-модель и анимации людей:'); if (mdl) for (const k in mdl.models) { const m = mdl.models[k]; L.push('• ' + m.author + ', ' + m.license + ' (' + m.url + ')'); }
+      L.push('Текстуры:'); if (tex) { const t = Object.values(tex.textures)[0]; L.push('• ambientCG.com — ' + Object.keys(tex.textures).join(', ') + ' — ' + (t ? t.license : 'CC0')); }
+      L.push('Движок: three.js r128, GLTFLoader, SkeletonUtils — MIT License, © three.js authors.');
+      L.push('Полный реестр с исходными файлами и местом использования — Docs/ASSETS.md в репозитории.');
+      UI.dialogue('Авторы и лицензии', L);
+    });
+  });
   $('mHelp').addEventListener('click', () => UI.dialogue('Как играть', [
     'Телефон: левая половина экрана — движение, правая — обзор. ИСПОЛЬЗ. — действие (удерживайте для работы: ремонт, осмотр, отметка). КПК — задачи, журнал, карьера, самочувствие, рация, досье. HUD — скрыть интерфейс.',
     'Компьютер: WASD, мышь (клик по экрану), E — действие (удерживать), Shift — бег, F — фонарь, Q — карта, C — протокол счёта, Tab — КПК, H — скрыть интерфейс, Esc — меню.',

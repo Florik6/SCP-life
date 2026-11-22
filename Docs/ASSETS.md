@@ -145,6 +145,7 @@
 | Файл | Что это | Автор | Лицензия | Оригинал | Откуда скачано | Где используется |
 |---|---|---|---|---|---|---|
 | `ual_mannequin.glb` | Скелетный манекен (53 кости) + 27 анимаций: ходьба, деловая ходьба, бег трусцой, спринт, ожидание, разговор, фонарь, пистолет, присед, сидя (вход/ожидание/разговор/выход), печать (Driving_Loop), взаимодействие, подъём предмета, ремонт на коленях, толкание, вздрагивания, падение, оборона, приземление | Quaternius | CC0 1.0 | https://quaternius.itch.io/universal-animation-library | https://github.com/J-Ponzo/gltf-universal-animation-library | Весь персонал и класс D (Web/js/humans.js), силуэты галлюцинаций и меню; гуманоидные аномалии LF-139, LF-142, LF-144, LF-146 |
+| `ual_mannequin.gltf.json` | Та же модель в формате glTF JSON со встроенным буфером (для веб-версии, где .glb не раздаётся) | Quaternius | CC0 1.0 | https://quaternius.itch.io/universal-animation-library | https://github.com/J-Ponzo/gltf-universal-animation-library | Веб-версия (artifact); в APK не входит |
 
 ## Текстуры (PBR)
 

@@ -7,6 +7,14 @@
    "url": "https://quaternius.itch.io/universal-animation-library",
    "mirror": "https://github.com/J-Ponzo/gltf-universal-animation-library",
    "use": "Весь персонал и класс D (Web/js/humans.js), силуэты галлюцинаций и меню; гуманоидные аномалии LF-139, LF-142, LF-144, LF-146"
+  },
+  "ual_mannequin.gltf.json": {
+   "what": "Та же модель в формате glTF JSON со встроенным буфером (для веб-версии, где .glb не раздаётся)",
+   "author": "Quaternius",
+   "license": "CC0 1.0",
+   "url": "https://quaternius.itch.io/universal-animation-library",
+   "mirror": "https://github.com/J-Ponzo/gltf-universal-animation-library",
+   "use": "Веб-версия (artifact); в APK не входит"
   }
  }
 }

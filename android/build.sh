@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Builds dist/SCP-LIFE-<version>.apk: a full-screen WebView app with the offline game in its assets.
+# Builds dist/SCP-LIFE-<version>.apk: a full-screen WebView app with the offline game and its assets (sounds, models,
+# textures) in the APK, served to the WebView from a virtual https origin. Also dist/scp-life-<version>-web.zip.
 # Needs (Ubuntu): apt-get install android-sdk-build-tools android-sdk-platform-23 apksigner dalvik-exchange
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION_NAME=2.0; VERSION_CODE=2
+VERSION_NAME=2.1; VERSION_CODE=3
 SDK=/usr/lib/android-sdk; JAR=$SDK/platforms/android-23/android.jar
 DX=$(command -v dx || echo $SDK/build-tools/debian/dx)
 B=android/build
 rm -rf $B/gen $B/obj $B/assets $B/*.apk $B/classes.dex; mkdir -p $B/gen $B/obj $B/assets dist
 python3 Tools/bundle_web.py $B/assets/index.html ${THREE_JS:-}
-cp $B/assets/index.html dist/scp-life-$VERSION_NAME.html
+(cd $B/assets && rm -f ../../../dist/scp-life-$VERSION_NAME-web.zip && zip -q -r ../../../dist/scp-life-$VERSION_NAME-web.zip index.html assets)
 aapt2 compile --dir android/res -o $B/res.zip
-aapt2 link -o $B/base.apk -I $JAR --manifest android/AndroidManifest.xml -R $B/res.zip -A $B/assets \
+aapt2 link -o $B/base.apk -I $JAR --manifest android/AndroidManifest.xml -R $B/res.zip -A $B/assets -0 ogg -0 jpg -0 glb \
   --min-sdk-version 21 --target-sdk-version 34 --version-code $VERSION_CODE --version-name $VERSION_NAME --java $B/gen
 javac -nowarn -Xlint:-options -source 8 -target 8 -bootclasspath $JAR -classpath $JAR -d $B/obj $(find android/src $B/gen -name '*.java')
 $DX --dex --output=$B/classes.dex $B/obj

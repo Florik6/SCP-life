@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Bundle the browser build (Web/index.html + js/*.js + Three.js r128) into one offline HTML file.
+"""Bundle the browser build (Web/index.html + js/*.js + Three.js r128) into one HTML file and copy Web/assets next to it
+(sounds, models, textures are loaded at run time from assets/...).
 Usage: python3 Tools/bundle_web.py OUT.html [path/to/three.min.js]"""
-import re, sys, os, io, tarfile, urllib.request
+import re, sys, os, io, shutil, tarfile, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 THREE_URL = 'https://registry.npmjs.org/three/-/three-0.128.0.tgz'
@@ -31,7 +32,11 @@ def main():
            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' + body + '\n</body></html>\n')
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     open(out, 'w', encoding='utf-8').write(doc)
-    print('bundle:', out, len(doc) // 1024, 'KB')
+    dst = os.path.join(os.path.dirname(os.path.abspath(out)), 'assets')
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    shutil.copytree(os.path.join(ROOT, 'Web', 'assets'), dst, ignore=shutil.ignore_patterns('*.gltf.json'))  # web-only copy of the GLB
+    print('bundle:', out, len(doc) // 1024, 'KB + assets', sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(dst) for f in fs) // 1024, 'KB')
 
 if __name__ == '__main__':
     main()
