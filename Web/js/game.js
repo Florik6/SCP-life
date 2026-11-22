@@ -45,7 +45,7 @@
       for (const id of ['corrC', 'obs125', 'obs132', 'obs124', 'obs136', 'obs127', 'obs133', 'obs138', 'officesC', 'labC', 'postC', 'obs123', 'obs135', 'obs130', 'obs134', 'obs137', 'obs131', 'genC']) { const v = this.fv.ensure(id); if (v) v.group.visible = true; }
       for (const id in this.fv.doors) { const d = this.fv.doors[id]; if (d.door.roomA === 'corrC' || d.door.roomB === 'corrC') d.group.visible = true; }
       for (let i = 0; i < 5; i++) { const l = new T.PointLight(0xfff2db, 1, 11, 1.6); this.scene.add(l); this.lights.push(l); }
-      const rig = new S.Render.Humanoid({ id: 'menu-fig', role: 'Silhouette', female: false, colorVariant: 0 }, this.fv.m); rig.root.scale.setScalar(1.35); rig.root.position.set(107.5, 0, 0.3); rig.root.rotation.y = -Math.PI / 2; this.scene.add(rig.root); this.fig = rig;
+      if (S.Humans) S.Humans.load(); const rig = new S.Render.Humanoid({ id: 'menu-fig', role: 'Silhouette', female: false, colorVariant: 0 }, this.fv.m); rig.root.scale.setScalar(1.35); rig.root.position.set(107.5, 0, 0.3); rig.root.rotation.y = -Math.PI / 2; this.scene.add(rig.root); this.fig = rig;
       this.resize();
     },
     resize() { if (!this.cam) return; this.cam.aspect = window.innerWidth / Math.max(1, window.innerHeight); this.cam.updateProjectionMatrix(); },
@@ -56,6 +56,7 @@
       this.flick -= dt; if (this.flick < -6 + Math.random() * 3) this.flick = 0.6 + Math.random() * 0.7;
       const dark = this.flick > 0 && (Math.sin(this.t * 41) > 0 || settings.noflash);
       this.lights.forEach((l, i) => { const lx = x + 4 + i * 6.5; l.position.set(lx, 2.8, 0); l.intensity = (dark && i > 0 ? 0.08 : 1) * (lx > 100 ? 0.25 : 1); });
+      if (S.Humans && S.Humans.ready && !this.fig.mixer) { const old = this.fig.root, rig = S.Humans.create({ id: 'menu-fig', role: 'Silhouette' }); rig.root.scale.multiplyScalar(1.3); rig.root.position.copy(old.position); rig.root.rotation.copy(old.rotation); this.scene.remove(old); this.scene.add(rig.root); this.fig = rig; }
       this.fig.root.visible = !dark || Math.random() < 0.3; this.fig.animate(dt, 0, 'Standing', 0, this.t);
       renderer.setViewport(0, 0, window.innerWidth, window.innerHeight); renderer.clear(); renderer.render(this.scene, this.cam);
     }
@@ -734,9 +735,10 @@
     for (const c of w.cams) { const m = S.Render.cameraModel(c, G.fv.m); scene.add(m.group); G.cams.push(m); }
     const p = w.player; P.yaw = p.yaw; P.pitch = p.pitch || 0; P.stamina = 1;
   }
+  function makeRig(npc) { return (S.Humans && S.Humans.create(npc)) || new S.Render.Humanoid(npc, G.fv.m); }
   function npcView(n) {
     let v = G.npcViews[n.id]; if (v) return v;
-    const rig = new S.Render.Humanoid(n, G.fv.m); scene.add(rig.root);
+    const rig = makeRig(n); scene.add(rig.root);
     v = G.npcViews[n.id] = { npc: n, rig, root: rig.root, prev: S.V.copy(n.agent.pos), cur: S.V.copy(n.agent.pos), py: n.agent.yaw, cy: n.agent.yaw, last: S.V.copy(n.agent.pos), sp: 0, step: 0 };
     return v;
   }
@@ -809,7 +811,7 @@
     for (const h of G.hallu) h.keep = false;
     for (const wnt of want) {
       let h = G.hallu.find(x => x.key === wnt.key);
-      if (!h) { const rig = new S.Render.Humanoid({ id: wnt.key, role: wnt.self ? S.Professions.get(w.player.prof).look : 'Silhouette', female: w.player.female, colorVariant: 1 }, G.fv.m); S.Render.setLayer(rig.root, S.Render.HALLU); scene.add(rig.root); h = { key: wnt.key, rig, root: rig.root }; G.hallu.push(h); }
+      if (!h) { const rig = makeRig({ id: wnt.key, role: wnt.self ? S.Professions.get(w.player.prof).look : 'Silhouette', female: w.player.female, colorVariant: 1 }); S.Render.setLayer(rig.root, S.Render.HALLU); scene.add(rig.root); h = { key: wnt.key, rig, root: rig.root }; G.hallu.push(h); }
       h.keep = true; h.root.position.set(wnt.pos.x, wnt.pos.y, wnt.pos.z); h.root.rotation.y = wnt.yaw * D2R; h.rig.animate(0.05, 0, wnt.posture, 0, performance.now() / 1000);
       h.root.visible = S.V.distXZ(wnt.pos, w.player.pos) > 2.2 || wnt.self;
     }
@@ -847,14 +849,23 @@
     for (const n of w.active) {
       if (!G.visible.has(n.agent.roomId) || n.agent.transitT > 0) continue;
       const dist = Math.hypot(n.agent.pos.x - camPos.x, n.agent.pos.z - camPos.z); if (dist > 40 || Math.abs(n.agent.pos.y - w.player.pos.y) > 3 || rigs >= maxRigs) continue;
-      rigs++; const v = npcView(n);
+      rigs++; let v = npcView(n);
+      if (S.Humans && S.Humans.ready && !v.rig.mixer) { scene.remove(v.root); delete G.npcViews[n.id]; v = npcView(n); }
       const x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
       v.root.position.set(x, n.agent.pos.y, z); v.root.rotation.y = yaw * D2R; v.root.visible = true;
       const moved = Math.hypot(x - v.last.x, z - v.last.z); v.last = { x, y: 0, z }; v.sp += (Math.min(3, dt > 0 ? moved / dt : 0) - v.sp) * Math.min(1, dt * 10);
       const posture = n.agent.moving ? 'Standing' : n.posture; let look = 0, target = null;
       if (n.conv) { const o = w.npc(n.conv); if (o) target = o.agent.pos; } else if (dist < 3.5 && !G.cctv && ['Lying', 'Down', 'Counting'].indexOf(posture) < 0) target = w.player.pos;
       if (target) look = S.deltaAngle(yaw, Math.atan2(target.x - x, target.z - z) / D2R);
-      v.rig.animate(dt, v.sp, posture, look, t);
+      if (v.rig.mixer) {
+        const poi = n.reservedPoi && w.fac.poi(n.reservedPoi), atPoi = poi && Math.hypot(poi.pos.x - n.agent.pos.x, poi.pos.z - n.agent.pos.z) < 1.0;
+        v.rig.gait = v.gait || 0; v.rig.lod = dist < 8 ? 0 : dist < 18 ? 1 : 2;
+        const fear = n.psy ? n.psy.fear : 0; if (v.lastFear != null && fear - v.lastFear > 12 && dist < 25) v.rig.react(fear > 70 ? 'flinch' : 'surprise'); v.lastFear = fear;
+        if (n.agent.waitingDoor && n.agent.waitingDoor !== v.lastDoor) v.rig.react('door'); v.lastDoor = n.agent.waitingDoor;
+        const tgtY = target ? (target === w.player.pos ? target.y + 1.6 : target.y + 1.55) : 0, lp = target ? -Math.atan2(tgtY - (n.agent.pos.y + 1.55), Math.max(0.5, Math.hypot(target.x - x, target.z - z))) / D2R : 0;
+        v.rig.animate(dt, v.sp, posture, look, t, { talking: !!n.conv, typing: atPoi && /Desk|Console|Terminal/.test(poi.type) && posture === 'Sitting', repair: n.activity === 'Maintenance' || n.activity === 'RepairDoor' || (atPoi && poi.type === 'Panel'),
+          torch: w.clock.night && (n.role === 'Guard') && n.activity === 'Patrol', alert: w.alert && w.alert.level >= 2, stress: S.clamp((fear - 30) / 70, 0, 1), tired: n.psy && n.psy.fatigue > 75, lookPitch: lp, seatH: 0.47 });
+      } else v.rig.animate(dt, v.sp, posture, look, t);
       v.drawPos = { x, y: n.agent.pos.y, z };
     }
     npcSounds(dt, t);
@@ -950,7 +961,7 @@
     G.cctv = false; G.playing = true; G.hudHidden = false; $('hud').hidden = false; UI.syncTouch(); $('pSpeed').textContent = 'СКОРОСТЬ ВРЕМЕНИ: ×1';
     world.horror.settings.intensity = Math.max(0.3, settings.fx);
   }
-  function expose() { window.__scp = G; G.P = P; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
+  function expose() { window.__scp = G; G.P = P; G.scene = scene; G.camera = camera; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
   function loadGame() {
     A.start();
     for (const k of [SAVE_KEY, BAK_KEY]) { const s = store.get(k); if (!s) continue; try { begin(S.World.load(s)); UI.msg('Сохранение загружено: ' + S.fmtStamp(G.world.now), '#fff'); return true; } catch (e) { console.warn('save unreadable', e); } }

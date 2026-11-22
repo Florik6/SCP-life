@@ -1,0 +1,12 @@
+{
+ "models": {
+  "ual_mannequin.glb": {
+   "what": "Скелетный манекен (53 кости) + 27 анимаций: ходьба, деловая ходьба, бег трусцой, спринт, ожидание, разговор, фонарь, пистолет, присед, сидя (вход/ожидание/разговор/выход), печать (Driving_Loop), взаимодействие, подъём предмета, ремонт на коленях, толкание, вздрагивания, падение, оборона, приземление",
+   "author": "Quaternius",
+   "license": "CC0 1.0",
+   "url": "https://quaternius.itch.io/universal-animation-library",
+   "mirror": "https://github.com/J-Ponzo/gltf-universal-animation-library",
+   "use": "Весь персонал и класс D (Web/js/humans.js), силуэты галлюцинаций и меню; гуманоидные аномалии LF-139, LF-142, LF-144, LF-146"
+  }
+ }
+}
