@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Compile-only check of the Unity layer without the Unity Editor.
+    Stubs/ contains hand-written declarations of the Unity APIs this project uses (same
+    signatures as Unity 6 / 2022.3). They are NOT shipped and NOT executed; they only let the
+    C# compiler verify syntax and type usage of Assets/ScpLife/Scripts/Runtime and Editor.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>$(DefineConstants);SCP_URP;UNITY_EDITOR</DefineConstants>
+    <NoWarn>CS0067;CS0169;CS0414;CS0649;CS8019</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Stubs/**/*.cs" />
+    <Compile Include="../../Assets/ScpLife/Scripts/Core/**/*.cs" />
+    <Compile Include="../../Assets/ScpLife/Scripts/Runtime/**/*.cs" />
+    <Compile Include="../../Assets/ScpLife/Scripts/Editor/**/*.cs" />
+  </ItemGroup>
+</Project>

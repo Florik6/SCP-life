@@ -1,0 +1,17 @@
+{
+    "name": "ScpLife.Runtime",
+    "rootNamespace": "ScpLife.Runtime",
+    "references": [
+        "ScpLife.Core",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
