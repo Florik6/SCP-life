@@ -84,8 +84,10 @@
   // ------------------------------------------------------------------ player movement and collision
   const P = { yaw: 180, pitch: 0, stamina: 1, bob: 0, step: 0, shake: 0, current: null, rayT: 0 };
   function collide(x, z, y) {
-    const blockers = G.fv.doorBlockers(y);
+    const blockers = G.fv.doorBlockers(y), bodies = G.world ? G.world.bodiesNear(x, z, y, P.bodies || (P.bodies = [])) : [];
     for (let pass = 0; pass < 3; pass++) {
+      // people are solid too: the player slides around them instead of walking through
+      for (const b of bodies) { const dx = x - b.pos.x, dz = z - b.pos.z, R = RADIUS + b.radius - 0.04, d2 = dx * dx + dz * dz; if (d2 < R * R && d2 > 1e-8) { const d = Math.sqrt(d2); x += dx / d * (R - d); z += dz / d * (R - d); } }
       const near = G.fv.nearColliders(x, z, y); for (const b of blockers) near.add(b);
       for (const c of near) {
         const cx = Math.max(c.x0, Math.min(x, c.x1)), cz = Math.max(c.z0, Math.min(z, c.z1)), dx = x - cx, dz = z - cz, d2 = dx * dx + dz * dz;
@@ -780,7 +782,7 @@
     for (const c of G.cams) scene.remove(c.group);
     for (const k in (G.cardMeshes || {})) scene.remove(G.cardMeshes[k]);
     for (const h of G.hallu) scene.remove(h.root);
-    const w = G.world; S.Render.setQuality && S.Render.setQuality(settings.quality); G.fv = new S.Render.FacilityView(w, scene); G.npcViews = {}; G.anomViews = []; G.cams = []; G.cardMeshes = {}; G.hallu = [];
+    const w = G.world; S.Render.setQuality && S.Render.setQuality(settings.quality); G.fv = new S.Render.FacilityView(w, scene); if (w.setNavColliders) w.setNavColliders(G.fv.colliders); G.npcViews = {}; G.anomViews = []; G.cams = []; G.cardMeshes = {}; G.hallu = [];
     for (const a of w.anomalies) { const v = a.model === 'tallyman' ? new S.Render.TallymanView(a, G.fv.m, w, G.fv) : S.Creatures && S.Creatures.MAP[a.model] ? S.Creatures.create(a, w) : new S.Render.AnomalyView(a, G.fv.m, w, G.fv); v.a = a; if (v.fixed) scene.add(v.fixed); Object.assign(v, { prev: S.V.copy(a.agent.pos), cur: S.V.copy(a.agent.pos), py: a.agent.yaw, cy: a.agent.yaw, last: S.V.copy(a.agent.pos) }); scene.add(v.root); G.anomViews.push(v); }
     for (const c of w.cams) { const m = S.Render.cameraModel(c, G.fv.m); scene.add(m.group); G.cams.push(m); }
     const p = w.player; P.yaw = p.yaw; P.pitch = p.pitch || 0; P.stamina = 1;

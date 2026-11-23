@@ -213,7 +213,13 @@
     else setDestination(w, n, p.poi, p.specificPoi);
   }
 
-  function goTo(w, n, goal, yaw) {
+  // a free standing place in the room (rooms hold as many standing people as they have places)
+  function spotGoal(w, n, room, near) {
+    const s = room ? w.claimSpot(n.id, room, near) : null;
+    return s ? { goal: s.hub, spot: s } : { goal: room && room.hubNodes.length ? room.hubNodes[w.rng.int(0, room.hubNodes.length)] : -1, spot: null };
+  }
+  function goTo(w, n, goal, yaw, spot) {
+    if (!spot) w.releaseSpot(n.id);
     if (goal < 0) { n.agent.clear(); n.arrived = true; return false; }
     const card = w.card(n.cardId);
     const path = w.planPath(n.agent.pos, n.agent.roomId, goal, (d, f) => card && card.holder === n.id ? w.canPlanThrough(d, f, card) : d.passable, card ? card.id : 'none');
@@ -223,15 +229,29 @@
       else if (n.job && n.blockedCount > 2) failJob(w, n, 'нет прохода в «' + w.roomName(n.targetRoom) + '»');
       return false;
     }
-    n.agent.setPath(path); n.agent.arriveYaw = yaw; n.arrived = false; return true;
+    n.agent.setPath(path); n.agent.final = spot ? { x: spot.x, z: spot.z } : null; n.agent.arriveYaw = yaw; n.arrived = false; return true;
+  }
+  // the route jammed: try again (the jammed passage now costs extra); still stuck → give the goal up for a while
+  function replan(w, n) {
+    if (n.job) { jobDestination(w, n); return; }
+    if (n.activity === 'Escorted' || n.queue) return;
+    const rp = w.fac.poi(n.reservedPoi); setDestination(w, n, rp ? rp.type : 'Stand', n.reservedPoi);
+  }
+  function onStuck(w, n) {
+    if (n.queue) leaveQueue(w, n); w.releaseSpot(n.id); const rp = n.reservedPoi; releasePoi(w, n); n.agent.clear(); n.arrived = true; n.blockedRetry = 2 + w.rng.range(0, 3); n.stuckGoals = (n.stuckGoals || 0) + 1;
+    if (n.stuckGoals % 3 === 1) n.say(n.role === 'DClass' ? 'Да тут не протолкнуться…' : 'Не пройти. Подожду.', w.now);
+    if (n.job && n.stuckGoals > 4) { n.stuckGoals = 0; failJob(w, n, 'не удалось пройти через толпу'); }
+    else if (rp && n.stuckGoals > 1) n.avoidPoi = rp;
   }
   function setDestination(w, n, poiType, specific) {
-    let goal = -1, yaw = null; const room = w.fac.room(n.targetRoom);
+    let goal = -1, yaw = null, spot = null; const room = w.fac.room(n.targetRoom);
     switch (n.activity) {
       case 'CountingProtocol': { const a = w.anomaly(n.followId); if (!a) break; const mine = w.fac.room(n.agent.roomId); const tr = mine && mine.canSeeInto(a.agent.roomId) ? mine.id : a.agent.roomId; goal = nearestNodeTowards(w, tr, a.agent.pos, n.agent.pos, 6); break; }
       case 'RetrieveCard': { const c = w.card(n.followId); if (!c || c.holder) break; goal = w.fac.nearestNode(c.pos, c.room); break; }
       case 'Escorted': { const e = escortOf(w, n.followId); if (!e) break; goal = w.fac.nearestNode(e.pos, e.roomId); break; }
-      case 'Leave': case 'Arrive': case 'Lost': case 'Respond': case 'Compelled': { if (room) goal = room.hubNodes[w.rng.int(0, room.hubNodes.length)]; if (n.activity === 'Arrive' && room) { const poi = reservePoi(w, n, room, workPoiType(n), null); if (poi) { goal = poi.node; yaw = poi.yaw; } } break; }
+      case 'Leave': case 'Arrive': case 'Lost': case 'Respond': case 'Compelled': {
+        if (n.activity === 'Arrive' && room) { const poi = reservePoi(w, n, room, workPoiType(n), null); if (poi) { goal = poi.node; yaw = poi.yaw; break; } }
+        if (room) { const sg = spotGoal(w, n, room, n.activity === 'Respond' || n.activity === 'Compelled' ? null : n.agent.pos); goal = sg.goal; spot = sg.spot; } break; }
       case 'Eat': {
         if (!room) break; const counter = room.pois.find(p => p.type === 'FoodCounter');
         if (counter && !n.hadTray) { joinQueue(w, n, counter); const spot = queueSpot(w, counter, n); goal = w.fac.nearestNode(spot, room.id); n.queueTarget = spot; break; }
@@ -239,27 +259,28 @@
       // falls through
       default: {
         if (!room) break; const poi = reservePoi(w, n, room, poiType, specific);
-        if (poi) { goal = poi.node; yaw = poi.yaw; } else if (room.hubNodes.length) goal = room.hubNodes[w.rng.int(0, room.hubNodes.length)];
+        if (poi) { goal = poi.node; yaw = poi.yaw; } else { const sg = spotGoal(w, n, room, null); goal = sg.goal; spot = sg.spot; }
       }
     }
-    goTo(w, n, goal, yaw);
+    goTo(w, n, goal, yaw, spot);
   }
   const workPoiType = n => ({ science: 'Desk', security: 'GuardPost', admin: 'Console', engineering: 'Workbench', medical: 'Desk', mtf: 'Seat', service: 'Workbench' })[n.dept] || 'Stand';
   function jobDestination(w, n) {
     const t = n.job, s = t.steps[t.si]; if (!s) { n.arrived = true; return; }
-    n.targetRoom = s.room; n.label = t.title + ': ' + s.label; let goal = -1, yaw = null; const room = w.fac.room(s.room); if (!room) { failJob(w, n, 'нет помещения'); return; }
-    if (s.pickup || s.release) { const o = w.npc(s.pickup || s.release); if (s.pickup && o) { goal = w.fac.nearestNode(o.agent.pos, o.agent.roomId); n.targetRoom = o.agent.roomId; } else goal = room.hubNodes[0]; }
+    n.targetRoom = s.room; n.label = t.title + ': ' + s.label; let goal = -1, yaw = null, spot = null; const room = w.fac.room(s.room); if (!room) { failJob(w, n, 'нет помещения'); return; }
+    const free = near => { const sg = spotGoal(w, n, room, near); goal = sg.goal; spot = sg.spot; };
+    if (s.pickup || s.release) { const o = w.npc(s.pickup || s.release); if (s.pickup && o) { goal = w.fac.nearestNode(o.agent.pos, o.agent.roomId); n.targetRoom = o.agent.roomId; } else free(null); }
     else if (s.pos) goal = w.fac.nearestNode(s.pos, s.room);
-    else if (s.poi) { const p = w.fac.poi(s.poi); if (p && (!p.reservedBy || p.reservedBy === n.id)) { p.reservedBy = n.id; n.reservedPoi = p.id; goal = p.node; yaw = p.yaw; } else goal = room.hubNodes[0]; }
-    else if (s.poiType) { const p = reservePoi(w, n, room, s.poiType, null); if (p) { goal = p.node; yaw = p.yaw; } else goal = room.hubNodes[w.rng.int(0, room.hubNodes.length)]; }
-    else goal = room.hubNodes[w.rng.int(0, room.hubNodes.length)];
+    else if (s.poi) { const p = w.fac.poi(s.poi); if (p && (!p.reservedBy || p.reservedBy === n.id)) { p.reservedBy = n.id; n.reservedPoi = p.id; goal = p.node; yaw = p.yaw; } else free(p ? p.pos : null); }
+    else if (s.poiType) { const p = reservePoi(w, n, room, s.poiType, null); if (p) { goal = p.node; yaw = p.yaw; } else free(null); }
+    else free(null);
     // a technician with an old fear does not enter containment areas without a guard nearby
     if (n.fears && n.fears.any > 0.6 && (room.type === 'Containment' || room.type === 'Observation') && !guardIn(w, s.room)) {
       if (!n.waitingEscort) { n.waitingEscort = true; n.say('Без охраны туда не пойду. Пусть пришлют кого-нибудь.', w.now); w.life && w.life.requestEscort(n, s.room); }
       n.agent.clear(); n.arrived = true; n.blockedRetry = 10; n.label = 'Ждёт охрану: ' + w.roomName(s.room); return;
     }
     n.waitingEscort = false;
-    goTo(w, n, goal, yaw);
+    goTo(w, n, goal, yaw, spot);
   }
   function guardIn(w, roomId) { for (const o of w.active) if ((o.dept === 'security' || o.dept === 'mtf') && !o.incap(w.now) && (o.agent.roomId === roomId || o.targetRoom === roomId)) return true; return false; }
   function nearestNodeTowards(w, roomId, target, from, keep) {
@@ -273,7 +294,7 @@
     if (!chosen && type) {
       const cands = [];
       for (const p of room.pois) {
-        if (p.type !== type || (p.reservedBy && p.reservedBy !== n.id)) continue;
+        if (p.type !== type || (p.reservedBy && p.reservedBy !== n.id) || (p.id === n.avoidPoi && room.pois.length > 1)) continue;
         if (p.owners && p.owners.indexOf(n.id) < 0) continue;
         if (p.owners) { chosen = p; break; } cands.push(p);
       }
@@ -287,16 +308,24 @@
   // ------------------------------------------------------------------ queues (food counters)
   function joinQueue(w, n, poi) { const q = w.queues[poi.id] || (w.queues[poi.id] = []); if (q.indexOf(n.id) < 0) q.push(n.id); n.queue = poi.id; }
   function leaveQueue(w, n) { if (!n.queue) return; const q = w.queues[n.queue]; if (q) { const i = q.indexOf(n.id); if (i >= 0) q.splice(i, 1); } n.queue = null; n.queueT = 0; }
+  // a single-file line of up to QLINE people from the counter; the rest wait at free standing places in the room
+  const QLINE = 7;
   function queueSpot(w, poi, n) {
-    const q = w.queues[poi.id] || [], k = Math.max(0, q.indexOf(n.id)), back = V.dirFromYaw(poi.yaw + 180), side = { x: -back.z, z: back.x };
-    const room = w.fac.room(poi.roomId), row = Math.floor(k / 7), col = k % 7, dist = 0.9 + col * 0.75;
-    const p = V.v(poi.pos.x + back.x * dist + side.x * row * 0.8, poi.pos.y, poi.pos.z + back.z * dist + side.z * row * 0.8);
+    const q = w.queues[poi.id] || [], k = Math.max(0, q.indexOf(n.id)), room = w.fac.room(poi.roomId);
+    if (k >= QLINE) {
+      let s = w._spotOf && w._spotOf[n.id]; if (!s || s.room !== room.id) s = w.claimSpot(n.id, room, poi.pos);
+      if (s) return V.v(s.x, poi.pos.y, s.z);
+    } else w.releaseSpot(n.id);
+    const back = V.dirFromYaw(poi.yaw + 180), dist = 0.9 + Math.min(k, QLINE - 1) * 0.75;
+    const p = V.v(poi.pos.x + back.x * dist, poi.pos.y, poi.pos.z + back.z * dist);
     p.x = clamp(p.x, room.minX + 0.5, room.maxX - 0.5); p.z = clamp(p.z, room.minZ + 0.5, room.maxZ - 0.5); return p;
   }
   function tickQueue(w, n, dt) {
     const poi = w.fac.poi(n.queue); if (!poi) { leaveQueue(w, n); return; }
     const q = w.queues[poi.id] || [], k = q.indexOf(n.id), spot = queueSpot(w, poi, n);
-    if (V.distXZ(spot, n.agent.pos) > 0.15) { const dx = spot.x - n.agent.pos.x, dz = spot.z - n.agent.pos.z, d = Math.sqrt(dx * dx + dz * dz), stp = Math.min(d, 1.1 * dt); n.agent.pos.x += dx / d * stp; n.agent.pos.z += dz / d * stp; n.agent.moving = true; } else n.agent.moving = false;
+    // not in the room yet (the walk there was interrupted): walk in first, never through the wall
+    if (n.agent.roomId !== poi.roomId) { n.queueT = (n.queueT || 0) - dt; if (n.queueT < -1.5) { n.queueT = 0; goTo(w, n, w.fac.nearestNode(spot, poi.roomId), null); } return; }
+    n.agent.crowd = true; n.agent.moving = !w.stepTowards(n.agent, spot.x, spot.z, 0.15, 1.1, dt, w.roomBounds(n.agent, w.fac.room(poi.roomId)));
     w.faceTowards(n.agent, poi.pos, dt); n.posture = 'Standing';
     if (k === 0) {
       const served = w.active.some(o => o.prof === 'cook' && o.agent.roomId === poi.roomId && o.arrived) || n.role === 'DClass' || poi.roomId !== 'canteen';
@@ -314,6 +343,8 @@
       n.posture = 'Standing';
       if (st === 'Arrived') onArrived(w, n);
       else if (st === 'Blocked') onBlocked(w, n);
+      else if (st === 'Replan') replan(w, n);
+      else if (st === 'Stuck') onStuck(w, n);
       else if (st === 'Waiting' && n.agent.blocked > 1.2 && n.agent.blocked < 1.2 + dt + 0.01) n.say(n.role === 'DClass' ? 'Можно пройти, начальник?' : 'Разрешите пройти.', now);
       if (n.activity === 'CountingProtocol') updateCounting(w, n, dt);
       if (n.activity === 'Escorted') followEscort(w, n, dt);
@@ -401,7 +432,7 @@
     } else { if (n.agent.hasPath && V.distXZ(e.pos, n.agent.pos) < 1.4) n.agent.clear(); w.faceTowards(n.agent, e.pos, dt); n.posture = 'Standing'; }
   }
   function lostWander(w, n, dt, gm) {
-    n.dwell += gm; if (n.dwell > 2 && !n.agent.hasPath) { n.dwell = 0; const r = w.fac.room(n.agent.roomId); if (r) goTo(w, n, r.hubNodes[w.rng.int(0, r.hubNodes.length)], null); if (w.rng.chance(0.2)) n.say(w.rng.pick(['Эй! Есть кто-нибудь?', 'Где номер этажа?..', 'Лифт… где лифт?']), w.now); }
+    n.dwell += gm; if (n.dwell > 2 && !n.agent.hasPath) { n.dwell = 0; const r = w.fac.room(n.agent.roomId); if (r) { const sg = spotGoal(w, n, r, null); goTo(w, n, sg.goal, null, sg.spot); } if (w.rng.chance(0.2)) n.say(w.rng.pick(['Эй! Есть кто-нибудь?', 'Где номер этажа?..', 'Лифт… где лифт?']), w.now); }
     n.psy.fear = clamp(n.psy.fear + gm * 0.5, 0, 100);
     if (w.now - n.missingAt > (n.missingFor || 40)) w.returnFromNullFloor(n);
   }

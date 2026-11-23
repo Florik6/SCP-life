@@ -184,7 +184,7 @@
     }
   }
 
-  function findPath(fac, start, goal, canUseDoor) {
+  function findPath(fac, start, goal, canUseDoor, edgeCost) {
     const g = fac.graph, n = g.nodes.length;
     if (start < 0 || goal < 0 || start >= n || goal >= n) return null; if (start === goal) return [start];
     const gs = new Float64Array(n).fill(Infinity), came = new Int32Array(n).fill(-1), closed = new Uint8Array(n), open = [];
@@ -199,7 +199,7 @@
       for (const e of g.edges[cur]) {
         if (closed[e.to]) continue; let extra = 0;
         if (e.doorId) { const d = fac.doors[e.doorId]; if (d.outOfService) continue; if (canUseDoor && !canUseDoor(d, g.nodes[cur].roomId)) continue; if (!d.passable) extra = d.kind === 'Heavy' ? 6 : 1.5; }
-        const t = gs[cur] + e.cost + extra;
+        const t = gs[cur] + e.cost + extra + (edgeCost ? edgeCost(cur, e.to) : 0);
         if (t < gs[e.to]) { gs[e.to] = t; came[e.to] = cur; push(t + h(e.to) * 0.8, e.to); }
       }
     }
@@ -240,10 +240,14 @@
     RetrieveCard: 'Ищет ключ-карту', Task: 'Задание', Sick: 'На больничном', Offsite: 'Вне сектора', Meeting: 'Совещание', Escorted: 'Под конвоем', Escort: 'Конвой'
   };
   class NavAgent {
-    constructor() { this.pos = V.v(0, 0, 0); this.yaw = 0; this.roomId = null; this.path = []; this.pi = 0; this.speed = 1.3; this.wait = 0; this.blocked = 0; this.waitingDoor = null; this.doorCd = 0; this.arriveYaw = null; this.moving = false; this.lane = 0; this.side = 0; this.sideT = 0; this.transitT = 0; this.stuckT = 0; this.stuckN = 0; this.lastProg = null; this.ghostT = 0; this.dir = { x: 0, z: 0 }; this.needReplan = false; }
-    get hasPath() { return this.pi < this.path.length; }
-    setPath(p) { this.path = p ? p.slice() : []; this.pi = 0; this.waitingDoor = null; this.wait = 0; this.blocked = 0; this.transitT = 0; }
-    clear() { this.path = []; this.pi = 0; this.waitingDoor = null; this.moving = false; this.transitT = 0; }
+    constructor() { this.pos = V.v(0, 0, 0); this.yaw = 0; this.roomId = null; this.path = []; this.pi = 0; this.speed = 1.3; this.wait = 0; this.blocked = 0; this.waitingDoor = null; this.doorCd = 0; this.arriveYaw = null; this.moving = false; this.lane = 0; this.side = 0; this.sideT = 0; this.transitT = 0; this.stuckT = 0; this.stuckN = 0; this.lastProg = null; this.ghostT = 0; this.dir = { x: 0, z: 0 };
+      // crowd navigation: body radius, actual velocity, free end point after the path, doorway gate, stepping aside, watchdog
+      this.radius = 0.28; this.vx = 0; this.vz = 0; this.final = null; this.anchored = false; this.gate = null; this.nudge = null; this.want = null; this.yawGoal = null; this.crowd = false; this.stT = 0; this.stP = null; this.sideBias = 1;
+    }
+    get hasPath() { return this.pi < this.path.length || !!this.final; }     // still navigating (path nodes or the free end point)
+    get hasNodes() { return this.pi < this.path.length; }
+    setPath(p) { this.path = p ? p.slice() : []; this.pi = 0; this.waitingDoor = null; this.wait = 0; this.blocked = 0; this.transitT = 0; this.final = null; this.nudge = null; }
+    clear() { this.path = []; this.pi = 0; this.waitingDoor = null; this.moving = false; this.transitT = 0; this.final = null; this.vx = 0; this.vz = 0; }
     save() { return { p: [this.pos.x, this.pos.y, this.pos.z], y: this.yaw, r: this.roomId }; }
     load(o) { if (!o) return; this.pos = V.v(o.p[0], o.p[1], o.p[2]); this.yaw = o.y; this.roomId = o.r; this.clear(); }
   }
@@ -255,7 +259,7 @@
   class Npc {
     constructor(o) {
       Object.assign(this, o);
-      this.schedule = new Schedule(); this.agent = new NavAgent(); this.needs = { hunger: 20, energy: 80, social: 60, stress: 10, health: 100 };
+      this.schedule = new Schedule(); this.agent = new NavAgent(); if (o.dept === 'mtf') this.agent.radius = 0.33; this.needs = { hunger: 20, energy: 80, social: 60, stress: 10, health: 100 };
       this.psy = { fatigue: 10, fear: 0, focus: 1, exposure: 0, resilience: (o.traits && o.traits.bravery != null) ? 0.4 + o.traits.bravery * 0.5 : 0.6 };
       this.memory = new Memory(o.tier === 'abstract' ? 16 : 30); this.rel = {}; this.history = []; this.fears = {}; this.perceptions = [];
       this.activity = 'Idle'; this.label = ''; this.targetRoom = null; this.reservedPoi = null; this.actStart = 0; this.actUntil = 0; this.route = []; this.routeIndex = 0;
