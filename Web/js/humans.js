@@ -291,6 +291,7 @@
       for (const k of ['uaL', 'uaR']) this.b[k].scale.set(limb, 1, limb);
       for (const n of ['DEF-thigh.L', 'DEF-thigh.R']) { const bb = bone(n); if (bb) bb.scale.set(female ? 0.86 : 0.9, 1, female ? 0.86 : 0.9); }
       for (const n of ['DEF-hand.L', 'DEF-hand.R']) { const bb = bone(n); if (bb) bb.scale.setScalar(1 / limb * (female ? 0.86 : 0.92)); }
+      this.hands = { R: bone('DEF-hand.R'), L: bone('DEF-hand.L') };
       this.b.head.scale.setScalar(cu.head || 0.96 + r() * 0.08);
       if (cu.armLen) for (const n of ['DEF-upper_arm.L', 'DEF-upper_arm.R', 'DEF-forearm.L', 'DEF-forearm.R']) { const bb = bone(n); if (bb) bb.scale.y = cu.armLen; }
       this.lids = !sil && !cu.noFace && !cu.bigEyes && !cu.noBlink;
@@ -357,7 +358,7 @@
       let wIdle = 0, wWalk = 0, wJog = 0, wSprint = 0, wCrouchF = 0, st = 'idle';
       if (posture === 'Cowering' && !moving) st = 'cower'; else if (posture === 'Sitting' && !moving) st = opt.typing ? 'type' : opt.talking ? 'sittalk' : 'sit'; else if (posture === 'Lying' && !moving) st = 'lie';
       else if (posture === 'Down' && !moving) st = 'down'; else if (posture === 'Working' && !moving) st = opt.repair ? 'repair' : 'work'; else if (moving) st = opt.crouch ? 'crouchwalk' : 'move';
-      else if (opt.talking) st = 'talk'; else if (opt.torch) st = 'torch'; else if (opt.alert && (this.role === 'Guard' || this.role === 'MTF')) st = 'alert';
+      else if (opt.aim) st = 'aim'; else if (opt.talking) st = 'talk'; else if (opt.torch) st = 'torch'; else if (opt.alert && (this.role === 'Guard' || this.role === 'MTF')) st = 'alert';
       this.state = st;
       const walkClip = this.formal ? 'Walk_Formal_Loop' : 'Walk_Loop';
       if (st === 'move') { wWalk = S.clamp(1 - (sp - 1.6) / 0.9, 0, 1); wJog = sp > 1.6 ? S.clamp((sp - 1.6) / 0.9, 0, 1) * S.clamp(1 - (sp - 3.0) / 0.8, 0, 1) : 0; wSprint = sp > 3.0 ? S.clamp((sp - 3.0) / 0.8, 0, 1) : 0; if (sp < 0.5) { wIdle = 1 - sp / 0.5; wWalk *= sp / 0.5; } }
@@ -369,9 +370,10 @@
       }
       if (walkClip !== 'Walk_Loop') this.setW('Walk_Loop', 0, 1); else this.setW('Walk_Formal_Loop', 0, 1);
       const idleN = st === 'alert' ? 'Pistol_Idle_Loop' : st === 'torch' ? 'Idle_Torch_Loop' : st === 'talk' ? 'Idle_Talking_Loop' : 'Idle_Loop';
-      const targets = { Idle_Loop: 0, Idle_Talking_Loop: 0, Idle_Torch_Loop: 0, Pistol_Idle_Loop: 0, Sitting_Idle_Loop: 0, Sitting_Talking_Loop: 0, Driving_Loop: 0, Crouch_Idle_Loop: 0, Fixing_Kneeling: 0, Interact: 0, Death01: 0 };
+      const targets = { Idle_Loop: 0, Idle_Talking_Loop: 0, Idle_Torch_Loop: 0, Pistol_Idle_Loop: 0, Sitting_Idle_Loop: 0, Sitting_Talking_Loop: 0, Driving_Loop: 0, Crouch_Idle_Loop: 0, Fixing_Kneeling: 0, Interact: 0, Death01: 0, Pistol_Aim_Neutral: 0 };
       if (st === 'move') targets[idleN] = wIdle; else if (st === 'idle' || st === 'talk' || st === 'torch' || st === 'alert' || st === 'lie') targets[idleN] = 1;
       if (st === 'sit') targets.Sitting_Idle_Loop = 1; if (st === 'sittalk') targets.Sitting_Talking_Loop = 1; if (st === 'type') targets.Driving_Loop = 1;
+      if (st === 'aim') { targets.Pistol_Aim_Neutral = 1; const a = this.acts.Pistol_Aim_Neutral; if (a) { a.timeScale = 0; a.time = Math.min(H.clips.Pistol_Aim_Neutral.duration * 0.5, H.clips.Pistol_Aim_Neutral.duration - 0.01); } }
       if (st === 'cower') targets.Crouch_Idle_Loop = 1; if (st === 'repair') targets.Fixing_Kneeling = 1; if (st === 'down') targets.Death01 = 1;
       if (st === 'work') { targets.Idle_Loop = 0.45; targets.Interact = 0.55; }
       // loop the work clips

@@ -21,6 +21,7 @@
         const ms = S.Med.state(w, n); n.label = ms === 'unconscious' ? 'Без сознания' : n.admitted ? 'На лечении' : 'Ранен' + n.G('', 'а') + ', не может идти';
         n.posture = n.admitted ? 'Lying' : 'Down'; return;
       }
+      if (n.combat && !remote && S.Arms.npcTick(w, n, dt)) { n.nextThink -= dt; return; }
       perceive(w, n, dt);
       n.nextThink -= dt;
       if (n.nextThink <= 0) { n.nextThink = THINK * (0.75 + w.rng.next() * 0.5) * (remote ? 1.5 : 1); think(w, n); }
@@ -109,6 +110,10 @@
     const now = w.now, fac = w.fac, P = S.People;
     if (n.escortedBy) { const e = escortOf(w, n.escortedBy); if (e) { const p = plan('Escorted', e.roomId, 'Stand', 'Под конвоем: ' + e.name); p.targetId = n.escortedBy; return p; } n.escortedBy = null; n.followId = null; }
     if (n.missing) { const p = plan('Lost', n.agent.roomId, 'Stand', 'Заблудился'); return p; }
+    if (n.surrenderUntil > now) return plan('Confined', n.agent.roomId, 'Stand', 'Сдался охране');
+    if (n.detainedUntil > now && !n.escortedBy) { const r = w.fac.room(n.agent.roomId); if (r && (r.type === 'Detention' || r.id === 'detHall')) return plan('Confined', r.id, 'CellBunk', 'Временное задержание'); }
+    // armed response or an MTF operation outranks routine (the arms module set the target)
+    if (n.combat) { const t = S.Arms.A(w).threats[n.combat.threat], m = n.mtfOp && S.Arms.MTF.S(w).op; const room = m && m.status === 'mustering' ? n.targetRoom : t ? t.room : n.targetRoom; if (room) return plan('Respond', room, 'Stand', n.label || 'Реагирование'); }
     const vis = visibleBreached(w, n);
     if (vis && vis.temper === 'aggressive') {
       const canCount = n.protocol && n.role !== 'DClass' && n.traits.bravery >= 0.3 && n.needs.health > 35 && vis.tm;

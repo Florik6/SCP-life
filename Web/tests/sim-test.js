@@ -1,6 +1,6 @@
 // Headless checks of the SCP LIFE 2.0 simulation (node Web/tests/sim-test.js)
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'arms', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP;
 let failures = 0;

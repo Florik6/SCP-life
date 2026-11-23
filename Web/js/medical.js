@@ -71,6 +71,7 @@
     if (P) { x.stunnedUntil = w.realTime + (ko ? 4 : 2.5); w.stopCounting('получен удар'); } else x.nextThink = 0;
     const pos = posOf(w, x), roomId = roomOf(w, x), st = hp <= 0 ? 'dead' : state(w, x);
     x.lastHarm = { k: kind, src: src || null, t: now };
+    if (src && S.Arms && (src === 'player' || w.npc(src))) S.Arms.attacked(w, src, x.id, kind);
     w.events.post({ time: now, type: EV.Injury, roomId, pos: V.copy(pos), actor: src || null, target: x.id, severity: st === 'minor' ? 1 : 2, pub: P, text: (text ? text + ' ' : '') + '(' + K.name + ', ' + STATE[st] + ')' });
     if (kind !== 'psych') { w.sounds.push({ t: now, kind: ko || st === 'dead' ? 'bodyfall' : 'scream', roomId, pos: V.copy(pos), cause: 'injury', who: x.id, female: !!x.female }); w.makeNoise('scream', pos, roomId, 1, x.id); }
     if (hp <= 0) { die(w, id, kind, src, text); return 'dead'; }

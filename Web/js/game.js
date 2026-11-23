@@ -99,6 +99,22 @@
     }
     return [x, z];
   }
+  // ---- the player's weapon: draw / holster, switch, reload, fire (automatic weapons while held), recoil
+  const RECOIL = { pistol: 1.7, carbine: 0.9, smg: 0.6, shotgun: 4.2, taser: 0.4, baton: 0 };
+  function weaponInput(w, p, stunned) {
+    const k = S.Arms.kit(w, p); if (!k.weapons.length) return;
+    if (Input.weapon) { if (k.drawn) S.Arms.holster(w, p); else { S.Arms.draw(w, p); UI.msg(S.Arms.W[k.cur].name + (S.Arms.W[k.cur].lethal ? '. Огонь — только по подтверждённой угрозе.' : ''), '#e8d77a'); } }
+    ['w1', 'w2', 'w3'].forEach((t, i) => { if (Input[t] && k.weapons[i]) S.Arms.draw(w, p, k.weapons[i]); });
+    if (Input.reload && k.drawn && S.Arms.reload(w, p)) G.fp && G.fp.reload(k.reloadUntil - w.realTime);
+    const wp = S.Arms.W[k.cur], auto = k.cur === 'carbine' || k.cur === 'smg';
+    if (!k.drawn || stunned || G.hold || !(Input.fire || (auto && Input.fireHeld))) return;
+    const dir = new T.Vector3(); camera.getWorldDirection(dir); const cp = camera.position, far = { x: cp.x + dir.x * 60, y: cp.y + dir.y * 60, z: cp.z + dir.z * 60 };
+    const r = S.Arms.fire(w, 'player', wp.melee ? (G.aimedId || far) : far);
+    if (r === 'empty') { UI.msg('Магазин пуст — перезарядка: R / кнопка', '#ff9a59'); return; }
+    if (!r) return;
+    G.fp && G.fp.fired(k.cur); const kick = RECOIL[k.cur] || 1; P.pitch = S.clamp(P.pitch + kick * (0.7 + Math.random() * 0.3), -80, 80); P.yaw += (Math.random() - 0.5) * kick * 0.4; if (!settings.shake) P.shake = Math.max(P.shake, kick * 0.02);
+    if (!r.justified) UI.msg('Применение оружия без оснований зафиксировано. Начато служебное расследование.', '#ff6a5c');
+  }
   function updatePlayer(dt, gameplay) {
     const w = G.world, p = w.player, stunned = w.realTime < p.stunnedUntil;
     if (stunned) P.shake = 0.25; P.shake = Math.max(0, P.shake - dt * 0.15);
@@ -114,6 +130,7 @@
       p.pos = { x: nx, y: p.pos.y, z: nz }; moved = Math.hypot(nx - ox, nz - oz); p.moving = moved > 0.01;
       if (p.counting && (mv.x * mv.x + mv.y * mv.y) > 0.3) w.stopCounting('вы сдвинулись с места');
       if (Input.flash) { p.flashlight = !p.flashlight; A.play('click'); }
+      weaponInput(w, p, stunned);
       if (Input.card && p.cards.length) { p.sel = (p.sel + 1) % p.cards.length; const c = w.card(p.selectedCardId()); if (c) UI.msg('Выбрана карта: L' + c.level + ' · ' + c.ownerName, '#fff'); }
       if (Input.count) toggleCounting();
       P.rayT -= dt; if (P.rayT <= 0) { P.rayT = 0.1; P.current = pickInteractable(); }
@@ -271,14 +288,15 @@
   window.addEventListener('keydown', e => {
     if (e.target && e.target.tagName === 'INPUT') return;
     Input.keys.add(e.code);
-    const map = { KeyE: 'use', KeyF: 'flash', KeyQ: 'card', KeyC: 'count', Escape: 'pause', Tab: 'pda', KeyH: 'hud' };
+    const map = { KeyE: 'use', KeyF: 'flash', KeyQ: 'card', KeyC: 'count', Escape: 'pause', Tab: 'pda', KeyH: 'hud', KeyG: 'weapon', KeyR: 'reload', Digit1: 'w1', Digit2: 'w2', Digit3: 'w3' };
     if (map[e.code] && !e.repeat) { Input.taps[map[e.code]] = true; if (e.code === 'Tab') e.preventDefault(); }
     A.start();
   });
   window.addEventListener('keyup', e => Input.keys.delete(e.code));
   const canvasEl = renderer.domElement; let mouseDrag = false;
   canvasEl.addEventListener('mousedown', () => { A.start(); if (!G.playing || settings.touch) return; mouseDrag = true; try { const r = canvasEl.requestPointerLock && canvasEl.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* drag to look */ } });
-  window.addEventListener('mouseup', () => { mouseDrag = false; });
+  window.addEventListener('mouseup', () => { mouseDrag = false; Input.fireHeld = false; });
+  canvasEl.addEventListener('mousedown', e => { if (e.button === 0 && G.playing && !settings.touch && G.world && G.world.player.kit && G.world.player.kit.drawn && document.pointerLockElement === canvasEl) { Input.taps.fire = true; Input.fireHeld = true; } });
   window.addEventListener('mousemove', e => { if (!G.playing || settings.touch) return; if (document.pointerLockElement === canvasEl || mouseDrag) { Input.lookAcc.x += e.movementX * 0.12; Input.lookAcc.y += e.movementY * 0.12; } });
   // Touch controls: left zone = movement stick, right zone = look. Robust on Android WebView:
   // - a new finger always takes over its zone (a lost "up" event can never lock the control);
@@ -301,7 +319,9 @@
   window.addEventListener('pointerup', e => { endStick(e); endLook(e); }, true); window.addEventListener('pointercancel', e => { endStick(e); endLook(e); }, true);
   window.addEventListener('blur', () => { endStick(); endLook(); }); document.addEventListener('visibilitychange', () => { if (document.hidden) { endStick(); endLook(); } });
   const tap = (id, name) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); A.start(); Input.taps[name] = true; $(id).classList.add('on'); setTimeout(() => $(id).classList.remove('on'), 140); });
-  tap('bUse', 'use'); tap('bLight', 'flash'); tap('bCard', 'card'); tap('bCount', 'count');
+  tap('bUse', 'use'); tap('bLight', 'flash'); tap('bCard', 'card'); tap('bCount', 'count'); tap('bWeapon', 'weapon'); tap('bReload', 'reload');
+  $('bFire').addEventListener('pointerdown', e => { e.preventDefault(); A.start(); Input.taps.fire = true; Input.fireHeld = true; $('bFire').classList.add('on'); });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave']) $('bFire').addEventListener(t, () => { Input.fireHeld = false; $('bFire').classList.remove('on'); });
   $('bUse').addEventListener('pointerup', () => { if (G.hold) cancelHold(); });
   $('bRun').addEventListener('pointerdown', e => { e.preventDefault(); Input.touchRun = !Input.touchRun; $('bRun').classList.toggle('on', Input.touchRun); });
   $('bMenu').addEventListener('click', () => { Input.taps.pause = true; });
@@ -314,7 +334,7 @@
     mx += Input.stick.x; my += Input.stick.y; const l = Math.hypot(mx, my); if (l > 1) { mx /= l; my /= l; }
     Input.move = { x: mx, y: my }; Input.look = { x: Input.lookAcc.x, y: Input.lookAcc.y }; Input.lookAcc = { x: 0, y: 0 };
     Input.run = k.has('ShiftLeft') || k.has('ShiftRight') || Input.touchRun;
-    for (const n of ['use', 'flash', 'card', 'count', 'pause', 'pda', 'hud']) { Input[n] = !!Input.taps[n]; Input.taps[n] = false; }
+    for (const n of ['use', 'flash', 'card', 'count', 'pause', 'pda', 'hud', 'weapon', 'reload', 'fire', 'w1', 'w2', 'w3']) { Input[n] = !!Input.taps[n]; Input.taps[n] = false; }
     if (G.hold && !settings.touch && !k.has('KeyE')) cancelHold();
   }
 
@@ -384,6 +404,11 @@
     $('bCard').firstChild.innerHTML = 'КАРТА<br>' + (c ? 'L' + c.level : '—');
     if (!G.hold) $('prompt').textContent = gameplay && P.current ? promptFor(P.current) : '';
     $('counting').textContent = p.counting ? 'ПРОТОКОЛ СЧЁТА: ' + S.numWords(Math.floor(p.countSec / 1.2) % 100 + 1) + '… — не двигайтесь' : fx.compulsion ? 'Вам кажется важным: ' + fx.compulsion.toLowerCase() : '';
+    // weapon buttons and the ammunition counter
+    { const k = p.kit || (S.Arms ? S.Arms.kit(w, p) : null), has = k && k.weapons.length && !p.dead, wp = has && S.Arms.W[k.cur];
+      $('bWeapon').hidden = !has; $('bFire').hidden = !(has && k.drawn); $('bReload').hidden = !(has && k.drawn && wp && !wp.melee);
+      if (has) $('bWeapon').firstChild.textContent = k.drawn ? 'УБРАТЬ' : 'ОРУЖИЕ';
+      const am = $('ammo'); am.hidden = !has; if (has) am.innerHTML = (k.drawn ? '' : '<span class="dim">в кобуре · G</span> ') + wp.short + (wp.melee ? '' : ' <b>' + k.ammo[k.cur] + '</b> / ' + (k.spare[k.cur] * (wp.perShell ? 1 : wp.mag))) + (k.reloadUntil > w.realTime ? ' · перезарядка' : '') + (k.withdrawn ? ' · огнестрельное изъято' : ''); }
     const can = !p.dead && countable(); $('bCount').hidden = !(can || p.counting); $('bCount').firstChild.textContent = p.counting ? 'СТОП' : 'СЧЁТ';
     hudT -= dt;
     if (hudT <= 0) {
@@ -486,6 +511,12 @@
       if (s.kind === 'knock') { A.play('knock_metal', s.pos, 0.85, { occ, range: 26 }); if (Math.random() < 0.5) A.play('knock_metal', s.pos, 0.6, { occ, range: 26, delay: 0.35 + Math.random() * 0.3 }); }
       else if (s.kind === 'breaker') { A.play('lever', s.pos, 0.7, { occ }); A.play('power_down', s.pos, 0.5, { occ, range: 30, delay: 0.25 }); }
       else if (s.kind === 'scream') { const self = s.who === 'player'; A.play(self ? (s.female ? 'hurt_f' : 'hurt_m') : (s.female ? 'scream_f' : 'scream_m'), self ? null : s.pos, 0.9, { occ: self ? 0 : occ, range: 40, dry: self }); }
+      else if (s.kind === 'gunshot') { const self = s.who === 'player', snd = s.weapon === 'taser' ? 'spark' : 'gun_' + s.weapon; A.play(snd, self ? null : s.pos, s.weapon === 'taser' ? 0.6 : 1, { occ: self ? 0 : occ * 0.7, range: s.weapon === 'taser' ? 10 : 90, dry: self, dur: s.weapon === 'taser' ? 0.45 : undefined }); }
+      else if (s.kind === 'reload') { const self = s.who === 'player', at = self ? null : s.pos; A.play('latch', at, 0.55, { occ, range: 10, delay: 0.25 }); A.play('lever', at, 0.5, { occ, range: 10, delay: Math.max(0.5, (s.dur || 2) * 0.8) }); }
+      else if (s.kind === 'draw' || s.kind === 'holster') { const at = s.who === 'player' ? null : s.pos; A.play('cloth', at, 0.45, { occ, range: 8 }); A.play('latch', at, 0.3, { occ, range: 8, delay: 0.18 }); }
+      else if (s.kind === 'dryfire') A.play('latch', s.who === 'player' ? null : s.pos, 0.4, { occ, range: 6, rate: 1.8 });
+      else if (s.kind === 'swing') A.play('cloth', s.who === 'player' ? null : s.pos, 0.6, { occ, range: 8, rate: 1.5 });
+      else if (s.kind === 'bodyfall') A.play(A.man && A.man.stumble ? 'stumble' : 'metal_hit', s.pos, 0.7, { occ, range: 16 });
       else if (s.kind && A.man && A.man[s.kind]) A.play(s.kind, s.pos, s.vol || 0.7, { occ, range: s.range || 22 });
     }
     const fx = w.horror.fx;
@@ -999,12 +1030,20 @@
         const fear = n.psy ? n.psy.fear : 0; if (v.lastFear != null && fear - v.lastFear > 12 && dist < 25) v.rig.react(fear > 70 ? 'flinch' : 'surprise'); v.lastFear = fear;
         if (n.agent.waitingDoor && n.agent.waitingDoor !== v.lastDoor) v.rig.react('door'); v.lastDoor = n.agent.waitingDoor;
         const tgtY = target ? (target === w.player.pos ? target.y + 1.6 : target.y + 1.55) : 0, lp = target ? -Math.atan2(tgtY - (n.agent.pos.y + 1.55), Math.max(0.5, Math.hypot(target.x - x, target.z - z))) / D2R : 0;
-        v.rig.animate(dt, v.sp, posture, look, t, { deathPose: n.deathPose, since: n.dead ? (w.now - n.deathAt) / w.clock.minPerSec : 0, carried: !!n.carriedBy, bedH: n.carriedBy ? 0.75 : undefined, talking: !!n.conv, typing: atPoi && /Desk|Console|Terminal/.test(poi.type) && posture === 'Sitting', repair: n.activity === 'Maintenance' || n.activity === 'RepairDoor' || (atPoi && poi.type === 'Panel'),
+        if (S.ArmsView && n.kit) S.ArmsView.npcWeapon(scene, v, n.kit);
+        v.rig.animate(dt, v.sp, posture, look, t, { aim: !!(n.combat && n.kit && n.kit.drawn && !n.agent.moving), deathPose: n.deathPose, since: n.dead ? (w.now - n.deathAt) / w.clock.minPerSec : 0, carried: !!n.carriedBy, bedH: n.carriedBy ? 0.75 : undefined, talking: !!n.conv, typing: atPoi && /Desk|Console|Terminal/.test(poi.type) && posture === 'Sitting', repair: n.activity === 'Maintenance' || n.activity === 'RepairDoor' || (atPoi && poi.type === 'Panel'),
           torch: w.clock.night && (n.role === 'Guard') && n.activity === 'Patrol', alert: w.alert && w.alert.level >= 2, stress: S.clamp((fear - 30) / 70, 0, 1), tired: n.psy && n.psy.fatigue > 75, lookPitch: lp, seatH: 0.47 });
       } else v.rig.animate(dt, v.sp, posture, look, t);
       v.drawPos = { x, y: n.agent.pos.y, z };
     }
     gore(w, dt);
+    if (S.ArmsView) {
+      if (!G.fp) { G.fp = new S.ArmsView.FirstPerson(camera, scene); G.fxv = new S.ArmsView.Effects(scene); }
+      G.fp.update(dt, w.player.dead ? null : w.player.kit, w.player.moving, Input.look.x, Input.look.y, P.gait);
+      G.fxv.update(dt, (w.arms && w.arms.fx) || [], settings.gore, w.realTime);
+      G.aimT = (G.aimT || 0) - dt; if (G.aimT <= 0 && w.player.kit && w.player.kit.drawn) { G.aimT = 0.2; const d = new T.Vector3(); camera.getWorldDirection(d); const r = S.Arms.trace(w, { x: camera.position.x, y: camera.position.y, z: camera.position.z }, { x: d.x, y: d.y, z: d.z }, 25, 'player'); G.aimedId = r.id; }
+      S.Arms.playerTick(w, dt, w.player.kit && w.player.kit.drawn ? G.aimedId : null);
+    }
     npcSounds(dt, t);
     for (const v of G.anomViews) {
       const a = v.a, x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
@@ -1111,7 +1150,7 @@
     G.cctv = false; G.playing = true; G.hudHidden = false; $('hud').hidden = false; UI.syncTouch(); $('pSpeed').textContent = 'СКОРОСТЬ ВРЕМЕНИ: ×1';
     world.horror.settings.intensity = Math.max(0.3, settings.fx);
   }
-  function expose() { window.__scp = G; G.P = P; G.scene = scene; G.camera = camera; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
+  function expose() { window.__scp = G; G.P = P; G.Input = Input; G.scene = scene; G.camera = camera; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
   function loadGame() {
     A.start();
     for (const k of [SAVE_KEY, BAK_KEY]) { const s = store.get(k); if (!s) continue; try { begin(S.World.load(s)); UI.msg('Сохранение загружено: ' + S.fmtStamp(G.world.now), '#fff'); return true; } catch (e) { console.warn('save unreadable', e); } }

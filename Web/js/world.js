@@ -82,7 +82,7 @@
       { const p = this.player, b = this.playerBody(), l = this._ppos; if (b) { b.vx = l ? (p.pos.x - l.x) / dt : 0; b.vz = l ? (p.pos.z - l.z) / dt : 0; if (b.vx * b.vx + b.vz * b.vz > 36) b.vx = b.vz = 0; } this._ppos = { x: p.pos.x, z: p.pos.z }; }
       this.tickDoors(dt);
       this.infra.tick(dt);
-      for (const a of this.anomalies) a.tick(this, dt, gm);
+      for (const a of this.anomalies) if (!a.carriedBy) a.tick(this, dt, gm);   // a subdued object is being taken back by the MTF
       for (let i = 0; i < this.active.length; i++) {
         const n = this.active[i];
         if (this.isRemote(n.agent.roomId)) {
@@ -97,6 +97,7 @@
       }
       this.resolveCrowd(dt);
       S.Med.tick(this, dt, gm);
+      S.Arms.tick(this, dt);
       this._abs += dt; if (this._abs >= ABSTRACT_STEP) { S.People.tickAbstract(this, this._abs * this.clock.minPerSec); this._abs = 0; }
       this._sync -= dt; if (this._sync <= 0) { this._sync = 3; S.People.sync(this); }
       this.tickCameras(dt);
@@ -856,7 +857,7 @@
         npcs: this.npcs.map(n => World.packNpc(n.save(), tbl)), strings: tbl.list, anomalies: this.anomalies.map(a => a.save()),
         cams: this.cams.map(c => ({ id: c.id, op: c.operational, ph: c.phase })), camLog: this.camLog.slice(-200), alert: this.alert.save(),
         tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, taskDone: this.tasks.done, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
-        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null, med: S.Med.save(this)
+        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null, med: S.Med.save(this), arms: S.Arms.save(this)
       });
     }
     static load(json) {
@@ -883,7 +884,7 @@
       }
       w.queues = o.queues || {};
       if (w.ai && o.ai) w.ai.load(o.ai);
-      S.Med.load(w, o.med); w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
+      S.Med.load(w, o.med); S.Arms.load(w, o.arms); w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
       w.lockEpoch++;
       return w;
     }

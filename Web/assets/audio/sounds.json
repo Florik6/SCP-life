@@ -63,6 +63,13 @@
    "url": "https://kenney.nl/assets/sci-fi-sounds",
    "mirror": "https://github.com/Boyquotes/kenney-sci-fi-sounds-for-godot",
    "license": "CC0 1.0"
+  },
+  "firearms": {
+   "name": "The Free Firearm Sound Library",
+   "author": "Sound Library contributors (OpenGameArt)",
+   "url": "https://opengameart.org/content/the-free-firearm-sound-library",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "license": "CC0 1.0"
   }
  },
  "sounds": {
@@ -2353,6 +2360,80 @@
     "DSGNImpt_ImpactCreepyReverb_OS_01.ogg",
     "DSGNImpt_ImpactCreepyReverb_OS_02.ogg",
     "DSGNImpt_ImpactCreepyReverb_OS_03.ogg"
+   ]
+  },
+  "gun_pistol": {
+   "files": [
+    "gun_pistol_1.ogg",
+    "gun_pistol_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    0.9,
+    0.9
+   ],
+   "use": "Выстрел служебного пистолета (Walther PPQ, 9 мм)",
+   "sources": [
+    "firearms"
+   ],
+   "orig": [
+    "X_39P.wav",
+    "X_31P.wav"
+   ]
+  },
+  "gun_carbine": {
+   "files": [
+    "gun_carbine_1.ogg",
+    "gun_carbine_2.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.1,
+    1.1
+   ],
+   "use": "Выстрел карабина (AR-15, 5,56 мм)",
+   "sources": [
+    "firearms"
+   ],
+   "orig": [
+    "D_32P.wav",
+    "D_24P.wav"
+   ]
+  },
+  "gun_smg": {
+   "files": [
+    "gun_smg_1.ogg"
+   ],
+   "loop": false,
+   "gain": 0.95,
+   "dur": [
+    0.75
+   ],
+   "use": "Выстрел пистолета-пулемёта (Carl Gustav M45, 9 мм)",
+   "sources": [
+    "firearms"
+   ],
+   "orig": [
+    "G_20P.wav"
+   ]
+  },
+  "gun_shotgun": {
+   "files": [
+    "gun_shotgun_1.ogg"
+   ],
+   "loop": false,
+   "gain": 1.0,
+   "dur": [
+    1.3
+   ],
+   "use": "Выстрел ружья (Mossberg, 12 калибр)",
+   "sources": [
+    "firearms"
+   ],
+   "orig": [
+    "N_26P.wav"
    ]
   }
  }

@@ -16,3 +16,5 @@ RPG Audio — Kenney (kenney.nl) — CC0 1.0 — https://kenney.nl/assets/rpg-au
   mirror: https://github.com/Boyquotes/kenney-rpg-audio-for-godot
 Sci-fi Sounds — Kenney (kenney.nl) — CC0 1.0 — https://kenney.nl/assets/sci-fi-sounds
   mirror: https://github.com/Boyquotes/kenney-sci-fi-sounds-for-godot
+
+The Free Firearm Sound Library (CC0 1.0) — https://opengameart.org/content/the-free-firearm-sound-library — gunshots: Walther PPQ, AR-15, Carl Gustav M45, Mossberg (first shot cut, normalised, re-encoded).

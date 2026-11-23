@@ -15,6 +15,38 @@
    "url": "https://quaternius.itch.io/universal-animation-library",
    "mirror": "https://github.com/J-Ponzo/gltf-universal-animation-library",
    "use": "Веб-версия (artifact); в APK не входит"
+  },
+  "weapons/pistol.glb": {
+   "what": "Пистолет (компактный), риг: затвор, магазин, спуск, ствол (исходный файл Pistol_Compact_West.glb)",
+   "author": "Pitchblende (OpenGameArt)",
+   "license": "CC0 1.0",
+   "url": "https://opengameart.org/content/cc0-flat-guns-west",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Служебный пистолет охраны"
+  },
+  "weapons/carbine.glb": {
+   "what": "Карабин, риг: магазин, затвор, рукоять взведения, приклад (исходный файл Rifle_Assault_West.glb)",
+   "author": "Pitchblende (OpenGameArt)",
+   "license": "CC0 1.0",
+   "url": "https://opengameart.org/content/cc0-flat-guns-west",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Карабин назначенных сотрудников охраны и оперативников МОГ"
+  },
+  "weapons/smg.glb": {
+   "what": "Пистолет-пулемёт, риг: магазин, затвор, приклад (исходный файл SMG_Compact_West.glb)",
+   "author": "Pitchblende (OpenGameArt)",
+   "license": "CC0 1.0",
+   "url": "https://opengameart.org/content/cc0-flat-guns-west",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Оружие оперативников МОГ в тесных помещениях"
+  },
+  "weapons/shotgun.glb": {
+   "what": "Помповое ружьё, риг: цевьё, патрон, подаватель (исходный файл Shotgun_Pump_West.glb)",
+   "author": "Pitchblende (OpenGameArt)",
+   "license": "CC0 1.0",
+   "url": "https://opengameart.org/content/cc0-flat-guns-west",
+   "mirror": "https://github.com/petroulacl/fps-asset-kit",
+   "use": "Оружие МОГ для работы с биологическими объектами"
   }
  }
 }

@@ -18,7 +18,7 @@ const server = http.createServer((q, r) => {
   // three.js r128 comes from the CDN; offline it is served from the copy the APK build caches (Tools/bundle_web.py)
   const local3 = [process.env.THREE_JS, path.join(ROOT, '..', 'android', 'build', 'three-0.128.0.min.js'), '/tmp/threejs/package/build/three.min.js'].find(f => f && fs.existsSync(f));
   if (local3) await page.route(/three\.js\/r128\/three\.min\.js/, r => r.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(local3) }));
-  const errors = []; page.on('pageerror', e => errors.push('pageerror: ' + e.message)); page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const errors = []; page.on('pageerror', e => errors.push('pageerror: ' + e.message + ' @ ' + String(e.stack || '').split('\n').slice(1, 3).join(' | '))); page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.goto('http://localhost:' + port + '/index.html');
   try { await page.waitForSelector('#mNew', { state: 'visible', timeout: 30000 }); } catch (e) { console.log('меню не появилось:\n' + errors.join('\n')); await page.screenshot({ path: path.join(OUT, 'crisis-boot.png') }); throw e; }
   await page.click('#mNew'); await page.waitForTimeout(300); await page.click('#roleList button.pc[data-prof="' + (process.env.PROF || 'guard') + '"]'); await page.waitForTimeout(200); await page.click('#rNext'); await page.waitForTimeout(300); await page.click('#cStart');
@@ -50,6 +50,20 @@ const server = http.createServer((q, r) => {
       await page.waitForTimeout(3500); await page.screenshot({ path: path.join(OUT, 'death-' + cause + '-b.png') });
       report.push('гибель: ' + who);
     }
+  }
+  // weapon: draw with the key, fire through the real input path, screenshot the first-person weapon and the impacts
+  if (process.env.WEAPON) {
+    await page.keyboard.press('KeyG'); await page.waitForTimeout(900);
+    await page.screenshot({ path: path.join(OUT, 'weapon-drawn.png') });
+    for (let i = 0; i < 3; i++) { await page.evaluate(() => { window.__scp.Input.taps.fire = true; }); await page.waitForTimeout(80); if (i === 0) await page.screenshot({ path: path.join(OUT, 'weapon-fire.png') }); await page.waitForTimeout(420); }
+    await page.waitForTimeout(300); await page.screenshot({ path: path.join(OUT, 'weapon-after.png') });
+    const st = await page.evaluate(() => { const w = window.__scp.world, k = w.player.kit; return { cur: k && k.cur, drawn: k && k.drawn, ammo: k && k.ammo[k.cur], shots: k && k.shots, fx: (w.arms && w.arms.fx || []).length, lib: Object.keys(window.SCP.ArmsView.M.lib) }; });
+    report.push('оружие: ' + JSON.stringify(st));
+    // a breach: guards draw and respond
+    await page.evaluate(() => { const w = window.__scp.world, a = w.anomaly('SCP-LF-141'); a.contained = false; a.breached = true; });
+    await page.waitForTimeout(6000);
+    const resp = await page.evaluate(() => { const w = window.__scp.world; return w.active.filter(n => n.combat).map(n => n.displayName + (n.kit && n.kit.drawn ? ' [' + n.kit.cur + ']' : '')).slice(0, 8); });
+    report.push('реагирование: ' + resp.join(', '));
   }
   const sim = await page.evaluate(() => { const w = window.__scp.world; return { active: w.active.length, rooms: w.fac.roomList.length, t: w.now.toFixed(1) }; });
   console.log(report.join('\n')); console.log('мир:', JSON.stringify(sim));

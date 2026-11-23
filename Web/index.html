@@ -175,6 +175,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 .aiset .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .aiset .btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .aiset .btns button { background: #151b1e; border: 1px solid var(--line); padding: 6px 10px; font-weight: 600; }
 .aiset .note { color: #8d968f; font-size: 12px; }
+#ammo{position:absolute;right:calc(18px*var(--hud,1));bottom:calc(150px*var(--hud,1));font:600 calc(15px*var(--hud,1))/1.2 system-ui,sans-serif;color:#e8e3d0;background:rgba(10,12,14,.55);padding:6px 10px;border-left:3px solid #c9a227;letter-spacing:.04em;pointer-events:none}
+#ammo b{font-size:1.25em;color:#fff}#ammo .dim{color:#9a9a90;font-weight:400}
+.tb.fire{background:rgba(140,20,16,.55);border-color:#d0463c}
 </style>
 
 <div id="game"></div>
@@ -185,6 +188,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
   <div id="taskbox" class="corner opt"></div>
   <div id="feed"></div>
   <div id="cross"></div>
+  <div id="ammo" hidden></div>
   <div id="prompt"></div>
   <div id="hold" hidden><i></i></div>
   <div id="counting"></div>
@@ -203,6 +207,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
     <button class="tb" id="bCount" hidden><span>СЧЁТ</span></button>
     <button class="tb" id="bLight"><span>ФОНАРЬ</span></button>
     <button class="tb" id="bCard"><span>КАРТА</span></button>
+    <button class="tb" id="bWeapon" hidden><span>ОРУЖИЕ</span></button>
+    <button class="tb" id="bReload" hidden><span>ПЕРЕЗАР.</span></button>
+    <button class="tb fire" id="bFire" hidden><span>ОГОНЬ</span></button>
   </div>
 </div>
 <div id="topbtns" hidden><button id="bPda" aria-label="КПК">КПК</button><button id="bHud" aria-label="Скрыть интерфейс">HUD</button><button id="bMenu" aria-label="Меню">≡</button></div>
@@ -346,6 +353,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 <script src="js/tallyman.js"></script>
 <script src="js/jobs.js"></script>
 <script src="js/medical.js"></script>
+<script src="js/arms.js"></script>
 <script src="js/living.js"></script>
 <script src="js/ai/llm.js"></script>
 <script src="js/ai/profiles.js"></script>
@@ -360,4 +368,5 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 <script src="js/humans.js"></script>
 <script src="js/creatures.js"></script>
 <script src="js/audio.js"></script>
+<script src="js/armsview.js"></script>
 <script src="js/game.js"></script>
