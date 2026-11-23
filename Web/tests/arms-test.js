@@ -1,6 +1,6 @@
 // Weapons, rules of engagement, security response, MTF (node Web/tests/arms-test.js)
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'arms', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'arms', 'director', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP, V = S.V, Arms = S.Arms;
 let failures = 0;
@@ -43,8 +43,9 @@ const fresh = seed => { const w = S.Content.createWorld(seed, { prof: 'scientist
   Arms.draw(w, guard, 'pistol'); w.realTime += 1; Arms.fire(w, guard.id, vic.id);
   ok(w.life.cases.some(c => c.kind === 'force') && S.Med.M(w).reports.some(r => r.kind === 'force'), 'необоснованный выстрел: расследование и отчёт об инциденте');
   ok(Arms.A(w).threats[guard.id] && Arms.A(w).threats[guard.id].verified, 'стрелявший стал подтверждённой угрозой для охраны');
-  run(w, 4); const resp = w.active.filter(n => n.combat && n.combat.threat === guard.id).length;
-  ok(resp >= 1, 'на угрозу выдвинулась охрана: ' + resp + ' чел.');
+  const seen = new Set(); for (let i = 0; i < 80; i++) { w.tick(0.1); for (const n of w.active) if (n.combat && n.combat.threat === guard.id) seen.add(n.id); }
+  const shotAt = Arms.A(w).log.filter(l => l.target === guard.id && l.by !== guard.id).length;
+  ok(seen.size >= 1, 'на угрозу выдвинулась охрана: ' + seen.size + ' чел.' + (shotAt ? ', применили силу к стрелявшему: ' + shotAt + ' раз(а)' : '') + (guard.incap(w.now) ? ', стрелявший обезврежен' : ''));
 }
 // 4. A violent D-class: warning first, then surrender or non-lethal force; surrender ends the use of force
 {

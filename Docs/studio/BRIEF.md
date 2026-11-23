@@ -12,6 +12,7 @@ Where things are (Web/js):
 - brain.js — NPC decisions (decide/think/act), needs, conversations; world.js — main loop, crowd navigation, doors, saves
 - anomalies.js, cognitive.js, tallyman.js, living.js — SCP objects and their behaviour; ai/llm.js, ai/profiles.js, ai/minds.js — LLM gateway, SCP minds, AI OVERSEER
 - medical.js — injuries, death, bodies, morgue, staff replacement, incident reports; arms.js — weapons, rules of engagement, security response, MTF
+- director.js — Task Director: every task's initiator, reason, place, profession, access, priority, tools, participants, complications, success/failure conditions, consequences, log
 - infra.js — power, faults, repairs; horror.js — horror director; content.js — world creation, cameras, player setup
 - browser side: render.js, humans.js (skinned staff), creatures.js, armsview.js, audio.js, game.js (UI, input, HUD, terminal, PDA)
 

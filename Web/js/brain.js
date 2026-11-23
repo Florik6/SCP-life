@@ -160,6 +160,10 @@
       case 'Duty': {
         if (n.restricted && n.dept !== 'medical') { const p = plan('Leisure', 'canteen', 'Seat', 'Отстранён до осмотра психиатра'); return p; }
         if (n.routine && !n.routine.failed && n.routine.si < n.routine.steps.length) { const p = plan(n.routine.act || 'Work', null, null, n.routine.title); p.job = n.routine; return p; }
+        // while tension builds near the player, people nearby hold their next round a little (once per round)
+        const hz = w.horror && w.horror.state; if (!n.routineHeld && (hz === 'uncertainty' || hz === 'tension' || hz === 'paranoia') && w.player.roomId && n.agent.roomId && w.fac.roomDistance(n.agent.roomId, w.player.roomId) <= 2) { n.routineHeld = true; n.routineRest = Math.max(n.routineRest || 0, now + w.rng.range(8, 18)); }
+        if (n.routineRest > now) return plan(n.dept === 'security' && n.prof !== 'patrol' ? 'GuardPost' : 'Work', n.workRoom, workPoiType(n), 'На рабочем месте');
+        n.routineHeld = false;
         const r = S.Jobs.routine(w, n), job = S.Jobs.build(w, r[0], n, r[1]);
         if (job) job.steps = job.steps.filter(s => !s.room || s.pickup || w.reachable(n, s.room));
         if (job && job.steps.length) { n.routine = job; const p = plan(job.act || 'Work', null, null, job.title); p.job = job; return p; }
@@ -226,11 +230,13 @@
     const s = room ? w.claimSpot(n.id, room, near) : null;
     return s ? { goal: s.hub, spot: s } : { goal: room && room.hubNodes.length ? room.hubNodes[w.rng.int(0, room.hubNodes.length)] : -1, spot: null };
   }
+  const URGENT = { Respond: 1, Flee: 1, Shelter: 1, Escort: 1, Escorted: 1, CountingProtocol: 1, SeekTreatment: 1, Compelled: 1, Lost: 1 };
   function goTo(w, n, goal, yaw, spot) {
     if (!spot) w.releaseSpot(n.id);
     if (goal < 0) { n.agent.clear(); n.arrived = true; return false; }
     const card = w.card(n.cardId);
-    const path = w.planPath(n.agent.pos, n.agent.roomId, goal, (d, f) => card && card.holder === n.id ? w.canPlanThrough(d, f, card) : d.passable, card ? card.id : 'none');
+    const urgent = URGENT[n.activity] || (n.job && (n.job.kind === 'first_aid' || n.job.kind === 'transport_patient' || n.job.act === 'Respond')) || n.combat;
+    const path = w.planPath(n.agent.pos, n.agent.roomId, goal, (d, f) => card && card.holder === n.id ? w.canPlanThrough(d, f, card) : d.passable, card ? card.id : 'none', urgent ? null : { quiet: w.quietRoom() });
     if (!path) {
       n.agent.clear(); n.arrived = true; n.blockedRetry = 8; if (n.blockedCount++ < 1) n.say('Не могу пройти в «' + w.roomName(n.targetRoom) + '».', w.now);
       if (n.role === 'DClass' && !n.escortedBy && w.life) w.life.strandedD(n);
@@ -418,9 +424,14 @@
     const t = n.job; n.job = null; releasePoi(w, n);
     const note = S.Jobs.finish(w, n, t);
     n.tasksDone = (n.tasksDone || 0) + 1;
-    if (t.id && w.tasks.get(t.id)) w.tasks.complete(w, t, note); else n.routine = null;
+    if (t.id && w.tasks.get(t.id)) w.tasks.complete(w, t, note); else { n.routine = null; n.routineRest = w.now + routineRest(w, n); }
     n.taskId = null; n.nextThink = 0;
   }
+  // after a round people stay at their own workplace for a while (desk, post, bench) instead of chaining errands
+  // through the corridors — the facility has quiet stretches, and a lone passer-by means something
+  const REST = { janitor: [25, 45], technician: [40, 80], mechanic: [40, 80], electrician: [45, 90], containment_engineer: [45, 90], sysadmin: [40, 80], patrol: [15, 30], guard: [30, 60], security_officer: [30, 60], lab_assistant: [35, 70], logistician: [45, 90], orderly: [30, 60], cook: [20, 40],
+    scientist: [45, 90], senior_scientist: [50, 100], junior_researcher: [40, 80], biologist: [45, 90], memetics: [50, 100], anomaly_psychologist: [50, 100] };
+  function routineRest(w, n) { const r = REST[n.prof] || [20, 45]; return w.rng.range(r[0], r[1]); }
   function failJob(w, n, reason) {
     const t = n.job; n.job = null; releasePoi(w, n); n.taskId = null; n.nextThink = 0;
     if (!t) return; const spec = S.Jobs.J[t.kind]; if (spec && spec.fail) spec.fail(w, n, t);

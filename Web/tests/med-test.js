@@ -1,6 +1,6 @@
 // Injuries, death, medicine, bodies, staff losses (node Web/tests/med-test.js)
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'arms', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'arms', 'director', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP, V = S.V, Med = S.Med;
 let failures = 0;
@@ -29,6 +29,7 @@ const onSite = (w, f) => w.active.filter(n => !n.dead && !n.incap(w.now) && n.ag
   for (const t of w.tasks.list) t.status = 'Failed';
   w.life.assign = () => null;                                   // nobody comes: pure physiology
   Med.hurt(w, a.id, 45, 'claw', null, 'Тест'); Med.hurt(w, b.id, 45, 'claw', null, 'Тест');
+  for (const x of [a, b]) x.incapUntil = w.now + 1e4;      // both stay where they fell: nobody walks to the medbay on their own here
   Med.firstAid(w, null, b.id);
   run(w, 120);
   ok(a.dead && a.deathCause === 'claw', 'без помощи раненый истёк кровью (' + (a.dead ? 'погиб' : Math.round(a.needs.health)) + ')');

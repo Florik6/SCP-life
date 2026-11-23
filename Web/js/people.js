@@ -17,7 +17,7 @@
   const TITLES = { lab_assistant: 'Лаборант', junior_researcher: 'Мл. н. с.', scientist: 'Д-р', senior_scientist: 'Д-р', biologist: 'Д-р', anomaly_psychologist: 'Д-р', memetics: 'Д-р', research_director: 'Проф.', guard: 'Охранник', patrol: 'Патрульный', escort: 'Конвоир', cctv_operator: 'Оператор', security_officer: 'Офицер', shift_chief: 'Нач. смены', operative: 'Оперативник', field_medic: 'Медик МОГ', mtf_commander: 'Командир', technician: 'Техник', electrician: 'Электрик', mechanic: 'Механик', containment_engineer: 'Инженер', sysadmin: 'Сисадмин', orderly: 'Санитар', doctor: 'Врач', psychiatrist: 'Д-р', dispatcher: 'Диспетчер', ethics_inspector: 'Инспектор', dept_head: 'Рук. отдела', director: 'Директор', janitor: 'Уборщик', cook: 'Повар', logistician: 'Логист', armorer: 'Оружейник', surgeon: 'Хирург', pathologist: 'Судмедэксперт' };
   // Department head per working sector (where the staff of a profession enter the complex).
   const ENTRY = { science: 'stairsC', security: 'liftB', mtf: 'freightS', engineering: 'liftB', medical: 'stairsA', admin: 'stairsA', service: 'liftB' };
-  const SEAT_ROOMS = { science: ['officesC', 'canteen', 'staffRoom'], security: ['barracks', 'canteen', 'guardPrep', 'staffRoom'], mtf: ['mtf', 'barracks', 'mtfBarracks', 'mtfPrep'], engineering: ['canteen', 'workshop', 'staffRoom'], medical: ['medA', 'canteen', 'staffRoom'], admin: ['canteen', 'meeting', 'staffRoom'], service: ['canteen', 'kitchen', 'staffRoom'] };
+  const SEAT_ROOMS = { science: ['officesC', 'canteen', 'staffRoom'], security: ['barracks', 'canteen', 'guardPrep', 'staffRoom'], mtf: ['mtfBarracks', 'mtfPrep'], engineering: ['canteen', 'workshop', 'staffRoom'], medical: ['medA', 'canteen', 'staffRoom'], admin: ['canteen', 'meeting', 'staffRoom'], service: ['canteen', 'kitchen', 'staffRoom'] };
 
   // ------------------------------------------------------------------ roster
   function card(w, n, level, perms) {
@@ -44,6 +44,9 @@
     const pr = { science: 'ставит науку выше удобства', safety: 'прежде всего думает о безопасности', ethics: 'щепетилен в вопросах этики', order: 'уважает устав и порядок' }[top];
     return w.join(', ') + '; ' + pr;
   }
+  // people come on site by the lift or stairs nearest their workplace, not all through one central lift
+  const ENTRIES = ['liftB', 'stairsA', 'stairsC', 'freightS', 'stairsS'];
+  function nearestEntry(w, room) { let best = null, bd = Infinity; for (const e of ENTRIES) { if (!w.fac.room(e) || !w.fac.room(room)) continue; const d = w.fac.roomDistance(e, room); if (d < bd) { bd = d; best = e; } } return best; }
   function staff(w, rng, used, prof, o) {
     o = o || {}; const pr = S.Professions.get(prof);
     const female = o.female != null ? o.female : rng.chance(prof === 'operative' || prof === 'mechanic' ? 0.18 : 0.45);
@@ -54,15 +57,18 @@
     const n = new Npc({ id, first, last, female, role: pr.look, prof, title: o.title || TITLES[prof], level: pr.level, dept: pr.dept, traits, beliefs, colorVariant: rng.int(0, 4), protocol: pr.dept === 'science' || pr.dept === 'security' || pr.dept === 'mtf', tier: 'abstract', onSite: false });
     n.character = character(traits, beliefs);
     n.shift = o.shift || (pr.shifts.indexOf('night') >= 0 ? (rng.chance(0.5) ? 'day' : 'night') : (pr.dept === 'science' || pr.dept === 'admin' || prof === 'psychiatrist' ? 'office' : 'day'));
-    n.restOffset = o.restOffset != null ? o.restOffset : rng.int(0, 6); n.startJit = rng.int(-12, 9); n.mealWave = rng.int(0, 5);
-    n.entry = ENTRY[pr.dept] || 'liftB'; n.workRooms = pr.work.slice(); n.workRoom = o.workRoom || rng.pick(pr.work); n.resident = !!o.resident; n.bedPoi = o.bedPoi || null;
+    n.restOffset = o.restOffset != null ? o.restOffset : rng.int(0, 6); n.startJit = rng.int(-28, 22); n.mealWave = rng.int(0, 5);
+    n.workRooms = pr.work.slice(); n.workRoom = o.workRoom || rng.pick(pr.work); n.entry = nearestEntry(w, n.workRoom) || ENTRY[pr.dept] || 'liftB'; n.resident = !!o.resident; n.bedPoi = o.bedPoi || null;
     n.post = null; n.assignedScps = []; n.tasksDone = 0; n.reportsDone = 0; n.since = 0; n.story = o.story || null; n.avoidAlone = 0;
     n.needs.hunger = rng.range(10, 35); n.needs.energy = rng.range(65, 92); n.needs.social = rng.range(40, 75); n.needs.stress = rng.range(5, 22);
     card(w, n, pr.level, pr.perms); w.addNpc(n); return n;
   }
 
   // ------------------------------------------------------------------ routine
-  function works(n, day) { if (n.shift === 'office') return ((day + n.restOffset) % 7) < 5; return ((day + n.restOffset) % 6) < 4; }
+  // rotation: office staff 4 days of 7, shift staff 3 of 6 — a big roster, a modest number on site at once
+  function works(n, day) { if (n.shift === 'office') return ((day + n.restOffset) % 7) < 4; return ((day + n.restOffset) % 6) < 3; }
+  // people eat near their own sector: security in the guard prep room, MTF in their barracks, engineers and medics in the staff lounge
+  function mealRoom(w, n) { const m = { security: 'guardPrep', mtf: 'mtfBarracks', engineering: 'staffRoom', medical: 'staffRoom' }[n.dept]; return m && w.fac.room(m) ? m : 'canteen'; }
   function shiftSpan(n, day) {
     const j = n.startJit; let s, e;
     if (n.shift === 'night') { s = day * DAY + Hm(19) + j; e = (day + 1) * DAY + Hm(7) + j; }
@@ -89,7 +95,7 @@
     if (sp) {
       if (t < sp.s) return B('Arrive', n.workRoom, null, 'Прибытие на смену', sp.s - 25, sp.s);
       if (t >= sp.e) return n.resident ? B('Leisure', leisureRoom(w, n), 'Seat', 'После смены', sp.e, sp.e + 10) : B('Leave', n.entry, null, 'Сдал смену, уходит', sp.e, sp.e + 10);
-      const m = mealSlot(n, sp); if (t >= m.s && t < m.e) return B('Eat', 'canteen', 'Seat', n.shift === 'night' ? 'Ночной перекус' : 'Обед', m.s, m.e);
+      const m = mealSlot(n, sp); if (t >= m.s && t < m.e) return B('Eat', mealRoom(w, n), 'Seat', n.shift === 'night' ? 'Ночной перекус' : 'Обед', m.s, m.e);
       return B('Duty', n.workRoom, null, S.Professions.get(n.prof).name + ': смена', sp.s, sp.e);
     }
     if (!n.resident) { const nx = nextShift(n, t); return B('Offsite', n.entry, null, 'Вне сектора (жилой уровень 2)', t, nx ? nx.s - 25 : t + DAY); }
@@ -97,7 +103,7 @@
     const night = n.shift === 'night', sleepS = night ? Hm(8) : Hm(23), sleepE = night ? Hm(15) : Hm(6, 15);
     if (S.inRange(mod, sleepS, sleepE)) return B('Sleep', bedRoom(w, n), 'Bed', 'Сон', t, t + ((sleepE - mod + DAY) % DAY), { specificPoi: n.bedPoi });
     const meals = night ? [[Hm(16), Hm(16, 40), 'Обед'], [Hm(18), Hm(18, 30), 'Ужин перед сменой']] : [[Hm(6, 30), Hm(7), 'Завтрак'], [Hm(19, 30), Hm(20, 10), 'Ужин']];
-    for (const m of meals) if (S.inRange(mod, m[0], m[1])) return B('Eat', 'canteen', 'Seat', m[2], t, t + ((m[1] - mod + DAY) % DAY));
+    for (const m of meals) if (S.inRange(mod, m[0], m[1])) return B('Eat', mealRoom(w, n), 'Seat', m[2], t, t + ((m[1] - mod + DAY) % DAY));
     if (S.inRange(mod, night ? Hm(15) : Hm(6, 15), night ? Hm(15, 25) : Hm(6, 30))) return B('Hygiene', bedRoom(w, n), 'Stand', 'Подъём, гигиена', t, t + 15);
     return B('Leisure', leisureRoom(w, n), 'Seat', 'Свободное время', t, t + 30);
   }

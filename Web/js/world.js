@@ -188,15 +188,21 @@
     }
 
     // ---------------------------------------------------------------- navigation
-    planPath(from, fromRoom, goal, canUse, cacheKey) {
+    // the corridor the player stands in: non-urgent errands take another route when one exists (empty corridors are part of the horror)
+    quietRoom() { const p = this.player; if (p.dead || !p.roomId) return null; const r = this.fac.room(p.roomId); return r && (r.type === 'Corridor' || r.type === 'Tunnel') ? r.id : null; }
+    planPath(from, fromRoom, goal, canUse, cacheKey, opt) {
       let start = this.fac.nearestNode(from, fromRoom || (this.fac.roomAt(from) || {}).id);
       if (start < 0) start = this.fac.nearestNode(from, null);
       if (start < 0 || goal < 0) return null;
       // jammed passages (people stuck there recently) cost extra, so others take another route while it lasts
       let jam = null;
       if (this.congest) { let any = false; for (const k in this.congest) { if (this.congest[k] <= this.realTime) delete this.congest[k]; else any = true; } if (any) { const c = this.congest; jam = (f, t) => c[f + '>' + t] ? 25 : 0; } }
+      const quiet = opt && opt.quiet, gn = this.fac.graph.nodes;
+      // stronger while the horror director builds tension: the corridors around the player go quiet
+      const qk = this.horror && (this.horror.state === 'uncertainty' || this.horror.state === 'tension' || this.horror.state === 'paranoia') ? 30 : 12;
+      if (quiet) { const j0 = jam; jam = (f, t) => (j0 ? j0(f, t) : 0) + (gn[f].roomId === quiet && gn[t].roomId === quiet ? qk : 0); }
       if (cacheKey) {
-        const k = start + '>' + goal + '|' + cacheKey + '|' + this.lockEpoch + '|' + (this.clock.hour >> 2) + (jam ? '|j' + this.congestEpoch : '');
+        const k = start + '>' + goal + '|' + cacheKey + '|' + this.lockEpoch + '|' + (this.clock.hour >> 2) + (jam ? '|j' + this.congestEpoch + (quiet ? quiet + qk : '') : '');
         if (this._paths.has(k)) { const p = this._paths.get(k); return p ? p.slice() : null; }
         const p = findPath(this.fac, start, goal, canUse, jam); if (this._paths.size > 4000) this._paths.clear(); this._paths.set(k, p); return p ? p.slice() : null;
       }

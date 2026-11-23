@@ -41,6 +41,7 @@
     constructor() { this.list = []; this.nextId = 1; this.done = { npc: 0, player: 0, failed: 0 }; }
     issue(w, t) {
       t.id = 'T' + this.nextId++; t.issued = w.now; t.status = 'Active'; t.by = t.by || 'SCP LIFE';
+      if (S.TaskDirector) S.TaskDirector.enrich(w, t);
       this.list.push(t);
       if (this.list.length > 220) this.list = this.list.filter(x => x.status === 'Active' || w.now - x.issued < 720);
       w.events.post({ time: w.now, type: EV.TaskIssued, actor: t.who, target: t.id, roomId: t.room, quiet: t.who !== 'player', text: t.by + ' → ' + w.nameOf(t.who) + ': ' + t.title });
@@ -53,12 +54,14 @@
     hasActive(kind, target) { return this.list.some(t => t.status === 'Active' && t.kind === kind && (target == null || t.target === target || (t.data && t.data.target === target))); }
     complete(w, t, note) {
       if (t.status !== 'Active') return; t.status = 'Completed'; t.doneAt = w.now; t.note = note; this.done[t.who === 'player' ? 'player' : 'npc']++;
+      if (S.TaskDirector) S.TaskDirector.consequence(w, t, true, note);
       if (t.who === 'player') { const p = w.player; p.done++; p.tasksInRole++; p.addRep(p.dept, 2); }
       w.events.post({ time: w.now, type: EV.TaskCompleted, actor: t.who, target: t.id, roomId: t.room, quiet: t.who !== 'player', text: w.nameOf(t.who) + ': выполнено «' + t.title + '»' + (note ? ' — ' + note : '') });
       if (t.decision && w.life) w.life.resolve(t.decision, 'выполнено: ' + (note || t.title));
     }
     fail(w, t, reason) {
       if (t.status !== 'Active') return; t.status = 'Failed'; t.doneAt = w.now; t.note = reason;
+      if (S.TaskDirector) S.TaskDirector.consequence(w, t, false, reason);
       if (t.who === 'player') { w.player.failed++; w.player.failedToday++; w.player.addRep(w.player.dept, -4); }
       w.events.post({ time: w.now, type: EV.TaskFailed, actor: t.who, target: t.id, severity: 1, quiet: t.who !== 'player', text: w.nameOf(t.who) + ': не выполнено «' + t.title + '» (' + reason + ')' });
       const spec = S.Jobs.J[t.kind]; if (spec && spec.fail) spec.fail(w, t.who === 'player' ? 'player' : w.npc(t.who), t);
@@ -884,8 +887,9 @@
       const fake = { prof: p.prof, dept: p.dept, workRoom: p.workRoom, assignedScps: p.assignedScps, reportsPending: p.reportsPending, obsNotes: [], post: p.post, hallRoom: p.hallRoom, agent: { roomId: p.roomId, pos: p.pos } };
       const r = S.Jobs.routine(w, fake);
       if (p.prof === 'dclass') { const kind = w.clock.hour >= 8 && w.clock.hour < 17 ? (w.rng.chance(0.75) ? 'labor' : 'd_chore') : null; if (kind) this.issue(kind, 'player', {}, 'Охрана блока D', 90); return; }
-      const t = this.issue(r[0], 'player', r[1] || {}, this.byFor(p.dept), 240);
-      if (!t) this.issue('patrol', 'player', {}, this.byFor(p.dept), 240);
+      let t = this.issue(r[0], 'player', r[1] || {}, this.byFor(p.dept), 240);
+      // never a generic patrol for a non-guard: fall back to the profession's own duties
+      const pr = S.Professions.get(p.prof); if (!t && pr) for (const k of pr.duties) { if (k === r[0]) continue; t = this.issue(k, 'player', {}, this.byFor(p.dept), 240); if (t) break; }
     }
     byFor(dept) { return { science: 'Руководитель исследований', security: 'Начальник смены', mtf: 'Командир МОГ', engineering: 'Руководитель инженерной службы', medical: 'Главный врач', admin: 'Директор', service: 'Хозяйственная служба', dclass: 'Охрана блока D' }[dept] || 'SCP LIFE'; }
 
