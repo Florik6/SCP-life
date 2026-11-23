@@ -32,7 +32,7 @@
     selectedCardId() { return this.cards.length ? this.cards[((this.sel % this.cards.length) + this.cards.length) % this.cards.length] : null; }
     addJournal(l, perceived) { this.journal.push(perceived ? { text: l, perceived: true } : l); if (this.journal.length > 120) this.journal.shift(); }
     tasksToday() { return { done: this.doneToday || 0, failed: this.failedToday || 0 }; }
-    dutyBlock(w) { if (this.alwaysDuty) return 'Duty'; if (this.prof === 'dclass') { const h = w.clock.hour; return h >= 7 && h < 21 ? 'Duty' : 'Rest'; } const b = S.People.staffBlock(w, this, w.now); return b.activity === 'Duty' || b.activity === 'Eat' ? 'Duty' : b.activity; }
+    dutyBlock(w) { if (this.alwaysDuty) return 'Duty'; if (this.prof === 'dclass') { const m = w.clock.mod; return m >= 390 && m < 1320 ? 'Duty' : 'Rest'; } const b = S.People.staffBlock(w, this, w.now); return b.activity === 'Duty' || b.activity === 'Eat' ? 'Duty' : b.activity; }
     save() { const o = Object.assign({}, this); o.counting = false; return o; }
     load(o) { Object.assign(this, o); this.counting = false; this.countTarget = null; this.psy = Object.assign({ fatigue: 10, stress: 10, fear: 0, focus: 1, exposure: 0, resilience: 0.6 }, o.psy || {}); }
   }
@@ -98,6 +98,9 @@
       this.resolveCrowd(dt);
       S.Med.tick(this, dt, gm);
       S.Arms.tick(this, dt);
+      if (S.CP) S.CP.tick(this, dt);
+      if (S.TaskDirector && S.TaskDirector.tick) S.TaskDirector.tick(this, dt);
+      if (S.DBlock) S.DBlock.tick(this, dt);
       this._abs += dt; if (this._abs >= ABSTRACT_STEP) { S.People.tickAbstract(this, this._abs * this.clock.minPerSec); this._abs = 0; }
       this._sync -= dt; if (this._sync <= 0) { this._sync = 3; S.People.sync(this); }
       this.tickCameras(dt);
@@ -150,10 +153,11 @@
     presentCard(doorId, cardId, who, fromRoom) {
       const d = this.fac.door(doorId); if (!d) return R.Fault;
       if (d.kind === 'Archway' || d.isTransit) return R.Granted;
+      if (S.CP) { const g = S.CP.gate(this, d, who, fromRoom, cardId); if (g) return g; }
       const card = this.card(cardId), mod = this.clock.mod; let r;
       const lvl = card ? S.effLevel(card, this.now) : 0, limited = who === 'player' && this.player.limitUntil > this.now;
       if (!card) r = R.DLevel;
-      else if (d.faultUntil > this.now || (d.readerFault && this.rng.chance(0.4))) r = R.Fault;
+      else if (d.jammed || d.faultUntil > this.now || (d.readerFault && this.rng.chance(0.4))) r = R.Fault;
       else if (d.lockdown && lvl < 4) r = R.DLockdown;
       else if (d.restricted && lvl < 3 && !(S.effPerms(card, this.now) & S.P.Security)) r = R.DLockdown;
       else if (d.locked && d.inCurfew(mod) && (card.perms & S.P.CellResident) && lvl < 2) r = fromRoom === d.roomA ? R.DCurfew : R.Granted;
@@ -524,7 +528,8 @@
           if (prev) { const e = g.find(prev.index, ti); if (e && e.doorId) door = this.fac.doors[e.doorId]; }
           if (door) {
             if (door.isTransit) { this.beginTransit(a, door, prev, tn, o.id); if (crowd) this.gateRelease(a, o.id); return 'Moving'; }
-            if (!door.passable && V.distXZ(a.pos, prev.pos) < 0.8) {
+            // a manned checkpoint stops everyone from the outer side, even when the door stands open for someone else
+            if ((!door.passable || (S.CP && o.id && S.CP.needsCheck(this, door, prev.roomId, o.id))) && V.distXZ(a.pos, prev.pos) < 0.8) {
               a.moving = false; a.vx = a.vz = 0; a.waitingDoor = door.id; a.wait += dt; this.faceTowards(a, door.pos, dt);
               const out = onDoor ? onDoor(door, prev.roomId) : 'Blocked';
               return out === 'Blocked' ? 'Blocked' : 'Waiting';
@@ -667,7 +672,7 @@
       const e = { time: this.now, cam: c.id, subj: s.id, name: s.name, roomId: c.roomId, flag: false, note: null };
       const room = this.fac.room(c.roomId);
       if (s.anomaly) { const a = this.anomaly(s.id); if (a && !a.contained && a.temper !== 'cognitive') { e.flag = true; e.note = 'Аномалия вне камеры содержания'; this.alert.reportBreach(this, a, c.roomId, 'камера ' + c.name); } }
-      else if (s.role === 'DClass' && room && ['DClassCell', 'DClassCommon', 'MedicalBay', 'Shower', 'TestChamber', 'Observation', 'SecurityPost', 'Tunnel'].indexOf(room.type) < 0) {
+      else if (s.role === 'DClass' && room && room.sector !== 'D' && ['DClassCell', 'DClassCommon', 'MedicalBay', 'Shower', 'TestChamber', 'Observation', 'SecurityPost', 'Tunnel'].indexOf(room.type) < 0) {
         const n = this.npc(s.id); if (!n || !n.escortedBy) { e.flag = true; e.note = 'Класс D вне жилого блока'; this.events.post({ time: this.now, type: EV.SuspiciousActivity, roomId: c.roomId, pos: V.copy(s.pos), actor: s.id, severity: 2, text: 'Камера ' + c.name + ': ' + s.name + ' вне блока D (' + room.name + ')' }); }
       }
       this.camLog.push(e); if (this.camLog.length > 400) this.camLog.splice(0, this.camLog.length - 400);
@@ -754,7 +759,16 @@
       // slow zones (LF-131, LF-134)
       p.slow = 1; for (const a of this.anomalies) if (a.arrived && a.def.slowIn) p.slow = Math.min(p.slow, a.def.slowIn(this, a, p.roomId));
       // tasks with "stay" steps progress while the player is in the room
-      for (const t of this.tasks.activeFor('player')) { const s = t.steps[t.si]; if (!s || !s.need) continue; const m = /^stay:(\d+)/.exec(s.need); if (m && p.roomId === s.room) { s.stayed = (s.stayed || 0) + gm; if (s.stayed >= +m[1]) this.playerStepDone(t); } if (s.count && p.counting && p.roomId === s.room) { s.stayed = (s.stayed || 0) + gm; } }
+      // catching up with a person for a document check: the step follows them; close enough — they stop and wait
+      for (const t of this.tasks.activeFor('player')) { const s = t.steps[t.si], m = s && /^(find|docs):(.+)/.exec(s.need || ''); if (!m) continue; const n = this.npc(m[2]); if (!n || n.dead || !n.onSite) { this.tasks.fail(this, t, 'человека нет на месте'); continue; }
+        s.room = n.agent.roomId; if (m[1] === 'find' && V.distXZ(n.agent.pos, p.pos) < 3 && Math.abs(n.agent.pos.y - p.pos.y) < 2) { n.heldUntil = this.now + 4; n.say(n.role === 'DClass' ? 'Я ничего не делал, начальник!' : 'Да? Что-то случилось?', this.now); this.playerStepDone(t); }
+        else if (m[1] === 'docs' && V.distXZ(n.agent.pos, p.pos) < 4) n.heldUntil = Math.max(n.heldUntil || 0, this.now + 1); }
+      // a checkpoint watch: the post is manned while the player stands near it; leaving it for long fails the watch
+      for (const t of this.tasks.activeFor('player')) { const s = t.steps[t.si]; const m = s && /^post:(\w+):(\d+)/.exec(s.need || ''); if (!m) continue; const cp = S.CP.CPS[m[1]], poi = this.fac.poi(cp.poi), st = S.CP.M(this).st[cp.id], d = poi ? V.distXZ(p.pos, poi.pos) : 99;
+        if (d < 4) { st.by = 'player'; s.away = 0; s.stayed = (s.stayed || 0) + gm; if (s.stayed >= +m[2]) this.playerStepDone(t); }
+        else if (d > 6) { s.away = (s.away || 0) + gm; if (s.away > 3) { if (st.by === 'player') st.by = null; this.tasks.fail(this, t, 'пост оставлен'); this.notify.push({ time: this.now, type: EV.Discipline, severity: 1, text: cp.name + ': пост оставлен без смены.' }); } } }
+      // a counting session step only advances while the player is really counting
+      for (const t of this.tasks.activeFor('player')) { const s = t.steps[t.si]; if (!s || !s.need) continue; const m = /^stay:(\d+)/.exec(s.need); if (!m || p.roomId !== s.room) continue; if (s.count && !p.counting) continue; s.stayed = (s.stayed || 0) + gm; if (s.stayed >= +m[1]) this.playerStepDone(t); }
       if (p.limitUntil > 0 && p.limitUntil < this.now) { p.limitUntil = -1; this.notify.push({ time: this.now, type: EV.Discipline, text: 'Ограничение допуска снято.' }); }
       const mod = this.clock.mod; if (mod < 1 && p._day !== this.clock.day) { p._day = this.clock.day; p.doneToday = 0; }
     }
@@ -837,6 +851,7 @@
       const a = this.anomaly(scp); if (!a) return null;
       const m = this.playerStepFor(s => s.need === 'experiment' && s.scp === scp && (!s.exp || s.exp === exp));
       if (!m) return null;
+      if (!S.Jobs.subjectIn(this, m.t)) return { wait: 'Испытуемый ещё не доставлен: ' + this.nameOf(m.t.data.dclass) + '. Эксперимент без него не начать.' };
       return this.playerStepDone(m.t);
     }
 
@@ -863,7 +878,7 @@
         npcs: this.npcs.map(n => World.packNpc(n.save(), tbl)), strings: tbl.list, anomalies: this.anomalies.map(a => a.save()),
         cams: this.cams.map(c => ({ id: c.id, op: c.operational, ph: c.phase })), camLog: this.camLog.slice(-200), alert: this.alert.save(),
         tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, taskDone: this.tasks.done, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
-        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null, med: S.Med.save(this), arms: S.Arms.save(this)
+        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null, med: S.Med.save(this), arms: S.Arms.save(this), cp: S.CP ? S.CP.save(this) : null, td: S.TaskDirector && S.TaskDirector.save ? S.TaskDirector.save(this) : null, db: S.DBlock ? S.DBlock.save(this) : null
       });
     }
     static load(json) {
@@ -890,7 +905,7 @@
       }
       w.queues = o.queues || {};
       if (w.ai && o.ai) w.ai.load(o.ai);
-      S.Med.load(w, o.med); S.Arms.load(w, o.arms); w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
+      S.Med.load(w, o.med); S.Arms.load(w, o.arms); if (S.CP) S.CP.load(w, o.cp); if (S.TaskDirector && S.TaskDirector.load) S.TaskDirector.load(w, o.td); if (S.DBlock) S.DBlock.load(w, o.db); w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
       w.lockEpoch++;
       return w;
     }

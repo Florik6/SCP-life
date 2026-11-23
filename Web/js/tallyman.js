@@ -85,6 +85,7 @@
       this.owner.lookAt = irrId || near;
     }
     sessionOn(w) {
+      const p = w.player; if (p.counting && p.countTarget === this.owner.id && !p.dead && (p.roomId === this.obsRoom || p.roomId === this.owner.containRoom) && w.canCount(p.pos, p.roomId, this.owner)) return true;
       return w.active.some(n => n.activity === 'ObservationSession' && n.arrived && !n.agent.hasPath && !n.incap(w.now) && (n.agent.roomId === this.obsRoom || n.agent.roomId === this.owner.containRoom));
     }
     countReaders(w) {

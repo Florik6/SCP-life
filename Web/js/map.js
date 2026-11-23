@@ -119,6 +119,7 @@
     for (let x = -76; x <= -30; x += 8) hubs(corrA, x, 0);
     Pz(corrA, 'pp.corrA_w', 'PatrolPoint', -70, 0.9, 90, 'Коридор А, запад'); Pz(corrA, 'pp.corrA_e', 'PatrolPoint', -36, -0.9, 270, 'Коридор А, восток'); Pz(corrA, 'panel.corrA', 'Panel', -60, 1.4, 0, 'Электрощиток коридора А');
     D('d.ab', 'Переход А–Б', 'corrA', 'corridor', -26.15, 0, true, 'Security', req(1), 2.0);
+    Pz(corrA, 'cp.B', 'Checkpoint', -27.7, -1.5, 90, 'Пост КПП «Б–А»');
     const bar = along(corrA, 'N', -38, -26.6, 10, 'barracks', 'Казармы охраны', 'Barracks', -32, { doorName: 'Дверь казарм' }, 'Standard', req(1, P.Security | P.MTF));
     row(bar, 'N', 'Bed', 1.25, 1.1, 'Двухъярусная койка', null, { bunk: true }); row(bar, 'W', 'Seat', 1.4, 0.6, 'Табурет'); Pz(bar, 'pp.barracks', 'PatrolPoint', -30, 4.2, 0, 'Казармы');
     const qa = along(corrA, 'N', -50, -38.3, 10, 'quartersA', 'Жилые помещения сотрудников А', 'Quarters', -44, null, 'Standard', req(1));
@@ -159,6 +160,7 @@
     for (let x = 36; x <= 106; x += 8) hubs(corrC, x, 0);
     Pz(corrC, 'pp.corrC_w', 'PatrolPoint', 45, -0.9, 90, 'Коридор С, запад'); Pz(corrC, 'pp.corrC_e', 'PatrolPoint', 95, 0.9, 270, 'Коридор С, восток'); Pz(corrC, 'panel.corrC', 'Panel', 62, 1.4, 0, 'Электрощиток коридора С');
     D('d.liftBC', 'Проход в сектор С', 'liftB', 'corrC', 32.15, 0, true, 'Security', req(1), 2.0);
+    Pz(corrC, 'cp.C', 'Checkpoint', 33.7, -1.5, 270, 'Пост КПП «Восток»');
     // Containment block planner: observation room by the corridor, chamber behind it, window between, heavy door.
     const block = (side, x0, scp, name, o) => {
       o = o || {}; const w = 8, ob = along(o.corr || corrC, side, x0, x0 + w, 6, 'obs' + scp.slice(-3), 'Наблюдение ' + scp, 'Observation', x0 + 2.0, { style: 'research' }, 'Standard', req(2, P.Research | P.Security | P.Engineering));

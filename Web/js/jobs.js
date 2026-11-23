@@ -50,7 +50,36 @@
   K('plan_operation', { title: 'Планирование операции', build: () => [st('command', 'Console', 'План операции', 25, { need: 'hold' })], done: (w, who) => { w.life && w.life.planOperation(who === 'player' ? 'player' : who.id); return 'план утверждён'; } });
 
   // ================================================================== engineering
-  K('repair', { act: 'Maintenance', title: 'Ремонт', build(w, who, o) { const f = w.infra.fault(o.fault); if (!f) return null; return [st(f.room, f.poiType || null, 'Устранить: ' + f.text, f.dur || 15, { need: 'hold', poi: f.poi || null, fault: f.id })]; }, done(w, who, t) { w.infra.fix(t.data.fault, who === 'player' ? 'player' : who.id); return 'неисправность устранена'; } });
+  // Repair is a procedure (S.Proc): diagnosis, safety, the right fix, verification. The player works it in the repair
+  // panel; an NPC technician makes one decision at a time here, walks to the store when a part is missing, and the
+  // job waits for a delivery when the store is empty. The site step ends only when the fault is really fixed.
+  const siteStep = (w, f) => { const d = f.kind === 'door' ? w.fac.door(f.obj) : null; return st(f.room, f.poiType || null, 'Устранить: ' + f.text, 1e6, { need: 'hold', poi: f.poi || null, fault: f.id, pos: d ? { x: d.pos.x, y: d.pos.y, z: d.pos.z } : undefined }); };
+  const storeOf = w => S.Proc.STORES.find(id => w.fac.room(id)) || 'storage';
+  K('repair', { act: 'Maintenance', title: 'Ремонт',
+    build(w, who, o) { const f = w.infra.fault(o.fault); if (!f) return null; S.Proc.seed(w, f); return [siteStep(w, f)]; },
+    tickStep(w, n, t, s, gm) {
+      if (!s.fault) return;
+      const f = w.infra.fault(s.fault); if (!f) { s.dur = 0; return; }
+      if (n.agent.roomId !== s.room && w.fac.roomDistance(n.agent.roomId, s.room) !== 0) return;
+      n.posture = 'Working'; s.acc = (s.acc || 0) + gm; if (s.acc < (s.next || 1)) return; s.acc = 0;
+      const r = S.Proc.npcStep(w, n, f);
+      if (r.done) { s.dur = 0; return; }
+      if (r.needPart) {
+        if ((S.Proc.stock(w)[r.needPart] || 0) > 0) {
+          t.steps.splice(t.si + 1, 0, st(storeOf(w), 'Shelf', 'Взять со склада: ' + r.needPart, 3, { need: 'hold', take: r.needPart }), siteStep(w, f));
+          n.say(w.rng.pick(['Нужна деталь — схожу на склад.', 'Без «' + r.needPart + '» не обойтись. Иду на склад.']), w.now); s.dur = 0; return;
+        }
+        f.wait = w.now + 240; f.waitPart = r.needPart; f.fails = (f.fails || 0) + 1;
+        n.say('На складе нет «' + r.needPart + '». Ждём поставку.', w.now);
+        if (w.life) w.life.decide('Нет детали для ремонта ' + f.id, [f.text, 'нужна: ' + r.needPart], 'Заявка на поставку, ремонт после поступления', 'инженерная служба');
+        if (t.id && w.tasks.get(t.id)) w.tasks.fail(w, t, 'нет детали на складе: ' + r.needPart); return;
+      }
+      if (r.text && w.rng.chance(0.25)) n.say(r.text, w.now);
+      s.next = r.min;
+    },
+    stepDone(w, who, t, s) { if (s.take && who !== 'player' && !S.Proc.takePart(w, s.take, who)) who.say('Пусто на полке. Кто-то забрал последнюю.', w.now); },
+    outcome(w, who, t) { const f = w.infra.faults.find(x => x.id === t.data.fault); return !f || !f.fixed ? 'failure' : (f.misses >= 2 || f.tries >= 5) ? 'partial' : 'success'; },
+    done(w, who, t) { const f = w.infra.faults.find(x => x.id === t.data.fault); return f && f.fixed ? 'неисправность устранена' + (f.solution ? ': ' + f.solution : '') : 'неисправность осталась'; } });
   K('maintenance_round', { act: 'Maintenance', title: 'Обход щитков', build(w, who) {
     const i = info(w, who), lvl = levelOf(w, i.roomId); const c = pois(w, 'Panel', p => levelOf(w, p.roomId) === lvl && w.reachable(who, p.roomId));
     return order(pickN(w, c, 4), i.pos).map(p => sp(p, 'Осмотр: ' + p.label, 4, { need: 'hold', inspect: true }));
@@ -111,7 +140,9 @@
   K('deliver_samples', { act: 'Work', title: 'Перенос проб', build: () => [st('lab2', 'Workbench', 'Забрать пробы', 3, { need: 'hold' }), st('lab', 'Workbench', 'Передать в лабораторию Б', 3, { need: 'hold' })], done(w) { w.research.samples = Math.max(0, (w.research.samples || 0) - 1); w.research.analyses = (w.research.analyses || 0) + 1; return 'пробы переданы'; } });
   K('assist_session', { title: 'Помощь на сеансе', build(w, who, o) { const a = anomaly(w, o.target) || w.anomaly('SCP-L-001'); return [st(obsOf(w, a), 'Console', 'Ассистировать на сеансе ' + a.id, 20, { need: 'stay:5', scp: a.id })]; }, done: () => 'сеанс проведён' });
   K('write_report', { title: 'Научный отчёт', build(w, who, o) { const room = who !== 'player' && w.fac.room(who.workRoom) && w.fac.room(who.workRoom).pois.some(p => p.type === 'Desk') ? who.workRoom : 'officesC'; return [st(room, 'Desk', 'Написать отчёт' + (o.target ? ' по ' + o.target : ''), 30, { need: 'terminal:report', scp: o.target || null })]; }, done(w, who, t) { return w.life ? w.life.reportWritten(who === 'player' ? 'player' : who.id, t.data.target) : 'отчёт сдан'; } });
-  K('experiment', { title: 'Эксперимент', build(w, who, o) { const a = anomaly(w, o.target); if (!a) return null; const ex = (a.def.exps || []).find(e => e.id === o.exp); if (!ex) return null; return [st(obsOf(w, a), 'Console', 'Эксперимент «' + ex.name + '»', ex.dur || 15, { need: 'experiment', scp: a.id, exp: ex.id })]; }, done(w, who, t) { const a = anomaly(w, t.data.target); if (!a) return 'объект недоступен'; const r = S.Anoms.runExperiment(w, a, t.data.exp, { who: who === 'player' ? 'player' : who.id, dclass: t.data.dclass }); w.life && w.life.experimentDone(who === 'player' ? 'player' : who.id, a, r, t.data.request); return r.text; } });
+  // an experiment with a class D subject waits until the subject is really in the room (the escort can be late or fail)
+  const subjectIn = (w, t) => { const id = t.data && t.data.dclass; if (!id) return true; const d = w.npc(id), a = anomaly(w, t.data.target); if (!d || d.dead || !a) return false; const rooms = [obsOf(w, a), a.containRoom, 'dtest'].filter(Boolean); return rooms.some(r => d.agent.roomId === r || w.fac.roomDistance(d.agent.roomId, r) === 0); };
+  K('experiment', { title: 'Эксперимент', tickStep(w, n, t, s, gm) { if (subjectIn(w, t)) return; n.dwell = 0; s.waitD = (s.waitD || 0) + gm; if (s.waitD > 120 && t.id && w.tasks.get(t.id)) { n.say('Испытуемого так и не привели. Эксперимент переносится.', w.now); w.tasks.fail(w, t, 'испытуемый не доставлен'); } }, build(w, who, o) { const a = anomaly(w, o.target); if (!a) return null; const ex = (a.def.exps || []).find(e => e.id === o.exp); if (!ex) return null; return [st(obsOf(w, a), 'Console', 'Эксперимент «' + ex.name + '»', ex.dur || 15, { need: 'experiment', scp: a.id, exp: ex.id })]; }, done(w, who, t) { const a = anomaly(w, t.data.target); if (!a) return 'объект недоступен'; const r = S.Anoms.runExperiment(w, a, t.data.exp, { who: who === 'player' ? 'player' : who.id, dclass: t.data.dclass }); w.life && w.life.experimentDone(who === 'player' ? 'player' : who.id, a, r, t.data.request); return r.text; } });
   K('counting_session', { act: 'ObservationSession', title: 'Сеанс счёта SCP-L-001', build: () => [st('obs', 'Console', 'Вести счёт у окна', 16, { need: 'stay:8', count: true })], done(w, who) { if (who === 'player') return 'сеанс проведён'; return 'сеанс проведён'; } });
   K('interview_scp', { title: 'Беседа с объектом', build(w, who, o) { const a = anomaly(w, o.target || 'SCP-LF-124'); if (!a) return null; return [st(obsOf(w, a), 'Console', 'Беседа через интерком с ' + a.id, 15, { need: 'interview:' + a.id, scp: a.id })]; }, tickStep(w, n, t, s) { if (!s.said) { s.said = true; const a = anomaly(w, s.scp); const mind = w.ai && w.ai.agent(s.scp); if (a && mind && mind.p.llm) { w.ai.npcInterview(s.scp, n); return; } if (a && a.def.interview) { const txt = a.def.interview(w, a, n.id); n.obsNotes = (n.obsNotes || []).concat({ scp: a.id, t: w.now, text: txt }).slice(-6); n.memory.remember({ eventId: -(w.events.nextId++), time: w.now, type: EV.Research, subject: a.id, text: a.id + ' сказал: «' + txt + '»', imp: 0.4, conf: 1, src: 'Witnessed' }, w.now); } } }, done: (w, who) => { if (who !== 'player') who.reportsPending = (who.reportsPending || 0) + 1; return 'беседа записана'; } });
   K('exposure_check', { title: 'Проверка когнитивного воздействия', build(w) { return ['obs133', 'obs136', 'obs138'].map(r => st(r, 'Console', 'Опрос персонала: «' + w.roomName(r) + '»', 6, { need: 'hold' })); }, done(w, who) { return w.life ? w.life.exposureCheck(who === 'player' ? 'player' : who.id) : 'проверено'; } });
@@ -169,5 +200,31 @@
   function stepDone(w, who, t, s) { s.done = true; const spec = J[t.kind]; if (spec && spec.stepDone) spec.stepDone(w, who, t, s); while (t.si < t.steps.length && t.steps[t.si].done) t.si++; return t.si >= t.steps.length; }
   function finish(w, who, t) { const spec = J[t.kind]; return spec && spec.done ? spec.done(w, who, t) : ''; }
 
-  S.Jobs = { J, K, build, routine, stepDone, finish, info, pois, order, pickN };
+  // checkpoints: hold the post and check passes (S.CP); an officer settles a disputed case; a personal errand (a checkpoint case)
+  K('pass_control', { act: 'GuardPost', title: 'Пропускной режим',
+    build(w, who, o) { const cp = S.CP && S.CP.CPS[o.cp]; if (!cp || !w.fac.poi(cp.poi)) return null; const mins = o.mins || 45; return [st(cp.inner, 'Checkpoint', 'Заступить на ' + cp.name, 1, { need: 'hold', poi: cp.poi }), st(cp.inner, 'Checkpoint', 'Проверять пропуска (' + mins + ' мин)', mins, { need: 'post:' + cp.id + ':' + mins, poi: cp.poi, cp: cp.id })]; },
+    tickStep(w, n, t, s, gm) { if (s.cp && V.distXZ(n.agent.pos, w.fac.poi(S.CP.CPS[s.cp].poi).pos) < 2.5) { n.posture = 'Standing'; S.CP.npcGuard(w, n, s.cp, gm); } },
+    stepDone(w, who, t, s) { if (s.cp && who === 'player') { const st0 = S.CP.M(w).st[s.cp]; if (st0.by === 'player') st0.by = null; } },
+    outcome(w, who, t) { const c = S.CP.stats(w, t.steps[1].cp, t.issued || 0, who === 'player' ? 'player' : who.id); return c.badPass >= 2 ? 'failure' : (c.badPass || c.badDeny || S.CP.M(w).complaints.some(x => x.cp === t.steps[1].cp && x.by === (who === 'player' ? 'player' : who.id) && x.t >= (t.issued || 0))) ? 'partial' : 'success'; },
+    done(w, who, t) { const s = t.steps[1], cp = S.CP.CPS[s.cp], st0 = S.CP.M(w).st[s.cp]; if (st0.by === (who === 'player' ? 'player' : who.id)) st0.by = null; const c = S.CP.stats(w, s.cp, t.issued || 0, who === 'player' ? 'player' : who.id); return cp.name + ': проверено ' + c.n + ', пропущено ' + c.pass + ', отказано ' + c.deny; } });
+  K('cp_assist', { act: 'Respond', title: 'Разбор на КПП', build(w, who, o) { const cp = S.CP && S.CP.CPS[o.cp]; if (!cp) return null; const p = w.fac.poi(cp.poi); return [st(cp.inner, null, 'Разобраться: ' + w.nameOf(o.target), 3, { pos: p ? { x: p.pos.x, y: p.pos.y, z: p.pos.z } : undefined, need: 'hold' })]; },
+    done(w, who, t) { const o = t.data, cp = S.CP.CPS[o.cp], st0 = S.CP.M(w).st[o.cp], q = st0.queue.find(e => e.who === o.target); if (!q) return 'человек уже ушёл'; const v = S.CP.verdict(w, cp, o.target, q.card), by = who === 'player' ? 'player' : who.id; const right = w.rng.chance(0.9) ? v.valid : !v.valid; return S.CP.decide(w, o.cp, o.target, right ? 'pass' : 'deny', by); } });
+  // «Стоять, документы!»: catch up with a person and check them where they stand (player only)
+  K('doc_check', { act: 'Respond', title: 'Проверка документов', build(w, who, o) { const n = w.npc(o.target); if (!n || n.dead || !n.onSite) return null; return [st(n.agent.roomId, null, 'Остановить: ' + n.shortName, 1, { need: 'find:' + n.id, target: n.id }), st(n.agent.roomId, null, 'Проверить документы: ' + n.shortName, 1, { need: 'docs:' + n.id, target: n.id })]; },
+    outcome(w, who, t) { const c = (S.CP.M(w).checks || []).filter(x => x.who === t.data.target && x.t >= (t.issued || 0)).pop(); return !c ? 'failure' : c.correct ? 'success' : 'failure'; },
+    done(w, who, t) { const c = (S.CP.M(w).checks || []).filter(x => x.who === t.data.target && x.t >= (t.issued || 0)).pop(); return c ? ({ ok: 'отпущен', out: 'выпровожен', detain: 'задержан' })[c.decision] : ''; } });
+  // a delivery of spare parts: from the freight lift to the engineering store; the shelves really fill up
+  K('restock', { act: 'Work', title: 'Пополнение склада', build(w, who, o) { return [st(w.fac.room('freightS') ? 'freightS' : 'storage', null, 'Забрать поставку: ' + (o.parts || []).join(', '), 3, { need: 'hold' }), st(w.fac.room('engStore') ? 'engStore' : 'storage', 'Shelf', 'Разложить на стеллажах', 4, { need: 'hold' })]; },
+    done(w, who, t) { const s = S.Proc.stock(w), got = []; for (const p of t.data.parts || []) { s[p] = (s[p] || 0) + 2; got.push(p); } for (const f of w.infra.faults) if (!f.fixed && f.waitPart && got.indexOf(f.waitPart) >= 0) { f.wait = 0; f.waitPart = null; } w.infra.addLog('Склад пополнен: ' + got.join(', ') + ' (' + w.nameOf(who === 'player' ? 'player' : who.id) + ')', 'store'); return 'на склад: ' + got.join(', '); } });
+  K('visit', { act: 'Work', title: 'Личное дело', build(w, who, o) { return o.room ? [st(o.room, null, o.label || 'По личному делу', 6)] : null; }, done(w, who) { if (who !== 'player') who.cpVisit = null; return ''; } });
+
+  // an investigation: go to the place, look (clues depend on the hidden truth), report a conclusion; the conclusion changes the world
+  K('inspect_report', { act: 'Respond', title: 'Проверить сообщение',
+    build(w, who, o) { const c = S.TaskDirector.D(w).cases[o.case]; if (!c) return null; const r = o.room || c.room, pp = o.poi && w.fac.poi(o.poi); return [st(pp ? pp.roomId : r, pp ? pp.type : null, pp ? 'Замерить: ' + pp.label : 'Осмотреть «' + w.roomName(r) + '»', 5, { need: 'hold', look: true, case: o.case, poi: pp ? pp.id : null }), st(r, null, 'Доложить вывод', 1, { need: 'report:' + o.case, case: o.case })]; },
+    stepDone(w, who, t, s) { if (s.look) { const c = S.TaskDirector.D(w).cases[s.case]; if (!c) return; const found = S.TaskDirector.look(w, c); if (who === 'player') w.notify.push({ time: w.now, type: 'Personnel', severity: 1, text: 'Осмотр: ' + found.join('; ') }); } },
+    tickStep(w, n, t, s) { if (!/^report:/.test(s.need || '') || s.npcDone) return; s.npcDone = true; const c = S.TaskDirector.D(w).cases[s.case]; if (!c) return; const def = S.TaskDirector.CASES[c.type], sk = clamp(0.5 + 0.45 * ((n.traits && n.traits.diligence) || 0.5) * ((n.psy && n.psy.focus) || 1), 0.2, 0.95); const right = def.options.find(o => (o.ok || []).indexOf(c.truth) >= 0); const pick = right && w.rng.chance(sk) ? right : def.options[w.rng.int(0, def.options.length)]; t.result = S.TaskDirector.conclude(w, s.case, pick.id, n.id).result; },
+    outcome(w, who, t) { const c = S.TaskDirector.D(w).cases[t.data.case]; return (c && c.result) || t.result || 'success'; },
+    done(w, who, t) { const c = S.TaskDirector.D(w).cases[t.data.case]; if (!c) return ''; const o = S.TaskDirector.CASES[c.type].options.find(x => x.id === c.choice); return o ? 'вывод: ' + o.label : 'доклад сдан'; } });
+
+  S.Jobs = { J, K, build, routine, stepDone, finish, info, pois, order, pickN, subjectIn };
 })(typeof window !== 'undefined' ? window : globalThis);

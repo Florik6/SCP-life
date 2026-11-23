@@ -15,7 +15,11 @@
     humidity: { who: 'containment_engineer', text: r => 'растёт влажность: ' + r.name, dur: 15 },
     shield: { who: 'containment_engineer', text: r => 'ослабло экранирование: ' + r.name, dur: 20 },
     lift: { who: 'mechanic', text: () => 'неисправен служебный лифт', dur: 25 },
-    gen: { who: 'electrician', text: r => 'неисправность генератора: ' + r.name, dur: 30, poiType: 'Panel' }
+    gen: { who: 'electrician', text: r => 'неисправность генератора: ' + r.name, dur: 30, poiType: 'Panel' },
+    door: { who: 'mechanic', text: (r, d) => 'заклинило дверь: ' + (d ? d.name : r.name), dur: 15 },
+    terminal: { who: 'sysadmin', text: r => 'не отвечает терминал: ' + r.name, dur: 12, poiType: 'Console' },
+    cooling: { who: 'technician', text: () => 'перегрев серверной: охлаждение не справляется', dur: 20, poiType: 'Rack' },
+    emlight: { who: 'electrician', text: r => 'не работает аварийное освещение: ' + r.name, dur: 12, poiType: 'Panel' }
   };
 
   class Infra {
@@ -87,32 +91,69 @@
       // radios drain during shifts and charge off site / during sleep
       for (const n of w.npcs) { const r = this.radios[n.id]; if (!r) continue; const charging = !n.onSite || n.activity === 'Sleep'; r.bat = clamp(r.bat + (charging ? 0.4 : -0.11) * gm, 0, 100); r.ok = r.bat > 1; if (n.radioOk !== r.ok) { n.radioOk = r.ok; if (!r.ok && n.onSite) this.addLog('Рация ' + n.shortName + ' не отвечает на опрос (батарея)', 'radio'); } }
       // wear: faults appear over time; some report themselves, others wait for inspection
-      if (this.hourT >= 10) { this.hourT = 0; this.wear(); }
+      if (this.hourT >= 10) { this.hourT = 0; this.wear(); this.upkeep(); }
       this.outages = this.outages.filter(o => o.to > w.now - 5);
       this.knocks = this.knocks.filter(k => w.now - k.t < 3);
     }
+    // every 10 game minutes: spare parts arrive once a day; a hot server room breaks cameras; a power cut left behind
+    // by a repair is switched back on by the duty electrician (and noted against whoever left it)
+    upkeep() {
+      const w = this.w;
+      if (S.Proc && (this.supplyDay || 0) < w.clock.day && w.clock.hour >= 8) { this.supplyDay = w.clock.day; S.Proc.resupply(w); }
+      const hot = this.faults.find(f => !f.fixed && f.kind === 'cooling');
+      if (hot) { this.serverHeat = (this.serverHeat || 0) + 1; if (this.serverHeat === 6) this.addLog('Серверная: температура 38 °C, растёт', 'fault'); if (this.serverHeat > 9 && w.rng.chance(0.25)) { const c = this.create('camera'); if (c) this.addLog('Перегрев серверной: отключилась камера ' + (c.text || ''), 'fault'); } }
+      for (const f of this.faults) if (!f.fixed && f.powerOff && w.now - (f.lastAct || f.since) > 40) {
+        f.powerOff = false; this.outages = this.outages.filter(o => o.fault !== f.id);
+        this.addLog('Питание «' + w.roomName(f.site) + '» восстановлено дежурным электриком: ремонт ' + f.id + ' брошен обесточенным', 'fault');
+        if (w.life) w.life.decide('Обесточенный участок оставлен без присмотра', [w.roomName(f.site), f.text], 'Питание восстановлено, замечание исполнителю', 'инженерная служба');
+        if (f.lastBy === 'player') { w.player.addRep('engineering', -4); w.player.addJournal('[' + fmtStamp(w.now) + '] Замечание: оставил участок «' + w.roomName(f.site) + '» обесточенным.'); }
+      }
+    }
     wear() {
       const w = this.w; if (this.openFaults().length > 14) return;
-      const r = w.rng; if (!r.chance(0.11)) return;
-      const kinds = ['light', 'light', 'panel', 'camera', 'reader', 'sensor', 'vent', 'humidity', 'shield', 'lift', 'gen'];
+      // wear follows the chosen intensity; a technician on shift makes faults surface a little more often (people use what works)
+      const pace = S.TaskDirector && S.TaskDirector.PACE && w.td ? (S.TaskDirector.PACE[w.td.pace] || {}).events || 1 : 1, tech = S.TaskDirector && S.TaskDirector.famOf && S.TaskDirector.famOf(w.player.prof) === 'tech' && w.player.onShift ? 1.4 : 1;
+      const r = w.rng; if (!r.chance(0.12 * pace * tech)) return;
+      const kinds = ['light', 'light', 'panel', 'camera', 'reader', 'sensor', 'vent', 'humidity', 'shield', 'lift', 'gen', 'door', 'door', 'terminal', 'cooling', 'emlight'];
       this.create(r.pick(kinds));
+    }
+    // a cell (or its observation room) with no object in it yet: nobody would ever notice a fault there
+    idle(roomId) {
+      const w = this.w, r = w.fac.room(roomId); if (!r) return true;
+      const cellOf = id => { if (w.fac.room(id) && w.fac.room(id).type === 'Containment') return id; const b = Object.values(w.fac.blocks || {}).find(x => x.obs === id); return b ? b.cell : null; };
+      const cell = (r.type === 'Containment' || r.type === 'Observation') ? cellOf(roomId) : null;
+      return !!cell && !w.anomalies.some(a => a.arrived && (a.containRoom === cell || a.obsRoom === roomId));
     }
     create(kind, roomId, extra) {
       const w = this.w, K = FAULT_KINDS[kind]; let room = roomId ? w.fac.room(roomId) : null, obj = null, poi = null;
-      if (kind === 'camera') { const c = roomId ? w.cams.find(x => x.roomId === roomId && x.operational) : w.rng.pick(w.cams.filter(x => x.operational)); if (!c) return null; obj = c; room = w.fac.room(c.roomId); c.operational = false; }
+      if (kind === 'camera') { const c = roomId ? w.cams.find(x => x.roomId === roomId && x.operational) : w.rng.pick(w.cams.filter(x => x.operational && !this.idle(x.roomId))); if (!c) return null; obj = c; room = w.fac.room(c.roomId); c.operational = false; }
       else if (kind === 'reader') { const d = roomId ? w.fac.door(roomId) : w.rng.pick(w.fac.doorList.filter(x => x.hasLeaf && x.kind !== 'Heavy')); if (!d) return null; obj = d; const ra = w.fac.room(d.roomA), rb = w.fac.room(d.roomB); room = rb && /Corridor|Tunnel/.test(rb.type) ? rb : /Corridor|Tunnel/.test(ra.type) ? ra : ra.type === 'Containment' ? rb : ra; d.readerFault = true; }
-      else if (kind === 'sensor') { const cells = Object.keys(this.sensors).filter(c => this.sensors[c].mode === 'ok'); if (!cells.length) return null; const c = roomId || w.rng.pick(cells); this.sensors[c].mode = w.rng.pick(['stuck', 'spike', 'drift']); this.sensors[c].stuck = null; const a = w.anomalies.find(x => x.containRoom === c); room = w.fac.room(a && a.obsRoom ? a.obsRoom : c); obj = { cell: c }; }
+      else if (kind === 'sensor') { const cells = Object.keys(this.sensors).filter(c => this.sensors[c].mode === 'ok' && w.anomalies.some(a => a.arrived && a.containRoom === c)); if (!cells.length) return null; const c = roomId || w.rng.pick(cells); this.sensors[c].mode = w.rng.pick(['stuck', 'spike', 'drift']); this.sensors[c].stuck = null; const a = w.anomalies.find(x => x.containRoom === c); room = w.fac.room(a && a.obsRoom ? a.obsRoom : c); obj = { cell: c }; }
       else if (kind === 'humidity') room = room || w.fac.room(w.rng.pick(['cell125', 'cell129', 'labC', 'lab2', 'pumps']));
       else if (kind === 'shield') { room = w.fac.room('obs135'); this.shields.cell135 = clamp((this.shields.cell135 || 90) - 25, 0, 100); }
       else if (kind === 'lift') { room = w.fac.room('liftOld'); w.fac.door('t.liftOld').outOfService = true; w.lockEpoch++; }
       else if (kind === 'gen') { room = w.fac.room(w.rng.chance(0.7) ? 'genC' : 'genMain'); if (room.id === 'genMain') this.gens.genMain.fault = true; else this.gens.genC.fault = true; }
-      else room = room || w.rng.pick(w.fac.roomList.filter(x => x.level === 3 || x.level === 4));
+      else if (kind === 'door') {
+        // a jammed leaf only where both sides keep another way out, so nobody is sealed in
+        const detour = d => { const a = w.fac.room(d.roomA), b = w.fac.room(d.roomB); if (!a || !b || !a.hubNodes.length || !b.hubNodes.length) return false; d.outOfService = true; const p = S.findPath(w.fac, a.hubNodes[0], b.hubNodes[0], null); d.outOfService = false; return !!p && p.length < 400; };
+        const ok = d => d.hasLeaf && d.kind === 'Standard' && !d.isTransit && !d.outOfService && [d.roomA, d.roomB].every(id => { const r = w.fac.room(id); return r && r.doorIds.filter(x => !w.fac.door(x).outOfService).length >= 2; });
+        let d = roomId ? w.fac.door(roomId) : null;
+        if (d && !(ok(d) && detour(d))) return null;
+        if (!d) { const cands = w.fac.doorList.filter(ok); for (let i = 0; i < 12 && cands.length && !d; i++) { const c = cands.splice(w.rng.int(0, cands.length), 1)[0]; if (detour(c)) d = c; } }
+        if (!d) return null;
+        obj = d; const ra = w.fac.room(d.roomA), rb = w.fac.room(d.roomB); room = /Corridor|Tunnel/.test(rb.type) ? rb : ra; d.jammed = true; d.outOfService = true; w.lockEpoch++;
+      }
+      else if (kind === 'terminal') { const cands = Object.values(w.fac.pois).filter(p => p.type === 'Console' && !p.broken && (!roomId || p.roomId === roomId)); const p = w.rng.pick(cands); if (!p) return null; obj = p; p.broken = true; room = w.fac.room(p.roomId); poi = p.id; }
+      else if (kind === 'cooling') { room = w.fac.room('servers'); this.serverHeat = this.serverHeat || 0; }
+      else if (kind === 'emlight') { room = room || w.rng.pick(w.fac.roomList.filter(x => (x.type === 'Corridor' || x.type === 'Tunnel') && (x.level === 3 || x.level === 4) && !x.noEmergency)); if (room) room.noEmergency = true; }
+      else room = room || w.rng.pick(w.fac.roomList.filter(x => (x.level === 3 || x.level === 4) && !this.idle(x.id)));
       if (!room) return null;
       if (this.faults.some(f => !f.fixed && f.kind === kind && f.room === room.id)) return null;
-      if (K.poiType) { const p = room.pois.find(x => x.type === K.poiType); if (p) poi = p.id; else if (kind === 'light' || kind === 'panel') { const pp = Object.values(w.fac.pois).find(x => x.type === 'Panel' && w.fac.room(x.roomId).sector === room.sector && w.fac.room(x.roomId).level === room.level); if (pp) { poi = pp.id; } } }
+      if (K.poiType && !poi) { const p = room.pois.find(x => x.type === K.poiType); if (p) poi = p.id; else if (kind === 'light' || kind === 'panel' || kind === 'emlight') { const pp = Object.values(w.fac.pois).find(x => x.type === 'Panel' && w.fac.room(x.roomId).sector === room.sector && w.fac.room(x.roomId).level === room.level); if (pp) { poi = pp.id; } } }
       const f = Object.assign({ id: 'F' + this.nextFault++, kind, room: poi ? w.fac.poi(poi).roomId : room.id, site: room.id, poi, poiType: K.poiType || null, text: K.text(room, obj), who: K.who, dur: K.dur, since: w.now, known: false, fixed: false, obj: obj && obj.id ? obj.id : (obj && obj.cell) || null }, extra || {});
       // self-reporting faults: dead camera feed, reader errors, generator failure
-      if (kind === 'camera' || kind === 'gen' || kind === 'lift') this.discover(f, 'система');
+      if (S.Proc) S.Proc.seed(w, f);
+      if (kind === 'camera' || kind === 'gen' || kind === 'lift' || kind === 'cooling') this.discover(f, 'система');
       this.faults.push(f); if (this.faults.length > 80) this.faults = this.faults.filter(x => !x.fixed || w.now - x.fixedAt < 1440);
       return f;
     }
@@ -137,6 +178,11 @@
       if (f.kind === 'shield') this.shields.cell135 = 100;
       if (f.kind === 'lift') { w.fac.door('t.liftOld').outOfService = !!(w.life && w.life.liftLocked()); w.lockEpoch++; }
       if (f.kind === 'gen') { this.gens.genMain.fault = false; this.gens.genC.fault = false; }
+      if (f.kind === 'door') { const d = w.fac.door(f.obj); if (d) { d.jammed = false; d.outOfService = false; w.lockEpoch++; } }
+      if (f.kind === 'terminal') { const p = w.fac.poi(f.obj); if (p) p.broken = false; }
+      if (f.kind === 'cooling') this.serverHeat = 0;
+      if (f.kind === 'emlight') { const r = w.fac.room(f.site); if (r) r.noEmergency = false; }
+      if (f.powerOff) { f.powerOff = false; this.outages = this.outages.filter(o => o.fault !== f.id); }
       this.addLog('Устранено ' + f.id + ': ' + f.text + ' (' + w.nameOf(who) + ')', 'fix');
       if (w.life) w.life.onFaultFixed(f, who);
     }
@@ -171,8 +217,16 @@
     knock(roomId, cause) { const r = this.w.fac.room(roomId); if (!r) return; const k = { t: this.w.now, kind: 'knock', roomId, pos: V.v(r.center.x + this.w.rng.range(-2, 2), r.floorY + 2.8, r.center.z + this.w.rng.range(-2, 2)), cause }; this.knocks.push(k); this.w.sounds.push(k); if (cause === 'thermal' && this.w.rng.chance(0.2)) this.addLog('Стук в воздуховоде «' + r.name + '» — тепловое расширение при прогреве', 'vent'); }
     dryRadio(id) { const r = this.radios[id]; if (r) { r.bat = 0; r.ok = false; const n = this.w.npc(id); if (n) n.radioOk = false; } }
 
-    save() { return { f: this.faults, nf: this.nextFault, o: this.outages, l: this.log, rl: this.radioLogList, s: this.sensors, r: this.radios, v: this.vents, h: this.hum, sh: this.shields, g: this.gens, iso: this.iso }; }
-    load(o) { this.faults = o.f; this.nextFault = o.nf; this.outages = o.o; this.log = o.l; this.radioLogList = o.rl; this.sensors = o.s; this.radios = o.r; this.vents = o.v; this.hum = o.h; this.shields = o.sh; this.gens = o.g; this.iso = o.iso || { iso132: true }; }
+    save() { return { f: this.faults, nf: this.nextFault, o: this.outages, l: this.log, rl: this.radioLogList, s: this.sensors, r: this.radios, v: this.vents, h: this.hum, sh: this.shields, g: this.gens, iso: this.iso, st: this.stock || null, sv: this.serverHeat || 0, sd: this.supplyDay || 0 }; }
+    load(o) {
+      this.faults = o.f; this.nextFault = o.nf; this.outages = o.o; this.log = o.l; this.radioLogList = o.rl; this.sensors = o.s; this.radios = o.r; this.vents = o.v; this.hum = o.h; this.shields = o.sh; this.gens = o.g; this.iso = o.iso || { iso132: true };
+      this.stock = o.st || null; this.serverHeat = o.sv || 0; this.supplyDay = o.sd || 0;
+      // world objects that carry a fault flag outside the save of the fault list
+      const w = this.w; for (const f of this.faults) { if (f.fixed) continue;
+        if (f.kind === 'door') { const d = w.fac.door(f.obj); if (d) { d.jammed = true; d.outOfService = true; } }
+        if (f.kind === 'terminal') { const p = w.fac.poi(f.obj); if (p) p.broken = true; }
+        if (f.kind === 'emlight') { const r = w.fac.room(f.site); if (r) r.noEmergency = true; } }
+    }
   }
 
   // Dirt from foot traffic in corridors: janitors clean it, lost items are found on the way.

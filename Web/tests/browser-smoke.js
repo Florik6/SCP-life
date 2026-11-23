@@ -65,6 +65,38 @@ const server = http.createServer((q, r) => {
     const resp = await page.evaluate(() => { const w = window.__scp.world; return w.active.filter(n => n.combat).map(n => n.displayName + (n.kit && n.kit.drawn ? ' [' + n.kit.cur + ']' : '')).slice(0, 8); });
     report.push('реагирование: ' + resp.join(', '));
   }
+  // the hands-on panels: repair with a mini-game, the store, the checkpoint pass, the sorting quota
+  if (process.env.PANELS) {
+    const click = async (re) => { const ok = await page.evaluate((src) => { const re = new RegExp(src); const b = [...document.querySelectorAll('#wActs button')].find(x => re.test(x.textContent) && !x.disabled); if (b) b.click(); return !!b; }, re); await page.waitForTimeout(400); return ok; };
+    const wait = async (ms) => page.waitForTimeout(ms);
+    // repair: a light fault next to the player
+    const rep = await page.evaluate(() => { const G = window.__scp, w = G.world, S = window.SCP, r = w.fac.room('workshop') || w.fac.room('canteen'); w.player.pos = { x: r.center.x, y: r.floorY, z: r.center.z }; w.player.roomId = r.id; const f = w.infra.create('light', r.id); if (!f) return 'нет неисправности'; S.Proc.seed(w, f); f.cause = 'contact'; G.Repair.open(f, null); return f.text; });
+    await wait(500); await click('Журнал'); await wait(2500); await click('Осмотреть'); await wait(3000); await click('Обесточить'); await wait(2500);
+    await page.screenshot({ path: path.join(OUT, 'panel-repair.png') });
+    const mini = await click('Подтянуть'); await wait(600); const miniShown = await page.evaluate(() => !document.getElementById('wMini').hidden);
+    await page.screenshot({ path: path.join(OUT, 'panel-minigame.png') });
+    await page.evaluate(() => document.getElementById('wStop').click()); await wait(3500);
+    const log1 = await page.evaluate(() => [...document.querySelectorAll('#wLog li')].map(l => l.textContent));
+    report.push('ремонт «' + rep + '»: мини-игра ' + (mini && miniShown ? 'показана' : 'НЕ показана') + ' · журнал: ' + log1.join(' | '));
+    await page.evaluate(() => window.__scp.Work.close());
+    // the store
+    await page.evaluate(() => { const G = window.__scp, w = G.world; const r = w.fac.room('engStore'); w.player.pos = { x: r.center.x, y: r.floorY, z: r.center.z }; w.player.roomId = r.id; G.Store.open('engStore'); });
+    await wait(500); await click('Весь склад'); await wait(500); await page.screenshot({ path: path.join(OUT, 'panel-store.png') });
+    report.push('склад: кнопок ' + await page.evaluate(() => document.querySelectorAll('#wActs button').length));
+    await page.evaluate(() => window.__scp.Work.close());
+    // the checkpoint pass: somebody in line at the player's post
+    const pass = await page.evaluate(() => { const G = window.__scp, w = G.world, S = window.SCP, cp = S.CP.CPS.cpC, poi = w.fac.poi(cp.poi); w.player.pos = { x: poi.pos.x, y: poi.pos.y, z: poi.pos.z }; w.player.roomId = poi.roomId; for (const t of w.tasks.list) if (t.kind === 'pass_control' && t.status === 'Active') t.status = 'Failed'; const st = S.CP.M(w).st.cpC; st.by = 'player'; const n = w.active.find(x => x.dept === 'science' && !x.dead); S.CP.enqueue(w, cp, n.id, n.cardId); G.Pass.open('cpC', n.id); return n.displayName; });
+    await wait(500); await click('Сверить с базой'); await wait(2500); await click('Цель визита'); await wait(1800);
+    await page.screenshot({ path: path.join(OUT, 'panel-pass.png') });
+    const passInfo = await page.evaluate(() => document.getElementById('wInfo').textContent.slice(0, 160) + ' | ' + [...document.querySelectorAll('#wLog li')].map(l => l.textContent).join(' | '));
+    await click('Пропустить'); report.push('пропуск (' + pass + '): ' + passInfo);
+    // the sorting quota
+    await page.evaluate(() => { const G = window.__scp, w = G.world; G.Sort.open({ status: 'Active', data: {}, steps: [] }); });
+    for (let i = 0; i < 10; i++) { await click('В ящик'); await wait(900); }
+    await page.screenshot({ path: path.join(OUT, 'panel-sort.png') });
+    report.push('сортировка: ' + await page.evaluate(() => document.getElementById('wInfo').textContent));
+    await page.evaluate(() => window.__scp.Work.close());
+  }
   const sim = await page.evaluate(() => { const w = window.__scp.world; return { active: w.active.length, rooms: w.fac.roomList.length, t: w.now.toFixed(1) }; });
   console.log(report.join('\n')); console.log('мир:', JSON.stringify(sim));
   console.log(errors.length ? 'ОШИБКИ:\n' + errors.slice(0, 20).join('\n') : 'ошибок в консоли нет');

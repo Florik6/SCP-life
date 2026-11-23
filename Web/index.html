@@ -115,6 +115,23 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 .row output { min-width: 96px; text-align: center; color: var(--hazard); font-weight: 600; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 6px; }
 #dialogue { place-items: end center; background: transparent; pointer-events: none; }
+#work { place-items: end center; background: transparent; pointer-events: none; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.wk { pointer-events: auto; width: min(96vw, 860px); max-height: 64vh; overflow: auto; background: rgba(8, 11, 12, 0.95); border: 1px solid var(--line); border-top: 3px solid var(--hazard); padding: 10px 12px; display: grid; gap: 8px; }
+.wk h2 { margin: 0; font-size: 16px; color: var(--hazard); letter-spacing: 0.04em; }
+#wInfo { font-size: 14px; line-height: 1.4; } #wInfo .hz { color: #ff9a59; } #wInfo .sf, #wInfo .okc { color: #7dff9a; } #wInfo .dim { color: var(--dim); }
+#wLog { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.4; max-height: 20vh; overflow: auto; } #wLog:empty { display: none; }
+#wLog li.ok { color: #7dff9a; } #wLog li.bad { color: #ff6a5c; } #wLog li.warn { color: #ffd76b; }
+#wMini { display: grid; gap: 6px; } #wMiniName { font-size: 13px; color: var(--dim); }
+.mbar { position: relative; height: 28px; background: #111618; border: 1px solid var(--line); }
+#wZone { position: absolute; top: 0; bottom: 0; background: rgba(90, 220, 120, 0.45); }
+#wMark { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; background: var(--hazard); }
+#wStop { min-height: 50px; font-size: 16px; font-weight: 700; background: #2a2410; border: 1px solid var(--hazard); }
+#wProg { height: 8px; background: rgba(0, 0, 0, 0.6); border: 1px solid var(--line); } #wProg i { display: block; height: 100%; width: 0; background: var(--hazard); }
+.wk .acts { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.wk .acts button { min-height: 44px; background: #151b1e; border: 1px solid var(--line); padding: 6px 10px; font-weight: 600; font-size: 14px; text-align: left; }
+.wk .acts button.d { border-left: 4px solid #5aa0ff; } .wk .acts button.s { border-left: 4px solid #ffd76b; } .wk .acts button.f { border-left: 4px solid #d8d8d8; } .wk .acts button.v { border-left: 4px solid #7dff9a; } .wk .acts button.leave { color: var(--dim); }
+.wk .acts button:disabled { opacity: 0.4; }
+
 .dlg { pointer-events: auto; width: min(94vw, 820px); background: rgba(8, 11, 12, 0.95); border: 1px solid var(--line); border-top: 3px solid var(--hazard); padding: 10px 14px; display: grid; gap: 8px; }
 .dlg h2 { margin: 0; font-size: 16px; color: var(--hazard); letter-spacing: 0.04em; }
 .dlg p { margin: 0; font-size: 15px; line-height: 1.45; max-height: 36vh; overflow: auto; white-space: pre-line; touch-action: pan-y; }
@@ -290,6 +307,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
       <div class="row"><span>Без резких вспышек</span><span></span><output id="sNoFlash"></output><button data-s="noflash" data-d="1">⇄</button></div>
       <div class="row"><span>Уменьшить тряску камеры</span><span></span><output id="sShake"></output><button data-s="shake" data-d="1">⇄</button></div>
       <div class="row"><span>Компактный HUD</span><span></span><output id="sMinHud"></output><button data-s="minhud" data-d="1">⇄</button></div>
+      <div class="row"><span>Интенсивность событий</span><button data-s="pace" data-d="-1">−</button><output id="sPace"></output><button data-s="pace" data-d="1">+</button></div>
       <div class="row"><span>Натуралистичность ранений</span><button data-s="gore" data-d="-1">−</button><output id="sGore"></output><button data-s="gore" data-d="1">+</button></div>
       <div class="row"><span>При гибели персонажа</span><span></span><output id="sDeath"></output><button data-s="deathMode" data-d="1">⇄</button></div>
     </div>
@@ -305,6 +323,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 </div>
 
 <div id="chat" hidden><div class="box"><div class="hd"><span id="chatTitle">Интерком</span><span class="mode" id="chatMode"></span><button class="tbtn" id="chatClose">ЗАКРЫТЬ ✕</button></div><div id="chatLog"></div><div id="chatQuick"></div><form id="chatForm" autocomplete="off"><input id="chatIn" maxlength="300" placeholder="Сказать в интерком…"><button type="submit">▶</button></form></div></div>
+<div id="work" class="overlay" hidden><div class="wk"><h2 id="wTitle"></h2><div id="wInfo"></div><ul id="wLog"></ul><div id="wMini" hidden><div id="wMiniName"></div><div class="mbar"><i id="wZone"></i><i id="wMark"></i></div><button id="wStop">ЗАФИКСИРОВАТЬ</button></div><div id="wProg" hidden><i></i></div><div class="acts" id="wActs"></div></div></div>
 <div id="dialogue" class="overlay" hidden><div class="dlg"><h2 id="dTitle"></h2><p id="dBody"></p><div class="acts" id="dActs"></div></div></div>
 
 <div id="pda" class="overlay" hidden>
@@ -361,6 +380,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 <script src="js/ai/minds.js"></script>
 <script src="js/brain.js"></script>
 <script src="js/infra.js"></script>
+<script src="js/procedures.js"></script>
+<script src="js/checkpoint.js"></script>
+<script src="js/dclass.js"></script>
 <script src="js/scplife.js"></script>
 <script src="js/horror.js"></script>
 <script src="js/world.js"></script>

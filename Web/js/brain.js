@@ -22,6 +22,8 @@
         n.posture = n.admitted ? 'Lying' : 'Down'; return;
       }
       if (n.combat && !remote && S.Arms.npcTick(w, n, dt)) { n.nextThink -= dt; return; }
+      // stopped by a guard for a document check: stands and waits, facing the guard
+      if (n.heldUntil > now) { if (n.agent.hasPath) n.agent.clear(); n.posture = 'Standing'; const p = w.player; if (V.distXZ(p.pos, n.agent.pos) < 4) w.faceTowards(n.agent, p.pos, dt); return; }
       perceive(w, n, dt);
       n.nextThink -= dt;
       if (n.nextThink <= 0) { n.nextThink = THINK * (0.75 + w.rng.next() * 0.5) * (remote ? 1.5 : 1); think(w, n); }
@@ -308,7 +310,7 @@
     if (!chosen && type) {
       const cands = [];
       for (const p of room.pois) {
-        if (p.type !== type || (p.reservedBy && p.reservedBy !== n.id) || (p.id === n.avoidPoi && room.pois.length > 1)) continue;
+        if (p.type !== type || p.broken || (p.reservedBy && p.reservedBy !== n.id) || (p.id === n.avoidPoi && room.pois.length > 1)) continue;
         if (p.owners && p.owners.indexOf(n.id) < 0) continue;
         if (p.owners) { chosen = p; break; } cands.push(p);
       }
@@ -487,12 +489,15 @@
     n.agent.doorCd = 1.3;
     if (n.escortedBy) return 'Wait';
     const card = w.card(n.cardId);
+    // a manned checkpoint: a person without a card can ask the guard; the line waits for the check
+    if (S.CP && (!card || card.holder !== n.id)) { const cp = S.CP.cpOfDoor(w, door); if (cp && from === cp.side && S.CP.manned(w, cp)) { const st = S.CP.M(w).st[cp.id]; if (st.denied[n.id] > w.now) return 'Blocked'; if (st.cleared[n.id] > w.now) return 'Wait'; S.CP.enqueue(w, cp, n.id, null); if (n.agent.wait < 1.5) n.say('Карту забыл… Пропустите, я по работе.', w.now); return 'Wait'; } }
     if (!card || card.holder !== n.id) { if (n.agent.wait < 1.5) n.say('Где моя карта?..', w.now); return n.agent.wait > 10 ? 'Blocked' : 'Wait'; }
     const r = w.presentCard(door.id, card.id, n.id, from);
     switch (r) {
       case S.R.Granted: case S.R.Override: return 'Wait';
       case S.R.Await: if (n.agent.wait > 60) { n.say('Второй карты так и нет. Отбой.', w.now); return 'Blocked'; } if (n.agent.wait < 1.5) n.say('Жду вторую карту.', w.now); return 'Wait';
       case S.R.DSame: return 'Wait';
+      case S.R.Check: return 'Wait';
       case S.R.Fault: if (n.agent.wait < 1.5) n.say('Считыватель глючит…', w.now); return n.agent.wait > 25 ? 'Blocked' : 'Wait';
       default: return 'Blocked';
     }

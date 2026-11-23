@@ -248,7 +248,7 @@
     }
     // Interaction proxies for points of interest that duties use.
     poiProxies(room) {
-      const P = { Console: [0.9, 0.9, 0.9, 'console'], GuardPost: [0.9, 0.9, 0.9, 'console'], Desk: [1.2, 0.9, 1.2, 'desk'], Workbench: [1.4, 1.0, 1.0, 'poi'], Stove: [1.0, 1.0, 1.0, 'poi'], Shelf: [1.2, 1.8, 0.7, 'poi'], Rack: [0.8, 2.0, 0.9, 'poi'], Panel: [0.8, 0.9, 0.6, 'poi'], FoodCounter: [2, 1.1, 1, 'poi'], MedBed: [1.0, 0.8, 2.0, 'poi'], Bed: [1.0, 0.8, 2.0, 'bed'], CellBunk: [1.0, 0.8, 2.0, 'bed'], Terminal: [0.6, 1.2, 0.5, 'poi'], Hazmat: [0.7, 1.9, 0.6, 'hazmat'], Stand: [0.8, 0.4, 0.8, 'spot'], Seat: [0.6, 0.6, 0.6, 'seat'] };
+      const P = { Console: [0.9, 0.9, 0.9, 'console'], GuardPost: [0.9, 0.9, 0.9, 'console'], Desk: [1.2, 0.9, 1.2, 'desk'], Workbench: [1.4, 1.0, 1.0, 'poi'], Stove: [1.0, 1.0, 1.0, 'poi'], Shelf: [1.2, 1.8, 0.7, 'poi'], Rack: [0.8, 2.0, 0.9, 'poi'], Panel: [0.8, 0.9, 0.6, 'poi'], FoodCounter: [2, 1.1, 1, 'poi'], MedBed: [1.0, 0.8, 2.0, 'poi'], Bed: [1.0, 0.8, 2.0, 'bed'], CellBunk: [1.0, 0.8, 2.0, 'bed'], Terminal: [0.6, 1.2, 0.5, 'poi'], Hazmat: [0.7, 1.9, 0.6, 'hazmat'], Stand: [0.8, 0.4, 0.8, 'spot'], Checkpoint: [0.9, 1.3, 0.9, 'spot'], Seat: [0.6, 0.6, 0.6, 'seat'] };
       for (const p of room.pois) {
         const d = P[p.type]; if (!d) continue; const f = this.fwd(p.yaw), off = ['Console', 'GuardPost', 'Desk', 'Panel', 'Terminal', 'Shelf', 'Rack', 'Stove'].indexOf(p.type) >= 0 ? 0.55 : 0;
         this.proxy('poi', p.pos.x + f.x * off, d[1] / 2 + 0.2, p.pos.z + f.z * off, d[0], d[1], d[2], { kind: d[3], id: p.id, type: p.type, label: p.label });
@@ -338,6 +338,7 @@
         const f = this.fwd(p.yaw);
         switch (p.type) {
           case 'Desk': this.desk(p); break;
+          case 'Checkpoint': { const cx = p.pos.x - f.x * 0.55, cz = p.pos.z - f.z * 0.55; let s = this.sz(f, 0.45, 0.6, 1.05); this.box(m.dark, cx, 0.52, cz, s[0], s[1], s[2], true); s = this.sz(f, 0.55, 0.7, 0.04); this.box(m.plastic, cx, 1.06, cz, s[0], s[1], s[2]); s = this.sz(f, 0.05, 0.35, 0.25); this.box(m.screenG, cx + f.x * 0.1, 1.2, cz + f.z * 0.1, s[0], s[1], s[2]); break; }
           case 'Console': case 'GuardPost': { const cx = p.pos.x + f.x * 0.6, cz = p.pos.z + f.z * 0.6; let s = this.sz(f, 0.7, 1.2, 0.85); this.box(m.dark, cx, 0.42, cz, s[0], s[1], s[2], true); s = this.sz(f, 0.75, 1.25, 0.04); this.box(m.plastic, cx, 0.86, cz, s[0], s[1], s[2]); s = this.sz(f, 0.05, 0.6, 0.4); this.box(p.type === 'GuardPost' ? m.screenG : m.screenB, cx + f.x * 0.25, 1.15, cz + f.z * 0.25, s[0], s[1], s[2]); this.chair(p, m.fabric); break; }
           case 'Seat': if (r.type === 'DClassCommon' || r.type === 'Shelter' || r.type === 'MTF' || r.type === 'Waiting' || r.type === 'Locker') { const s = this.sz(f, 0.4, 0.9, 0.45); this.box(m.metal, p.pos.x, 0.22, p.pos.z, s[0], s[1], s[2]); } else if (r.type !== 'Canteen') this.chair(p, r.style === 'admin' ? m.colored(0x6b2b2b) : m.fabric); break;
           case 'Bed': if (p.bunk) { this.bed(p, m.dark, m.colored(0x3a4a33), 0.4); const s = this.sz(f, 2.0, 0.9, 0.05); this.box(m.dark, p.pos.x, 1.45, p.pos.z, s[0], s[1], s[2]); this.box(m.mattress, p.pos.x, 1.52, p.pos.z, s[0] * 0.97, 0.1, s[2] * 0.95); } else this.bed(p, r.style === 'admin' ? m.wood : m.dark, m.fabric, 0.4); break;

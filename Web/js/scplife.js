@@ -54,14 +54,16 @@
     hasActive(kind, target) { return this.list.some(t => t.status === 'Active' && t.kind === kind && (target == null || t.target === target || (t.data && t.data.target === target))); }
     complete(w, t, note) {
       if (t.status !== 'Active') return; t.status = 'Completed'; t.doneAt = w.now; t.note = note; this.done[t.who === 'player' ? 'player' : 'npc']++;
-      if (S.TaskDirector) S.TaskDirector.consequence(w, t, true, note);
-      if (t.who === 'player') { const p = w.player; p.done++; p.tasksInRole++; p.addRep(p.dept, 2); }
+      // the outcome: success / partial / failure (a job may judge how well it was done)
+      const spec = S.Jobs.J[t.kind]; try { t.result = (spec && spec.outcome ? spec.outcome(w, t.who === 'player' ? 'player' : w.npc(t.who), t) : null) || t.result || 'success'; } catch (e) { t.result = t.result || 'success'; }
+      if (S.TaskDirector) S.TaskDirector.consequence(w, t, t.result !== 'failure', note, t.result);
+      if (t.who === 'player') { const p = w.player; p.done++; p.tasksInRole++; p.addRep(p.dept, t.result === 'success' ? 3 : t.result === 'partial' ? 1 : -3); }
       w.events.post({ time: w.now, type: EV.TaskCompleted, actor: t.who, target: t.id, roomId: t.room, quiet: t.who !== 'player', text: w.nameOf(t.who) + ': выполнено «' + t.title + '»' + (note ? ' — ' + note : '') });
       if (t.decision && w.life) w.life.resolve(t.decision, 'выполнено: ' + (note || t.title));
     }
     fail(w, t, reason) {
       if (t.status !== 'Active') return; t.status = 'Failed'; t.doneAt = w.now; t.note = reason;
-      if (S.TaskDirector) S.TaskDirector.consequence(w, t, false, reason);
+      t.result = 'failure'; if (S.TaskDirector) S.TaskDirector.consequence(w, t, false, reason, 'failure');
       if (t.who === 'player') { w.player.failed++; w.player.failedToday++; w.player.addRep(w.player.dept, -4); }
       w.events.post({ time: w.now, type: EV.TaskFailed, actor: t.who, target: t.id, severity: 1, quiet: t.who !== 'player', text: w.nameOf(t.who) + ': не выполнено «' + t.title + '» (' + reason + ')' });
       const spec = S.Jobs.J[t.kind]; if (spec && spec.fail) spec.fail(w, t.who === 'player' ? 'player' : w.npc(t.who), t);
@@ -95,20 +97,21 @@
       const w = this.w, obj = who === 'player' ? 'player' : w.npc(who); if (!obj) return null;
       const job = S.Jobs.build(w, kind, obj, opts || {}); if (!job) return null;
       const t = Object.assign(job, { who: who === 'player' ? 'player' : obj.id, by: by || 'SCP LIFE', deadline: deadline ? w.now + deadline : 0 }, extra || {});
-      if (obj !== 'player') this.tempAccess(obj, t, deadline || 240);
+      this.tempAccess(obj, t, deadline || 240);
       return w.tasks.issue(w, t);
     }
     // Duties sometimes lead into rooms the position does not open: SCP LIFE grants temporary access for the job.
     tempAccess(n, t, minutes) {
-      const w = this.w, card = w.card(n.cardId); if (!card) return;
+      const w = this.w, P = n === 'player', card = w.card(P ? 'card.player' : n.cardId), nm = P ? w.player.name : n.displayName; if (!card) return;
       for (const s of t.steps) {
-        if (!s.room || w.reachable(n, s.room)) continue;
+        if (!s.room || w.reachable(P ? 'player' : n, s.room)) continue;
         const room = w.fac.room(s.room); let lvl = 0, perms = 0; for (const id of room.doorIds) { const d = w.fac.door(id); if (d.isTransit) continue; const rq = d.reqFrom(d.other(room.id)); lvl = Math.max(lvl, rq.min, d.restricted ? 3 : 0); perms |= rq.anyOf; }
         for (const id of room.doorIds) { const d = w.fac.door(id), o = w.fac.room(d.other(room.id)); if (o && o.type !== 'Corridor' && o.type !== 'Tunnel') for (const id2 of o.doorIds) { const d2 = w.fac.door(id2); if (d2.isTransit) continue; const rq = d2.reqFrom(d2.other(o.id)); lvl = Math.max(lvl, rq.min, d2.restricted ? 3 : 0); perms |= rq.anyOf; } }
         if (lvl > 3) lvl = 3;
         card.tempLevel = Math.max(card.tempUntil > w.now ? card.tempLevel : 0, lvl); card.tempPerms = (card.tempUntil > w.now ? card.tempPerms : 0) | perms; card.tempUntil = Math.max(card.tempUntil, w.now + minutes);
         w.lockEpoch++;
-        this.decide('Временный допуск', [n.displayName + ': задание «' + t.title + '»', 'помещение «' + room.name + '» закрыто для должности'], 'Допуск L' + lvl + ' (' + S.permList(perms) + ') до ' + fmtTime(card.tempUntil), n.displayName);
+        this.decide('Временный допуск', [nm + ': задание «' + t.title + '»', 'помещение «' + room.name + '» закрыто для должности'], 'Допуск L' + lvl + ' (' + S.permList(perms) + ') до ' + fmtTime(card.tempUntil), nm);
+        if (P) w.notify.push({ time: w.now, type: EV.Announcement, severity: 1, text: 'Временный допуск L' + lvl + ' на карту до ' + fmtTime(card.tempUntil) + ' — для задания «' + t.title + '».' });
       }
     }
     happen(kind, data) { this.happened.push({ kind, t: this.now, data }); if (this.happened.length > 120) this.happened.shift(); }
@@ -129,7 +132,7 @@
     // Give a duty either to the player (if the profession matches and the player is free) or to an NPC.
     assign(kind, profs, opts, by, deadline, near, extra) {
       const w = this.w, p = w.player;
-      if (profs.indexOf(p.prof) >= 0 && this.playerIs(p.prof) && w.tasks.activeFor('player').length < 2 && (!extra || !extra.npcOnly) && w.rng.chance(0.6)) { const t = this.issue(kind, 'player', opts, by, deadline, extra); if (t) return t; }
+      if (profs.indexOf(p.prof) >= 0 && this.playerIs(p.prof) && w.tasks.activeFor('player').length < 2 && (!extra || !extra.npcOnly) && w.rng.chance(0.6) && (!S.TaskDirector || S.TaskDirector.accepts(w, kind))) { const t = this.issue(kind, 'player', opts, by, deadline, extra); if (t) return t; }
       const n = this.pick(profs, near); if (!n) return null;
       return this.issue(kind, n.id, opts, by, deadline, extra);
     }
@@ -880,16 +883,23 @@
     playerDuties() {
       const w = this.w, p = w.player; if (p.dead || !p.prof) return;
       const b = p.dutyBlock(w); p.onShift = b === 'Duty';
+      if (S.TaskDirector && S.TaskDirector.drives(w)) return;                // the Task Director paces this profession
       if (!p.onShift || w.alert.level >= 3) return;
       if (w.tasks.activeFor('player').length >= 2) return;
       if (w.now - (p.lastAssigned || -1e4) < 25) return;
+      return this.playerFiller();
+    }
+    // the profession's routine work (rounds, duties), used when nothing is happening
+    playerFiller() {
+      const w = this.w, p = w.player; if (p.dead || !p.prof) return null;
       p.lastAssigned = w.now;
       const fake = { prof: p.prof, dept: p.dept, workRoom: p.workRoom, assignedScps: p.assignedScps, reportsPending: p.reportsPending, obsNotes: [], post: p.post, hallRoom: p.hallRoom, agent: { roomId: p.roomId, pos: p.pos } };
       const r = S.Jobs.routine(w, fake);
-      if (p.prof === 'dclass') { const kind = w.clock.hour >= 8 && w.clock.hour < 17 ? (w.rng.chance(0.75) ? 'labor' : 'd_chore') : null; if (kind) this.issue(kind, 'player', {}, 'Охрана блока D', 90); return; }
+      if (p.prof === 'dclass') { const kind = w.clock.hour >= 8 && w.clock.hour < 17 ? (w.rng.chance(0.75) ? (S.Jobs.J.labor_quota ? 'labor_quota' : 'labor') : 'd_chore') : null; if (kind) this.issue(kind, 'player', {}, 'Охрана блока D', 90); return; }
       let t = this.issue(r[0], 'player', r[1] || {}, this.byFor(p.dept), 240);
       // never a generic patrol for a non-guard: fall back to the profession's own duties
       const pr = S.Professions.get(p.prof); if (!t && pr) for (const k of pr.duties) { if (k === r[0]) continue; t = this.issue(k, 'player', {}, this.byFor(p.dept), 240); if (t) break; }
+      return t;
     }
     byFor(dept) { return { science: 'Руководитель исследований', security: 'Начальник смены', mtf: 'Командир МОГ', engineering: 'Руководитель инженерной службы', medical: 'Главный врач', admin: 'Директор', service: 'Хозяйственная служба', dclass: 'Охрана блока D' }[dept] || 'SCP LIFE'; }
 

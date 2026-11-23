@@ -11,7 +11,7 @@
 
   // ------------------------------------------------------------------ settings
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-  const settings = Object.assign({ sens: 1.0, fov: 72, quality: isTouch ? 1 : 2, volume: 0.8, music: 0.6, invert: false, touch: isTouch, hud: 1, btn: 1, lefty: false, fx: 1, noflash: false, shake: false, minhud: false, gore: 1, deathMode: 0 }, (() => { try { return JSON.parse(store.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
+  const settings = Object.assign({ sens: 1.0, fov: 72, quality: isTouch ? 1 : 2, volume: 0.8, music: 0.6, invert: false, touch: isTouch, hud: 1, btn: 1, lefty: false, fx: 1, noflash: false, shake: false, minhud: false, gore: 1, deathMode: 0, pace: 1 }, (() => { try { return JSON.parse(store.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
   const QUALITY = isTouch ? [{ name: 'Низкое', ratio: 0.55, lights: 3, far: 26, npcs: 10 }, { name: 'Среднее', ratio: 0.75, lights: 4, far: 34, npcs: 16 }, { name: 'Высокое', ratio: 1.0, lights: 6, far: 44, npcs: 28 }]
     : [{ name: 'Низкое', ratio: 0.6, lights: 4, far: 28, npcs: 18 }, { name: 'Среднее', ratio: 0.85, lights: 6, far: 38, npcs: 28 }, { name: 'Высокое', ratio: 1.0, lights: 8, far: 48, npcs: 40 }];
   const saveSettings = () => store.set(SET_KEY, JSON.stringify(settings));
@@ -135,6 +135,7 @@
       if (Input.count) toggleCounting();
       P.rayT -= dt; if (P.rayT <= 0) { P.rayT = 0.1; P.current = pickInteractable(); }
       if (Input.use && P.current && !G.hold) interact(P.current);
+      else if (Input.use && !P.current && !G.hold) { const rep = w.playerStepFor(s => /^report:/.test(s.need || '')); const rs = w.stepInRoom(); if (rep) Report.open(rep); else if (rs && rs.s.fault && w.infra.fault(rs.s.fault)) Repair.open(w.infra.fault(rs.s.fault), rs.t); else if (rs) beginHold(rs.t, rs.s, rs.s.label); }
       if (G.hold) tickHold(dt);
     } else { P.current = null; if (G.hold) cancelHold(); }
     w.player.yaw = P.yaw; w.player.pitch = P.pitch;
@@ -197,16 +198,16 @@
     switch (d.kind) {
       case 'reader': { const door = w.fac.door(d.door), c = w.card(w.player.selectedCardId()); return 'Приложить карту [' + (c ? 'L' + c.level + ' · ' + c.ownerName : 'нет карты') + ']\n' + door.name + ' · допуск ' + S.describeReq(door.reqFrom(d.side)); }
       case 'terminal': return 'Терминал' + task;
-      case 'console': return (st ? '' : 'Рабочий терминал: ' + d.label) + task;
+      case 'console': { const poi = d.id && w.fac.poi(d.id); return (st ? '' : 'Рабочий терминал: ' + d.label + (poi && poi.broken ? ' (не отвечает)' : '')) + task; }
       case 'checkpoint': return 'Отметиться: «' + d.label + '»' + task;
-      case 'desk': case 'poi': case 'spot': return (st ? '' : d.label) + task;
+      case 'desk': case 'poi': case 'spot': { const poi = d.id && w.fac.poi(d.id); if (!st && poi && poi.type === 'Shelf' && S.Proc && S.Proc.STORES.indexOf(poi.roomId) >= 0) return 'Стеллаж: запасные части'; return (st ? '' : d.label) + task; }
       case 'bed': { const poi = w.fac.poi(d.id); return 'Койка' + (poi && (poi.owners || []).indexOf('player') >= 0 ? ' (ваша) — лечь спать' : '') + task; }
       case 'hazmat': return 'Защитный костюм на стойке';
       case 'seat': return st ? task.slice(1) : '';
       case 'window': { const a = anomalyIn(d.room); return a ? 'Наблюдать через окно: ' + a.displayName : 'Окно наблюдения'; }
       case 'intercom': { const a = anomalyIn(roomBehind(d.room)); return 'Интерком' + (a ? ': ' + a.id : ''); }
       case 'transit': return d.label;
-      case 'npc': { const n = w.npc(d.id); return n ? 'Говорить: ' + n.displayName + '\n' + S.Professions.get(n.prof).name + ' · ' + (n.label || S.ACT_NAMES[n.activity] || '') : ''; }
+      case 'npc': { const n = w.npc(d.id); if (n && (cpQueue(d.id) || w.playerStepFor(s => s.need === 'docs:' + d.id || s.need === 'find:' + d.id))) return 'Проверить документы: ' + n.displayName; return n ? 'Говорить: ' + n.displayName + '\n' + S.Professions.get(n.prof).name + ' · ' + (n.label || S.ACT_NAMES[n.activity] || '') : ''; }
       case 'card': { const c = w.card(d.id); return c ? 'Подобрать ключ-карту: L' + c.level + ' · ' + c.ownerName + (c.revoked ? ' (аннулирована)' : '') : ''; }
       case 'anomaly': { const a = w.anomaly(d.id); return a ? 'Наблюдать: ' + a.displayName : ''; }
       case 'fake_door': return 'Дверь';
@@ -216,31 +217,40 @@
   function beginHold(t, s, label) { const p = G.world.player, sec = S.clamp(s.dur * 0.25, 1.2, 5) / (0.6 + 0.4 * p.psy.focus); G.hold = { t, s, sec, el: 0, label }; $('hold').hidden = false; A.play('click'); }
   function tickHold(dt) {
     const h = G.hold; h.el += dt; $('hold').firstChild.style.width = Math.min(100, h.el / h.sec * 100) + '%'; $('prompt').textContent = h.label + ' …';
-    if (h.el >= h.sec) { const r = G.world.playerStepDone(h.t); cancelHold(); if (r) { UI.msg(r, '#e8d77a'); A.play('ok'); } }
+    if (h.el >= h.sec) { const r = G.world.playerStepDone(h.t); cancelHold(); if (r) { UI.msg(r, '#e8d77a'); A.play('ok'); } const rep = G.world.playerStepFor(s => /^report:/.test(s.need || '')); if (rep) Report.open(rep); }
   }
   function cancelHold() { G.hold = null; $('hold').hidden = true; }
   function interact(d) {
     const w = G.world, p = w.player, st = stepFor(d);
+    { const rep = w.playerStepFor(s => /^report:/.test(s.need || '')); if (rep && d.kind !== 'npc' && d.kind !== 'reader' && d.kind !== 'transit') { Report.open(rep); return; } }
+    if (st && st.s.fault && w.infra.fault(st.s.fault)) { Repair.open(w.infra.fault(st.s.fault), st.t); return; }
+    if (st && st.s.sort && S.DBlock) { Sort.open(st.t); return; }
+    { const pm = S.DBlock && w.playerStepFor(s => s.need === 'petition'); if (pm && p.roomId === pm.s.room) { Petition.open(); return; } }
     if (st && (!st.s.need || st.s.need === 'hold')) { beginHold(st.t, st.s, st.s.label); return; }
-    const rs = d.kind !== 'npc' && d.kind !== 'reader' ? w.stepInRoom() : null; if (rs && (d.kind === 'spot' || d.kind === 'poi' || d.kind === 'seat')) { beginHold(rs.t, rs.s, rs.s.label); return; }
+    const rs = d.kind !== 'npc' && d.kind !== 'reader' ? w.stepInRoom() : null;
+    if (rs && rs.s.fault && w.infra.fault(rs.s.fault) && (d.kind === 'spot' || d.kind === 'poi' || d.kind === 'seat' || d.kind === 'console')) { Repair.open(w.infra.fault(rs.s.fault), rs.t); return; }
+    if (rs && (d.kind === 'spot' || d.kind === 'poi' || d.kind === 'seat')) { beginHold(rs.t, rs.s, rs.s.label); return; }
     switch (d.kind) {
       case 'reader': {
+        { const door = w.fac.door(d.door), f = w.infra.faults.find(x => !x.fixed && (x.kind === 'door' || x.kind === 'reader') && x.obj === d.door), m = f && w.playerStepFor(s => s.fault === f.id);
+          if (m) { Repair.open(f, m.t); return; }
+          if (door && door.jammed) { A.play('no', door.pos); UI.msg(door.name + ': створку заклинило — дверь не открывается', '#ff6a5c'); if (f && !f.known) w.infra.discover(f, 'player'); return; } }
         const id = p.selectedCardId(); if (!id) { UI.msg('У вас нет ключ-карты', '#ff6a5c'); return; }
         const r = w.presentCard(d.door, id, 'player', d.side), door = w.fac.door(d.door);
         A.play(S.isSuccess(r) ? 'ok' : r === S.R.Await ? 'wait' : 'no', door.pos);
         UI.msg(door.name + ': ' + S.RESULT_TEXT[r], S.isSuccess(r) ? '#7dff9a' : r === S.R.Await ? '#ffd76b' : '#ff6a5c'); break;
       }
-      case 'terminal': case 'console': Terminal.open(); break;
+      case 'terminal': case 'console': { const poi = d.id && w.fac.poi(d.id); if (poi && poi.broken) { A.play('no'); UI.msg('Терминал не отвечает: экран застыл.', '#ff9a59'); const f = w.infra.faults.find(x => !x.fixed && x.kind === 'terminal' && x.obj === poi.id); if (f && !f.known) w.infra.discover(f, 'player'); break; } Terminal.open(); break; }
       case 'desk': { const ws = w.playerStepFor(s => s.need === 'terminal:report'); if (ws) Terminal.open('research'); else UI.msg(d.label + '. Бумаги, ручки, чужая кружка.', '#ccc'); break; }
       case 'checkpoint': { const r = w.checkpoint(d.id); if (r) UI.msg(r, '#e8d77a'); A.play('ok'); break; }
-      case 'poi': case 'spot': UI.msg(d.label, '#ccc'); break;
+      case 'poi': case 'spot': { const poi = d.id && w.fac.poi(d.id); if (poi && poi.type === 'Shelf' && S.Proc && S.Proc.STORES.indexOf(poi.roomId) >= 0) { Store.open(poi.roomId); break; } if (poi && poi.type === 'Checkpoint' && S.CP) { const k = Object.keys(S.CP.CPS).find(id => S.CP.CPS[id].poi === poi.id), st0 = k && S.CP.M(w).st[k], q = st0 && st0.by === 'player' && st0.queue.find(e => !e.held); if (q) { Pass.open(k, q.who); break; } UI.msg(st0 && st0.by === 'player' ? 'Очередь пуста. Следите за проходом.' : d.label, '#ccc'); break; } UI.msg(d.label, '#ccc'); break; }
       case 'bed': { const poi = w.fac.poi(d.id); if (poi && ((poi.owners || []).indexOf('player') >= 0 || !poi.owners)) Sleep.start(); else UI.msg('Это чужая койка.', '#ccc'); break; }
       case 'hazmat': UI.msg('Защитный костюм висит на стойке. Издалека в полумраке он похож на человека.', '#ccc'); w.horror.explain('suit', 'Силуэт — защитный костюм на стойке'); break;
       case 'window': { const a = anomalyIn(d.room); UI.dialogue(a ? 'Наблюдение: ' + a.displayName : 'Окно', [a ? w.observe(a.id, false) : 'За стеклом пустая камера.'], a ? mindActs(a) : undefined); break; }
       case 'intercom': intercom(d); break;
       case 'transit': Ride.start(d); break;
       case 'anomaly': { const a = w.anomaly(d.id); UI.dialogue('Наблюдение: ' + a.displayName, [w.observe(d.id, false)], mindActs(a)); break; }
-      case 'npc': Talk.open(d.id); break;
+      case 'npc': { const k = cpQueue(d.id); if (k) { Pass.open(k, d.id); break; } const dm = w.playerStepFor(s => s.need === 'docs:' + d.id); if (dm) { DocCheck.open(dm.t, dm.s); break; } Talk.open(d.id); break; }
       case 'card': { if (w.pickUp(d.id)) { const c = w.card(d.id); UI.msg('Подобрана карта L' + c.level + ' · ' + c.ownerName + '. Использование чужой карты попадает в журнал.', '#ffd76b'); } break; }
       case 'fake_door': UI.msg('Под ладонью — холодная стена. Никакой двери здесь нет.', '#c7c2b0'); p.psy.fear = S.clamp(p.psy.fear + 8, 0, 100); break;
     }
@@ -255,6 +265,149 @@
     acts.push(['Наблюдать', () => UI.dialogue(a.displayName, [w.observe(a.id, false)])]);
     UI.dialogue('Интерком · ' + a.displayName, [a.status], acts);
   }
+
+  const PACES = ['calm', 'standard', 'tense'];
+  function releasePointer() { try { if (!settings.touch && document.pointerLockElement && document.exitPointerLock) document.exitPointerLock(); } catch (e) { /* not locked */ } }
+  // ------------------------------------------------------------------ work panel: a bottom panel for hands-on procedures (repairs, the store,
+  // later pass checks and experiments). Timed actions show progress; tightening, calibration and load balancing are timing mini-games.
+  const Work = {
+    cur: null, busy: null, mini: null,
+    open(spec) { this.cur = Object.assign({ log: [] }, spec); this.busy = null; this.mini = null; $('work').hidden = false; $('wMini').hidden = true; $('wProg').hidden = true; releasePointer(); this.render(); },
+    close() { this.cur = null; this.busy = null; this.mini = null; $('work').hidden = true; },
+    add(text, cls) { const c = this.cur; if (!c || !text) return; c.log.push({ text, cls: cls || '' }); if (c.log.length > 14) c.log.shift(); },
+    render() {
+      const c = this.cur; if (!c) return; const v = c.view();
+      $('wTitle').textContent = v.title || c.title; $('wInfo').innerHTML = v.info || '';
+      $('wLog').innerHTML = c.log.slice(-5).map(l => '<li class="' + l.cls + '">' + esc(l.text) + '</li>').join('');
+      const box = $('wActs'); box.innerHTML = '';
+      for (const a of v.acts) { const b = document.createElement('button'); b.textContent = a.label; if (a.cls) b.className = a.cls; b.disabled = !!this.busy || !!this.mini || !!a.disabled; b.addEventListener('click', () => this.run(a)); box.appendChild(b); }
+      const x = document.createElement('button'); x.textContent = 'Отойти'; x.className = 'leave'; x.addEventListener('click', () => this.close()); box.appendChild(x);
+    },
+    run(a) {
+      if (this.busy || this.mini || a.disabled) return;
+      if (a.mini) { const d = a.mini, at = 0.12 + Math.random() * (0.76 - d.zone); this.mini = { a, d, x: 0, dir: 1, at }; const z = $('wZone'); z.style.left = at * 100 + '%'; z.style.width = d.zone * 100 + '%'; $('wMiniName').textContent = d.name + ': остановите метку в зелёной зоне'; $('wMini').hidden = false; A.play('click'); this.render(); return; }
+      if (a.sec) { const p = G.world.player; this.busy = { a, el: 0, sec: a.sec / (0.6 + 0.4 * p.psy.focus) }; $('wProg').hidden = false; A.play('click'); this.render(); return; }
+      a.run({}); if (this.cur) this.render();
+    },
+    stopMini() { const m = this.mini; if (!m) return; const hit = m.x >= m.at && m.x <= m.at + m.d.zone; this.mini = null; $('wMini').hidden = true; this.busy = { a: m.a, el: 0, sec: m.a.sec * 0.5, opt: { miss: !hit } }; $('wProg').hidden = false; A.play(hit ? 'ok' : 'no'); this.render(); },
+    tick(dt) {
+      const c = this.cur; if (!c) return; const w = G.world, p = w.player;
+      if (p.dead || (p.unconUntil || 0) > w.now || (c.valid && !c.valid())) { this.close(); return; }
+      const m = this.mini; if (m) { m.x += m.dir * m.d.speed * dt; if (m.x > 1) { m.x = 1; m.dir = -1; } if (m.x < 0) { m.x = 0; m.dir = 1; } $('wMark').style.left = m.x * 100 + '%'; }
+      const b = this.busy; if (b) { b.el += dt; $('wProg').firstChild.style.width = Math.min(100, b.el / b.sec * 100) + '%'; if (b.el >= b.sec) { this.busy = null; $('wProg').hidden = true; b.a.run(b.opt || {}); if (this.cur) this.render(); } }
+    }
+  };
+  $('wStop').addEventListener('click', () => Work.stopMini());
+  window.addEventListener('keydown', e => { if (e.code === 'Space' && Work.mini) { e.preventDefault(); Work.stopMini(); } });
+  // the repair procedure (S.Proc): diagnosis, safety, the fix, verification
+  const Repair = {
+    logs: {},
+    open(f, t) {
+      const w = G.world; S.Proc.seed(w, f);
+      Work.open({ title: 'Ремонт: ' + f.text, log: (this.logs[f.id] = this.logs[f.id] || []), valid: () => w.infra.faults.some(x => x.id === f.id), view: () => Repair.view(f, t) });
+    },
+    view(f, t) {
+      const w = G.world, p = w.player, K = S.Proc.KINDS[f.kind], own = S.Proc.tools(w, 'player').filter(x => S.Proc.PARTS.indexOf(x) < 0);
+      let info = 'Симптом: <b>' + esc(K.sym) + '</b> · ' + (f.powerOff ? '<span class="sf">участок обесточен</span>' : (K.elec || (S.Proc.causeOf(f) || {}).elec ? '<span class="hz">под напряжением</span>' : 'механизм в работе')) + (f.repaired && !f.fixed ? ' · <b>сделано — нужна проверка</b>' : '');
+      info += '<br><span class="dim">Инструмент: ' + esc(own.join(', ') || 'нет — нужен специалист') + ' · с собой: ' + esc((p.items || []).join(', ') || 'ничего') + '</span>';
+      if (f.fixed) return { info: info + '<br><b class="okc">Неисправность устранена.</b>', acts: [] };
+      const acts = S.Proc.options(w, f, 'player').map(o => { const A0 = S.Proc.ACT[o.id]; return { label: o.label + (o.seen ? ' ✓' : '') + (o.missing ? ' (нет: ' + o.missing + ')' : ''), cls: A0.diag ? 'd' : A0.safety ? 's' : A0.verify ? 'v' : 'f', sec: o.sec, mini: !o.missing && o.mini ? S.Proc.MINI[o.mini] : null, run: opt => Repair.result(f, t, o.id, opt) }; });
+      return { info, acts };
+    },
+    result(f, t, id, opt) {
+      const w = G.world, p = w.player, r = S.Proc.act(w, f, 'player', id, opt);
+      Work.add(r.text, r.ok ? 'ok' : r.hurt || r.miss ? 'bad' : r.needPart ? 'warn' : '');
+      if (r.needPart) f.askedPart = true;
+      if (r.hurt) A.play('no');
+      if (r.done) { A.play('ok'); const live = t && w.tasks.get(t.id) && t.status === 'Active'; const note = live ? w.playerStepDone(t) : null; UI.msg('Ремонт: ' + (note || r.text), '#7dff9a'); p.repairs = (p.repairs || 0) + 1; }
+    }
+  };
+  // the checkpoint pass panel: card, owner's photo, database check, the person's answer; the guard decides
+  function cpQueue(id) { const w = G.world; if (!S.CP || !w) return null; for (const k in S.CP.CPS) { const st = S.CP.M(w).st[k]; if (st.by === 'player' && st.queue.some(q => q.who === id && !q.held)) return k; } return null; }
+  const Pass = {
+    open(cpId, who) {
+      const w = G.world; this.cp = cpId; this.who = who; this.base = false; this.asked = false;
+      Work.open({ title: 'ПРОПУСК · ' + S.CP.CPS[cpId].name, valid: () => S.CP.M(w).st[cpId].queue.some(q => q.who === who), view: () => Pass.view(cpId, who) });
+    },
+    view(cpId, who) {
+      const w = G.world, cp = S.CP.CPS[cpId], st = S.CP.M(w).st[cpId], q = st.queue.find(e => e.who === who), card = q && q.card ? w.card(q.card) : null;
+      const owner = card ? (card.owner === 'player' ? w.player : w.npc(card.owner)) : null, look = owner ? S.CP.looks(owner) : null;
+      let info = card ? '<b>Карта:</b> ' + esc(card.ownerName) + (owner && owner.prof ? ' · ' + esc(S.Professions.get(owner.prof).name) : '') + ' · L' + card.level + ' · ' + esc(S.permList(card.perms)) + ' · №' + esc(card.id) : '<b>Карты нет.</b> Говорит, что забыл её.';
+      if (card && card.tempUntil > w.now) info += '<br>Временный допуск до ' + S.fmtTime(card.tempUntil);
+      if (look) info += '<br><b>Фото владельца карты:</b> ' + esc(look.text);
+      info += '<br><span class="dim">Сравните фото с человеком перед вами. Очередь: ' + st.queue.length + '. Пропускать можно, если карта своя и действует, есть дело в зоне (' + esc(cp.what) + '), человек не отстранён и не на больничном; класс D — только под конвоем.</span>';
+      const acts = [
+        { label: 'Сверить с базой' + (this.base ? ' ✓' : ''), cls: 'd', sec: 1.5, run: () => { this.base = true; for (const l of S.CP.baseCheck(w, cp, who, q && q.card)) Work.add(l); } },
+        { label: 'Цель визита' + (this.asked ? ' ✓' : ''), cls: 'd', sec: 1, run: () => { this.asked = true; Work.add('«' + S.CP.answer(w, cp, who) + '»', 'warn'); } },
+        { label: 'Пропустить', cls: 'v', run: () => Pass.decide('pass') },
+        { label: 'Отказать', cls: 's', run: () => Pass.decide('deny') },
+        { label: 'Задержать', cls: 'f', run: () => Pass.decide('detain') },
+        { label: 'Вызвать офицера', cls: 'd', run: () => Pass.decide('officer') }];
+      return { info, acts };
+    },
+    decide(dec) {
+      const w = G.world, txt = S.CP.decide(w, this.cp, this.who, dec, 'player', { base: this.base, asked: this.asked });
+      UI.msg(txt, '#e8d77a'); A.play(dec === 'pass' ? 'ok' : 'no'); Work.close();
+      const next = S.CP.M(w).st[this.cp].queue.find(e => !e.held); if (next) UI.msg('Следующий в очереди: ' + w.nameOf(next.who), '#ccc');
+    }
+  };
+  // «Стоять, документы!»: the person stands in front of the player; the same checks as at a checkpoint
+  const DocCheck = {
+    open(t, s) { const id = s.need.split(':')[1]; this.base = false; this.asked = false; Work.open({ title: 'СТОЯТЬ, ДОКУМЕНТЫ', valid: () => t.status === 'Active', view: () => DocCheck.view(t, id) }); },
+    view(t, id) {
+      const w = G.world, n = w.npc(id); if (!n) return { info: '', acts: [] };
+      n.heldUntil = Math.max(n.heldUntil || 0, w.now + 1);
+      const cardId = S.CP.cardOf(w, n), card = cardId && w.card(cardId), owner = card && (card.owner === 'player' ? w.player : w.npc(card.owner)), look = owner && S.CP.looks(owner), zone = S.CP.zoneFor(w, n.agent.roomId);
+      let info = card ? '<b>Карта:</b> ' + esc(card.ownerName) + (owner && owner.prof ? ' · ' + esc(S.Professions.get(owner.prof).name) : '') + ' · L' + card.level + ' · №' + esc(card.id) : '<b>Карты при себе нет.</b>';
+      if (look) info += '<br><b>Фото владельца карты:</b> ' + esc(look.text);
+      info += '<br>Место: «' + esc(w.roomName(n.agent.roomId)) + '» — ' + esc(zone.what) + '<br><span class="dim">Сравните фото с человеком. Основания быть здесь: свой отдел, задание или рабочее место; отстранённым и больным — нельзя; класс D — только под конвоем.</span>';
+      return { info, acts: [
+        { label: 'Сверить с базой' + (this.base ? ' ✓' : ''), cls: 'd', sec: 1.5, run: () => { this.base = true; for (const l of S.CP.baseCheck(w, zone, id, cardId)) Work.add(l); } },
+        { label: 'Что вы здесь делаете?' + (this.asked ? ' ✓' : ''), cls: 'd', sec: 1, run: () => { this.asked = true; Work.add('«' + S.CP.answer(w, zone, id) + '»', 'warn'); } },
+        { label: 'Всё в порядке', cls: 'v', run: () => DocCheck.decide(id, 'ok') },
+        { label: 'Проводить из зоны', cls: 's', run: () => DocCheck.decide(id, 'out') },
+        { label: 'Задержать', cls: 'f', run: () => DocCheck.decide(id, 'detain') }] };
+    },
+    decide(id, dec) { const w = G.world, txt = S.CP.street(w, id, dec, 'player'); Work.close(); UI.msg(txt, '#e8d77a'); A.play(dec === 'ok' ? 'ok' : 'no'); const m = w.playerStepFor(s => s.need === 'docs:' + id); if (m) w.playerStepDone(m.t); }
+  };
+  // «Барак»: the sorting quota — items come one by one, the right bin for each; the quality is the work norm
+  const Sort = {
+    open(t) { const w = G.world; this.t = t; this.list = S.DBlock.sortStream(w, 10); this.i = 0; this.ok = 0; Work.open({ title: 'ТРУДОВАЯ НОРМА · сортировка', valid: () => t.status === 'Active', view: () => Sort.view() }); },
+    view() {
+      if (this.i >= this.list.length) return { info: 'Партия рассортирована: ' + this.ok + ' из ' + this.list.length + ' верно.', acts: [{ label: 'Сдать норму', cls: 'v', run: () => Sort.finish() }] };
+      const it = this.list[this.i];
+      return { info: 'Предмет ' + (this.i + 1) + ' из ' + this.list.length + ': <b>' + esc(it[0]) + '</b><br><span class="dim">Разложите по ящикам: металл, пластик, ткань. Норма — 7 из 10.</span>', acts: S.DBlock.SORT.bins.map((b, k) => ({ label: 'В ящик: ' + b, cls: 'f', sec: 0.6, run: () => { if (k === it[1]) this.ok++; else Work.add(it[0] + ' — не туда', 'bad'); this.i++; } })) };
+    },
+    finish() { const w = G.world, t = this.t, note = S.DBlock.quota(w, this.ok, this.list.length); t.data.q = this.ok / this.list.length; t.data.note = note; Work.close(); UI.msg(note, '#e8d77a'); const m = w.playerStepFor(s => s.sort); if (m) w.playerStepDone(m.t); }
+  };
+  // «Барак»: a word with the guard at the post
+  const Petition = {
+    open() { Work.open({ title: 'ПОСТ ОХРАНЫ БЛОКА D', view: () => ({ info: 'Охранник смотрит на вас через стекло: «Чего тебе?»', acts: [['doctor', 'Попросить врача'], ['psych', 'Попросить разговор с психиатром'], ['demands', 'Передать требования блока'], ['complain', 'Пожаловаться на соседа']].map(([k, l]) => ({ label: l, cls: 'd', sec: 1, run: () => { const r = S.DBlock.petition(G.world, k); Work.close(); UI.msg(r, '#e8d77a'); } })) }) }); }
+  };
+  // a report after an investigation: the clues found on the spot, and the conclusion the player sends by radio
+  const Report = {
+    open(m) {
+      const w = G.world, c = S.TaskDirector.D(w).cases[m.s.case], def = c && S.TaskDirector.CASES[c.type]; if (!def) return;
+      Work.open({ title: 'Доклад: ' + def.title, valid: () => m.t.status === 'Active', view: () => ({ info: 'Место: «' + esc(w.roomName(c.room)) + '»<br><b>Находки:</b><br>' + (c.found.length ? c.found.map(f => '• ' + esc(f)).join('<br>') : 'место ещё не осмотрено') + '<br><span class="dim">Выберите вывод — от него зависит, что произойдёт дальше.</span>', acts: def.options.map(o => ({ label: o.label, cls: 'v', run: () => Report.send(m, o.id) })) }) });
+    },
+    send(m, choice) { const w = G.world, r = S.TaskDirector.conclude(w, m.s.case, choice, 'player'); m.t.result = r.result; Work.close(); w.playerStepDone(m.t); UI.msg('Доклад: ' + r.text, '#e8d77a'); A.play('radio', null, 0.5, { dry: true }); }
+  };
+  // spare parts on the store shelves: only the engineering service takes them out
+  const Store = {
+    all: false,
+    open(roomId) { const w = G.world; this.all = false; Work.open({ title: w.roomName(roomId) + ': запасные части', view: () => Store.view(roomId) }); },
+    view(roomId) {
+      const w = G.world, p = w.player, stock = S.Proc.stock(w), items = p.items || [], P = S.Proc;
+      const may = P.TECH.indexOf(p.prof) >= 0 || p.dept === 'engineering' || p.dept === 'logistics';
+      const need = new Set(); for (const t of w.tasks.activeFor('player')) for (const s of t.steps) if (s.fault && !s.done) { const f = w.infra.fault(s.fault); if (f) P.kindParts(f.kind).forEach(x => need.add(x)); }
+      const info = 'С собой: ' + esc(items.join(', ') || 'ничего') + ' (' + items.length + '/' + P.MAX_ITEMS + ')' + (need.size ? '<br>★ — может понадобиться для ваших заявок' : '') + (may ? '' : '<br><span class="hz">Выдача деталей — только сотрудникам инженерной службы.</span>');
+      const acts = [], list = P.PARTS.filter(x => need.has(x)).concat(this.all ? P.PARTS.filter(x => !need.has(x)) : []);
+      for (const part of list) { const n = stock[part] || 0; acts.push({ label: (need.has(part) ? '★ ' : '') + part + ' · ' + n + ' шт.', cls: need.has(part) ? 'v' : '', disabled: !may || !n || items.length >= P.MAX_ITEMS, sec: 1.2, run: () => { const got = P.takePart(w, part, 'player'); Work.add(got ? 'Взято: ' + part : 'Не удалось взять: ' + part, got ? 'ok' : 'bad'); } }); }
+      for (const part of items) acts.push({ label: 'Вернуть: ' + part, cls: 's', sec: 0.8, run: () => { P.putBack(w, part); Work.add('Возвращено на полку: ' + part); } });
+      if (!this.all) acts.push({ label: 'Весь склад…', cls: 'd', run: () => { Store.all = true; } });
+      return { info, acts };
+    }
+  };
 
   // ------------------------------------------------------------------ lifts and stairs (including SCP-LF-122)
   const Ride = {
@@ -345,20 +498,20 @@
       $('dTitle').textContent = title; $('dBody').textContent = lines.join('\n'); const box = $('dActs'); box.innerHTML = '';
       for (const [label, fn] of (acts || [])) { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', () => fn()); box.appendChild(b); }
       const c = document.createElement('button'); c.textContent = 'Закрыть'; c.addEventListener('click', () => UI.closeDialogue()); box.appendChild(c);
-      $('dialogue').hidden = false;
+      $('dialogue').hidden = false; releasePointer();
     },
     closeDialogue() { $('dialogue').hidden = true; },
-    modal() { return ['menu', 'pause', 'settings', 'dialogue', 'death', 'terminal', 'pda', 'roles', 'create', 'dossier', 'sleep'].some(id => !$(id).hidden); },
+    modal() { return ['menu', 'pause', 'settings', 'dialogue', 'work', 'death', 'terminal', 'pda', 'roles', 'create', 'dossier', 'sleep'].some(id => !$(id).hidden); },
     paused() { return ['pause', 'settings', 'death', 'menu', 'roles', 'create', 'dossier'].some(id => !$(id).hidden); },
     refreshSettings() {
       const on = v => v ? 'ВКЛ' : 'ВЫКЛ';
       $('sSens').textContent = settings.sens.toFixed(1); $('sFov').textContent = settings.fov + '°'; $('sInvert').textContent = on(settings.invert); $('sQuality').textContent = QUALITY[settings.quality].name;
       $('sVolume').textContent = Math.round(settings.volume * 100) + '%'; $('sMusic').textContent = Math.round(settings.music * 100) + '%'; $('sHud').textContent = Math.round(settings.hud * 100) + '%'; $('sBtn').textContent = Math.round(settings.btn * 100) + '%';
-      $('sGore').textContent = ['НЕТ', 'УМЕРЕННО', 'ПОЛНОСТЬЮ'][settings.gore]; $('sDeath').textContent = DEATH_MODES[settings.deathMode];
+      $('sGore').textContent = ['НЕТ', 'УМЕРЕННО', 'ПОЛНОСТЬЮ'][settings.gore]; $('sPace').textContent = ['СПОКОЙНАЯ', 'СТАНДАРТНАЯ', 'НАПРЯЖЁННАЯ'][settings.pace]; $('sDeath').textContent = DEATH_MODES[settings.deathMode];
       $('sLefty').textContent = settings.lefty ? 'СЛЕВА' : 'СПРАВА'; $('sTouch').textContent = on(settings.touch); $('sFx').textContent = Math.round(settings.fx * 100) + '%'; $('sNoFlash').textContent = on(settings.noflash); $('sShake').textContent = on(settings.shake); $('sMinHud').textContent = on(settings.minhud);
     },
     syncTouch() {
-      const overlay = ['terminal', 'pda', 'pause', 'settings', 'death', 'sleep', 'chat'].some(id => !$(id).hidden);
+      const overlay = ['terminal', 'pda', 'pause', 'settings', 'death', 'sleep', 'chat', 'work'].some(id => !$(id).hidden);
       const tHide = !(G.playing && settings.touch && !overlay); if (tHide && !$('touch').hidden) { endStick(); endLook(); } $('touch').hidden = tHide; $('topbtns').hidden = !G.playing || overlay;
       $('hud').hidden = !G.playing || !$('terminal').hidden || !$('pda').hidden;
       for (const id of ['status', 'taskbox', 'feed', 'card']) $(id).style.visibility = G.hudHidden ? 'hidden' : '';
@@ -375,6 +528,14 @@
       if (p.prof === 'psychiatrist' || p.prof === 'anomaly_psychologist') acts.push(['Беседа психиатра', () => UI.dialogue(n.displayName, [w.life.psychEval('player', n.id)])]);
       if (p.dept === 'security' && n.role === 'DClass' && !n.escortedBy) acts.push(['Конвоировать за мной', () => { n.escortedBy = 'player'; n.followId = 'player'; n.nextThink = 0; UI.msg(n.callsign + ' идёт за вами.', '#ccc'); UI.closeDialogue(); }]);
       if (n.escortedBy === 'player') acts.push(['Отпустить', () => { n.escortedBy = null; n.followId = null; n.nextThink = 0; UI.closeDialogue(); }]);
+      if (S.DBlock && p.prof === 'dclass') {
+        const of = S.DBlock.M(w).offers.player, ans = c => () => { UI.msg(S.DBlock.answer(w, c), '#e8d77a'); UI.closeDialogue(); };
+        if (of && of.from === id && of.until > w.now) { if (of.kind === 'trade') acts.unshift(['Согласиться на обмен', ans('accept')], ['Отказаться', ans('decline')]); else acts.unshift(['Промолчать', ans('ignore')], ['Ответить', ans('answer')], ['Ударить', ans('hit')], ['Доложить охране', ans('report')]); }
+        const b = S.DBlock.hall(w, S.DBlock.hallOf(w, 'player')), pet = b.petition;
+        if (n.role === 'DClass' && pet && pet.status === 'carried' && pet.player == null) { const st0 = c => () => { pet.player = c; UI.msg(S.DBlock.stance(w, c), '#e8d77a'); UI.closeDialogue(); }; acts.push(['Подписать петицию', st0('join')], ['Понести петицию на пост', st0('lead')], ['Рассказать охране', st0('inform')], ['Остаться в стороне', st0('aside')]); }
+        if (n.dept === 'security' && w.tasks.activeFor('player').some(t => t.kind === 'd_test_follow')) acts.unshift(['Отказаться от испытания', () => { UI.msg(S.DBlock.refuseTest(w) || '', '#ff9a59'); UI.closeDialogue(); }]);
+        if (n.dept === 'security' && w.playerStepFor(s => s.need === 'petition')) acts.unshift(['Обратиться к охране', () => { UI.closeDialogue(); Petition.open(); }]);
+      }
       UI.dialogue(n.displayName + ' · ' + S.Professions.get(n.prof).name, lines, acts);
     },
     selfExam(n) {
@@ -417,9 +578,13 @@
         const t = ts[0], s = t.steps[t.si], fake = fx.falseDone === t.id;
         h += '<div class="t">' + esc(t.title) + (fake ? ' <span class="f">✓ выполнено</span>' : '') + '</div>';
         if (s && !fake) h += '<div class="s">▶ ' + esc(s.label) + ' <span class="p">' + (t.si + 1) + '/' + t.steps.length + '</span>' + (s.room !== p.roomId ? ' · «' + esc(w.roomName(s.room)) + '»' : '') + (t.deadline ? ' · ' + esc(S.durationText(t.deadline - w.now)) : '') + '</div>';
+        if (S.DBlock && p.prof === 'dclass') { const of = S.DBlock.M(w).offers.player; if (of && of.until > w.now) h += '<div class="s">▸ ' + esc(w.nameOf(of.from)) + ' ждёт ответа — подойдите</div>'; }
+        if (s && /^post:/.test(s.need || '') && !fake && S.CP) { const id = s.need.split(':')[1], st0 = S.CP.M(w).st[id]; h += '<div class="s">▸ очередь: ' + st0.queue.length + (st0.by === 'player' ? '' : ' · встаньте на пост') + ' · осталось ' + Math.max(0, Math.round(+s.need.split(':')[2] - (s.stayed || 0))) + ' мин</div>'; }
+        if (s && s.fault && !fake) { const f = w.infra.fault(s.fault); if (f && f.askedPart && !(p.items || []).some(x => S.Proc.kindParts(f.kind).indexOf(x) >= 0)) h += '<div class="s">▸ деталь — «' + esc(w.roomName('engStore')) + '»</div>'; else if (f && f.powerOff) h += '<div class="s">▸ участок обесточен</div>'; }
         if (ts.length > 1) h += '<div class="s">ещё задач: ' + (ts.length - 1) + ' — КПК</div>';
       } else h += '<div class="s">' + (p.onShift ? 'Задач нет. SCP LIFE назначит работу.' : 'Свободное время.') + '</div>';
       $('taskbox').innerHTML = h;
+      { const dm = w.playerStepFor(s => /^docs:/.test(s.need || '')); if (dm && $('work').hidden && G.docAuto !== dm.t.id && $('dialogue').hidden) { G.docAuto = dm.t.id; DocCheck.open(dm.t, dm.s); } }
       $('psy').innerHTML = '<span' + (p.psy.fatigue > 65 ? ' class="hi"' : '') + '>усталость: <b>' + word(p.psy.fatigue, 'низкая', 'средняя', 'высокая') + '</b></span><span' + (p.psy.fear > 55 ? ' class="hi"' : '') + '>тревога: <b>' + word(Math.max(p.psy.fear, p.psy.stress), 'спокойны', 'напряжены', 'страх') + '</b></span>';
     }
     const now = performance.now();
@@ -791,7 +956,7 @@
         case 'sight': this.reportText = w.reportSighting(b.dataset.t); break;
         case 'note': this.sel['n' + b.dataset.i] = !this.sel['n' + b.dataset.i]; break;
         case 'writereport': { const notes = (p.obsNotes || []).slice(-6).filter((o, i) => this.sel['n' + i]); p.lastReportQuality = Math.min(0.55, notes.length * 0.15) + (new Set(notes.map(x => x.scp)).size > 1 ? 0.05 : 0); const scp = notes.length ? notes[notes.length - 1].scp : null; r = L.reportWritten('player', scp); const s = w.playerTerminal('report'); this.sel = {}; this.msg = 'Отчёт сдан: ' + r + (s ? ' · ' + s : ''); break; }
-        case 'runexp': { const m = w.playerStepFor(s => s.need === 'experiment'); if (!m) break; const a = w.anomaly(m.s.scp); if (p.roomId !== (a.obsRoom || a.containRoom) && p.roomId !== a.containRoom) { this.msg = 'Нужно находиться в «' + w.roomName(a.obsRoom) + '».'; break; } r = w.playerExperiment(m.s.scp, m.s.exp); this.msg = 'Эксперимент проведён: ' + r; break; }
+        case 'runexp': { const m = w.playerStepFor(s => s.need === 'experiment'); if (!m) break; const a = w.anomaly(m.s.scp); if (p.roomId !== (a.obsRoom || a.containRoom) && p.roomId !== a.containRoom) { this.msg = 'Нужно находиться в «' + w.roomName(a.obsRoom) + '».'; break; } r = w.playerExperiment(m.s.scp, m.s.exp); this.msg = r && r.wait ? r.wait : 'Эксперимент проведён: ' + r; break; }
         case 'approve': case 'reject': { const q = L.requests.find(x => x.id === b.dataset.id); if (q) { L.approveDecision(q, act === 'approve', 'player'); const s = w.playerTerminal('research'); this.msg = 'Решение принято.' + (s ? ' ' + s : ''); } break; }
         case 'request': { const q = L.request('player', b.dataset.scp, b.dataset.exp, 'Заявка ' + p.name); this.msg = q ? 'Заявка ' + q.id + ' подана' + (q.ethics ? ' — на рассмотрение комитета по этике' : ' — руководителю исследований') : 'Ошибка заявки'; break; }
         case 'case': this.sel.case = this.sel.case === b.dataset.id ? null : b.dataset.id; break;
@@ -994,11 +1159,11 @@
     readInput(); if (G.playing) Perf.tick(dt);
     if (!G.playing || !G.world) { renderer.setScissorTest(false); Menu3D.frame(dt); A.tick(null, dt); return; }
     const w = G.world;
-    if (Input.pause) { if (!$('chat').hidden) Chat.close(); else if (!$('terminal').hidden) Terminal.close(); else if (!$('pda').hidden) PDA.close(); else if (!$('dialogue').hidden) UI.closeDialogue(); else if (!$('settings').hidden) $('settings').hidden = true; else if (!$('pause').hidden) $('pause').hidden = true; else if (!w.player.dead) openPause(); }
+    if (Input.pause) { if (!$('chat').hidden) Chat.close(); else if (!$('terminal').hidden) Terminal.close(); else if (!$('pda').hidden) PDA.close(); else if (!$('work').hidden) Work.close(); else if (!$('dialogue').hidden) UI.closeDialogue(); else if (!$('settings').hidden) $('settings').hidden = true; else if (!$('pause').hidden) $('pause').hidden = true; else if (!w.player.dead) openPause(); }
     if (Input.pda && $('terminal').hidden) { if ($('pda').hidden) PDA.open(); else PDA.close(); }
     if (Input.hud) G.hudHidden = !G.hudHidden;
     const paused = UI.paused(), gameplay = !UI.modal();
-    updatePlayer(dt, gameplay); Ride.tick(dt); Sleep.tick();
+    updatePlayer(dt, gameplay); Ride.tick(dt); Sleep.tick(); if (!paused) Work.tick(dt);
     if (!paused) {
       G.acc += dt * G.timeScale; let steps = 0; const maxSteps = G.timeScale > 4 ? 400 : 60;
       while (G.acc >= S.World.FIXED && steps++ < maxSteps) {
@@ -1149,8 +1314,9 @@
     for (const id of ['menu', 'pause', 'settings', 'dialogue', 'death', 'terminal', 'pda', 'roles', 'create', 'dossier', 'sleep']) $(id).hidden = true;
     G.cctv = false; G.playing = true; G.hudHidden = false; $('hud').hidden = false; UI.syncTouch(); $('pSpeed').textContent = 'СКОРОСТЬ ВРЕМЕНИ: ×1';
     world.horror.settings.intensity = Math.max(0.3, settings.fx);
+    if (S.TaskDirector && S.TaskDirector.setPace) S.TaskDirector.setPace(world, PACES[settings.pace] || 'standard');
   }
-  function expose() { window.__scp = G; G.P = P; G.Input = Input; G.scene = scene; G.camera = camera; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
+  function expose() { window.__scp = G; G.P = P; G.Input = Input; G.scene = scene; G.camera = camera; G.Terminal = Terminal; G.PDA = PDA; G.interact = interact; G.Work = Work; G.Repair = Repair; G.Store = Store; G.Pass = Pass; G.DocCheck = DocCheck; G.Report = Report; G.Sort = Sort; G.Petition = Petition; G.Roles = Roles; G.Create = Create; window.scpSave = () => { if (G.playing) saveGame(false); }; }
   function loadGame() {
     A.start();
     for (const k of [SAVE_KEY, BAK_KEY]) { const s = store.get(k); if (!s) continue; try { begin(S.World.load(s)); UI.msg('Сохранение загружено: ' + S.fmtStamp(G.world.now), '#fff'); return true; } catch (e) { console.warn('save unreadable', e); } }
@@ -1223,6 +1389,7 @@
     if (k === 'fx') { settings.fx = r1(S.clamp(settings.fx + d * 0.1, 0, 1)); if (G.world) G.world.horror.settings.intensity = Math.max(0.3, settings.fx); }
     for (const tg of ['invert', 'touch', 'lefty', 'noflash', 'shake', 'minhud']) if (k === tg) settings[tg] = !settings[tg];
     if (k === 'gore') settings.gore = S.clamp(settings.gore + d, 0, 2);
+    if (k === 'pace') { settings.pace = S.clamp(settings.pace + d, 0, 2); if (G.world && S.TaskDirector.setPace) S.TaskDirector.setPace(G.world, PACES[settings.pace]); }
     if (k === 'deathMode') { if (G.world && G.world.opts && G.world.opts.hardcore && G.playing) UI.msg('Хардкор выбран при начале игры и не меняется', '#ff9a59'); else settings.deathMode = (settings.deathMode + 1) % 3; }
     applySettings(); UI.refreshSettings(); UI.syncTouch(); saveSettings();
   });
