@@ -1,4 +1,5 @@
-/* SCP LIFE 2.0 — facility layout: level 3 (sectors A, B, C) and level 4 (technical, D-2, heavy block, dock, wing T-2 of living anomalies). */
+/* SCP LIFE — facility layout: level 3 (sectors A, B, C; south gallery with security, MTF and medical sectors), level 4 (technical,
+   D-2, D-3, heavy block, dock, wing T-2 of living anomalies, isolators С-4) and level −9 (zone of special containment). */
 (function (root) {
   'use strict';
   const S = root.SCP, { V, Hm, P, req, Room, Door, Facility } = S;
@@ -6,7 +7,7 @@
 
   function build() {
     const f = new Facility(); f.windows = []; f.blocks = {};
-    const R = (id, name, type, x0, x1, z0, z1, o) => { o = o || {}; const lvl = o.level || 3; return f.addRoom(new Room(Object.assign({ id, name, type, minX: x0, maxX: x1, minZ: z0, maxZ: z1, height: lvl === 4 ? 3.5 : 3.2, level: lvl, floorY: lvl === 4 ? L4Y : (o.floorY || 0) }, o))); };
+    const R = (id, name, type, x0, x1, z0, z1, o) => { o = o || {}; const lvl = o.level || 3; return f.addRoom(new Room(Object.assign({ id, name, type, minX: x0, maxX: x1, minZ: z0, maxZ: z1, height: lvl === 4 ? 3.5 : 3.2, level: lvl }, o, { floorY: lvl === 4 ? L4Y : (o.floorY || 0) }))); };
     const Pz = (room, id, type, x, z, yaw, label, extra) => { const p = Object.assign({ id, type, roomId: room.id, pos: V.v(x, room.floorY, z), yaw, label, owner: null, owners: null, reservedBy: null, node: -1 }, extra || {}); room.pois.push(p); return p; };
     const hubs = (room, ...xz) => { for (let i = 0; i + 1 < xz.length; i += 2) room.hubPoints.push(V.v(xz[i], room.floorY, xz[i + 1])); };
     const links = (room, ...p) => { for (let i = 0; i + 1 < p.length; i += 2) room.hubEdges.push([p[i], p[i + 1]]); };
@@ -39,13 +40,13 @@
     // a room on the north/south side of a corridor with a door in the shared wall
     const along = (corr, side, x0, x1, depth, id, name, type, doorX, o, dk, dr) => {
       const z0 = side === 'N' ? corr.maxZ + 0.3 : corr.minZ - 0.3 - depth, z1 = side === 'N' ? corr.maxZ + 0.3 + depth : corr.minZ - 0.3;
-      const r = R(id, name, type, x0, x1, z0, z1, Object.assign({ level: corr.level, sector: corr.sector, style: corr.style }, o));
+      const r = R(id, name, type, x0, x1, z0, z1, Object.assign({ level: corr.level, floorY: corr.floorY, sector: corr.sector, style: corr.style }, o));
       D('d.' + id, (o && o.doorName) || ('Дверь: ' + name.toLowerCase()), id, corr.id, doorX == null ? (x0 + x1) / 2 : doorX, side === 'N' ? corr.maxZ + 0.15 : corr.minZ - 0.15, false, dk || 'Standard', dr || req(1));
       return r;
     };
     const beyond = (base, side, x0, x1, depth, id, name, type, doorX, o, dk, dr) => {
       const z0 = side === 'N' ? base.maxZ + 0.3 : base.minZ - 0.3 - depth, z1 = side === 'N' ? base.maxZ + 0.3 + depth : base.minZ - 0.3;
-      const r = R(id, name, type, x0, x1, z0, z1, Object.assign({ level: base.level, sector: base.sector, style: base.style }, o));
+      const r = R(id, name, type, x0, x1, z0, z1, Object.assign({ level: base.level, floorY: base.floorY, sector: base.sector, style: base.style }, o));
       D('d.' + id, (o && o.doorName) || ('Дверь: ' + name.toLowerCase()), id, base.id, doorX == null ? (x0 + x1) / 2 : doorX, side === 'N' ? base.maxZ + 0.15 : base.minZ - 0.15, false, dk || 'Standard', dr || req(1));
       return r;
     };
@@ -285,6 +286,181 @@
     const T2 = [['SCP-LF-139', 'Длинношеий', { height: 5.2, dark: true }], ['SCP-LF-140', 'Сидящий', { style: 'admin' }], ['SCP-LF-141', 'Ползун', { height: 3.8 }], ['SCP-LF-142', 'Лицевой подражатель', { style: 'research' }],
       ['SCP-LF-143', 'Существо у стекла', { dark: true }], ['SCP-LF-144', 'Забывающий двигаться', { style: 'research' }], ['SCP-LF-145', 'Тихая мать', { height: 4.2, depth: 10 }], ['SCP-LF-146', 'Обратный наблюдатель', {}]];
     T2.forEach(([scp, name, o], i) => block('S', 22 + i * 8.6, scp, name, Object.assign({ corr: cT2 }, o)));
+    // ================================================================= LEVEL 3 · SOUTH (CRISIS update): transport gallery with a junction hall,
+    // security sector, MTF sector, medical sector, services. A second east–west spine; three routes join it to the main
+    // one (west stairs shaft, link B-3, the service passage of medpoint B), so key sectors can be reached two ways.
+    const galW = R('galW', 'Транспортная галерея Ю-3 (запад)', 'Corridor', -86, -36.3, -24, -20, { sector: 'Ю', style: 'tech' });
+    for (let x = -82; x <= -40; x += 7) hubs(galW, x, -22);
+    const galHub = R('galHub', 'Развязка Ю-3', 'Corridor', -36, -24, -28, -16, { sector: 'Ю', style: 'tech' });
+    hubs(galHub, -30, -22, -33.5, -18.5, -26.5, -18.5, -33.5, -25.5, -26.5, -25.5); links(galHub, 0, 1, 0, 2, 0, 3, 0, 4, 1, 2, 3, 4, 1, 3, 2, 4);
+    const galE = R('galE', 'Транспортная галерея Ю-3 (восток)', 'Corridor', -23.7, 25.7, -24, -20, { sector: 'Ю', style: 'tech' });
+    for (let x = -20; x <= 22; x += 7) hubs(galE, x, -22);
+    D('d.galW', 'Проход галереи (запад)', 'galW', 'galHub', -36.15, -22, true, 'Archway', req(0), 3.6);
+    D('d.galE', 'Проход галереи (восток)', 'galHub', 'galE', -23.85, -22, true, 'Archway', req(0), 3.6);
+    Pz(galW, 'pp.galW', 'PatrolPoint', -66, -21, 90, 'Галерея Ю, запад'); Pz(galHub, 'pp.galHub', 'PatrolPoint', -30, -17, 0, 'Развязка Ю-3'); Pz(galE, 'pp.galE', 'PatrolPoint', 4, -23, 270, 'Галерея Ю, восток');
+    Pz(galW, 'panel.galW', 'Panel', -52, -20.4, 0, 'Электрощит галереи'); Pz(galE, 'panel.galE', 'Panel', 14, -20.4, 0, 'Электрощит галереи (восток)');
+    // routes between the spines
+    const linkW = R('linkW', 'Западный переход', 'Corridor', -86, -82.3, -19.7, -3.3, { sector: 'А', style: 'tech' }); hubs(linkW, -84.15, -17, -84.15, -11, -84.15, -5.5);
+    D('d.linkWs', 'Дверь западного перехода (лестница)', 'linkW', 'stairsA', -84.15, -3.15, false, 'Standard', req(1));
+    D('d.linkWg', 'Дверь западного перехода (галерея)', 'linkW', 'galW', -84.15, -19.85, false, 'Standard', req(1));
+    const linkB = R('linkB', 'Переход Б-3 — галерея', 'Corridor', 20, 24, -19.7, -2.3, { sector: 'Б', style: 'tech' }); hubs(linkB, 22, -4.5, 22, -11, 22, -17.5);
+    D('d.linkBn', 'Дверь перехода Б-3', 'linkB', 'corridor', 22, -2.15, false, 'Security', req(1), 2.0);
+    D('d.linkBs', 'Дверь перехода в галерею', 'linkB', 'galE', 22, -19.85, false, 'Standard', req(1), 2.0);
+    const medLink = R('medLink', 'Служебный проход медпункта Б', 'Corridor', -14.2, -11.8, -19.7, -10.6, { sector: 'Б', style: 'tech' }); hubs(medLink, -13, -12, -13, -18.3);
+    D('d.medLinkN', 'Служебная дверь медпункта Б', 'medLink', 'med', -13, -10.45, false, 'Standard', req(1, P.Medical | P.Security | P.MTF | P.Engineering));
+    D('d.medLinkS', 'Дверь служебного прохода (галерея)', 'medLink', 'galE', -13, -19.85, false, 'Standard', req(1, P.Medical | P.Security | P.MTF | P.Engineering));
+    // vertical routes from the gallery: stairs Ю (west) and a freight lift (east)
+    const stairsS = along(galW, 'N', -40.7, -36.6, 5.7, 'stairsS', 'Лестница Ю', 'Stairs', -38.65, { style: 'tech' }, 'Standard', req(1));
+    const freightS = R('freightS', 'Грузовой лифт Ю-3', 'Lift', 26, 32, -25, -19, { sector: 'Ю', style: 'tech' });
+    D('d.freightS', 'Ворота грузового лифта', 'freightS', 'galE', 25.85, -22, true, 'Standard', req(1, P.Logistics | P.Security | P.MTF | P.Engineering | P.Medical), 2.4);
+    // SECURITY SECTOR (west part of the gallery)
+    const secObs = along(galW, 'N', -82, -74, 8, 'secObs', 'Пункт видеонаблюдения охраны', 'Command', -78, { style: 'admin' }, 'Security', req(2, P.Security | P.Surveillance));
+    row(secObs, 'N', 'Console', 1.5, 0.8, 'Монитор камер'); Pz(secObs, 'secObs.chief', 'Console', -74.6, -15, 90, 'Пульт старшего оператора');
+    const ctrlPost = along(galW, 'N', -73.7, -66.6, 8, 'ctrlPost', 'Защищённый пост управления', 'SecurityPost', -70, { style: 'heavy' }, 'Heavy', req(2, P.Security | P.Command));
+    row(ctrlPost, 'N', 'GuardPost', 1.8, 1.0, 'Пульт блокировок'); ctrlPost.terminal = { x: -67, z: -16, yaw: 90 }; Pz(ctrlPost, 'pp.ctrlPost', 'PatrolPoint', -72.5, -18.6, 0, 'Пост управления');
+    const armory = along(galW, 'S', -86, -78, 8, 'armory', 'Оружейная охраны', 'Armory', -80, { style: 'heavy' }, 'Security', req(3, P.Armory));
+    row(armory, 'S', 'WeaponRack', 1.2, 0.5, 'Оружейная пирамида'); row(armory, 'W', 'WeaponRack', 1.4, 0.5, 'Шкаф спецсредств'); Pz(armory, 'armory.desk', 'Desk', -78.6, -27, 90, 'Стол выдачи оружия');
+    const guardPrep = along(galW, 'S', -77.7, -69, 8, 'guardPrep', 'Комната подготовки охраны', 'Locker', -73, null, 'Standard', req(1, P.Security | P.MTF));
+    row(guardPrep, 'W', 'Seat', 1.3, 0.6, 'Скамья'); Pz(guardPrep, 'guardPrep.brief', 'Desk', -70, -30, 90, 'Стол инструктажа');
+    const secCoord = along(galW, 'S', -68.7, -59, 8, 'secCoord', 'Координационный центр безопасности', 'Command', -64, { style: 'admin' }, 'Security', req(2, P.Security | P.Command));
+    row(secCoord, 'S', 'Console', 1.6, 0.8, 'Пульт координации'); Pz(secCoord, 'secCoord.table', 'Desk', -63.8, -28, 0, 'Оперативный стол'); secCoord.terminal = { x: -59.3, z: -27, yaw: 90 };
+    const detHall = along(galW, 'S', -58.7, -50, 6, 'detHall', 'Временное задержание: пост', 'SecurityPost', -54.3, null, 'Security', req(2, P.Security));
+    Pz(detHall, 'detHall.desk', 'GuardPost', -51, -26, 90, 'Пост задержания');
+    [[-58.7, -55.9], [-55.6, -52.8], [-52.5, -50]].forEach(([x0, x1], i) => {
+      const c = beyond(detHall, 'S', x0, x1, 5.4, 'det' + (i + 1), 'Камера задержания ' + (i + 1), 'Detention', (x0 + x1) / 2, { style: 'dclass', height: 2.8 }, 'Cell', req(2, P.Security));
+      Pz(c, c.id + '.bunk', 'CellBunk', x0 + 0.7, c.minZ + 1.0, 180, 'Нары'); hubs(c, (x0 + x1) / 2 + 0.3, c.maxZ - 1.0, (x0 + x1) / 2 + 0.3, c.minZ + 2.4);
+    });
+    // MTF SECTOR (around the junction hall)
+    const mtfBar = along(galW, 'S', -49.7, -42, 9, 'mtfBarracks', 'Казармы МОГ «Ключ-9»', 'Barracks', -46, null, 'Security', req(2, P.MTF | P.Command));
+    row(mtfBar, 'S', 'Bed', 1.25, 1.1, 'Двухъярусная койка', null, { bunk: true }); row(mtfBar, 'W', 'Seat', 1.6, 0.6, 'Табурет');
+    const mtfEquip = along(galW, 'S', -41.7, -36.3, 9, 'mtfEquip', 'Снаряжение МОГ', 'Armory', -39, { style: 'heavy' }, 'Security', req(3, P.MTF | P.Armory));
+    row(mtfEquip, 'E', 'WeaponRack', 1.3, 0.5, 'Стойка снаряжения'); Pz(mtfEquip, 'mtfEquip.bench', 'Workbench', -41.1, -28, 270, 'Стол подготовки снаряжения');
+    const mtfHQ = beyond(galHub, 'S', -36, -30.3, 7.7, 'mtfHQ', 'Оперативный штаб МОГ', 'Command', -33, { style: 'admin' }, 'Security', req(3, P.MTF | P.Command));
+    row(mtfHQ, 'S', 'Console', 1.5, 0.8, 'Пульт штаба'); Pz(mtfHQ, 'mtfHQ.map', 'Desk', -33.2, -31, 0, 'Стол с планом комплекса');
+    const mtfPrep = beyond(galHub, 'S', -30, -24, 7.7, 'mtfPrep', 'Подготовка группы МОГ', 'MTF', -27, null, 'Security', req(3, P.MTF));
+    row(mtfPrep, 'S', 'Seat', 1.2, 0.6, 'Скамья'); row(mtfPrep, 'E', 'WeaponRack', 1.4, 0.5, 'Шкаф снаряжения');
+    const garage = R('mtfGarage', 'Транспортная зона МОГ', 'Garage', -49.7, -36.3, -46, -33.6, { sector: 'Ю', style: 'heavy', height: 4.2 });
+    D('d.mtfGarage', 'Ворота транспортной зоны', 'mtfGarage', 'mtfEquip', -39, -33.45, false, 'Security', req(3, P.MTF | P.Logistics), 2.4);
+    D('d.mtfGarageHQ', 'Дверь штаба в транспортную зону', 'mtfGarage', 'mtfHQ', -36.15, -35, true, 'Security', req(3, P.MTF));
+    Pz(garage, 'garage.bay', 'Stand', -43, -40, 0, 'Стоянка транспорта'); Pz(garage, 'garage.desk', 'Desk', -49.1, -35, 270, 'Пост транспортной зоны'); hubs(garage, -43, -35.5, -38, -35.5, -38, -44, -48, -44);
+    const mtfMed = along(galE, 'S', -23.4, -17, 8, 'mtfMed', 'Медпункт МОГ', 'MedicalBay', -20.2, null, 'Security', req(2, P.MTF | P.Medical));
+    row(mtfMed, 'S', 'MedBed', 1.8, 1.1, 'Койка медпункта МОГ'); Pz(mtfMed, 'mtfMed.desk', 'Desk', -17.6, -27, 90, 'Стол полевого медика');
+    const resPost = along(galE, 'N', -23.7, -18, 8, 'reservePost', 'Резервный пост охраны', 'SecurityPost', -20.8, null, 'Security', req(2, P.Security));
+    row(resPost, 'N', 'GuardPost', 1.8, 1.0, 'Пульт резервного поста'); resPost.terminal = { x: -18.3, z: -15, yaw: 90 };
+    // MEDICAL SECTOR (east part of the gallery)
+    const opRoom = along(galE, 'S', -16.7, -10, 8, 'operating', 'Операционная', 'Operating', -13.3, { style: 'research' }, 'Security', req(2, P.Medical));
+    Pz(opRoom, 'operating.table', 'MedBed', -13.3, -29, 0, 'Операционный стол'); Pz(opRoom, 'operating.inst', 'Workbench', -10.6, -27, 90, 'Инструментальный стол'); Pz(opRoom, 'operating.desk', 'Desk', -16.1, -27, 270, 'Анестезиологический пульт');
+    const icu = along(galE, 'S', -9.7, -3, 8, 'icu', 'Реанимация', 'MedicalBay', -6.4, { style: 'research' }, 'Security', req(2, P.Medical));
+    row(icu, 'S', 'MedBed', 2.2, 1.1, 'Реанимационная койка'); Pz(icu, 'icu.desk', 'Desk', -3.6, -26, 90, 'Пост реанимации');
+    const qWard = beyond(icu, 'S', -9.7, -3, 6, 'quarWard', 'Карантинная палата', 'Quarantine', -6.4, { style: 'research' }, 'Security', req(2, P.Medical | P.Containment));
+    Pz(qWard, 'quarWard.bed1', 'MedBed', -8.2, qWard.minZ + 1.4, 180, 'Изолированная койка'); Pz(qWard, 'quarWard.bed2', 'MedBed', -4.5, qWard.minZ + 1.4, 180, 'Изолированная койка'); Pz(qWard, 'quarWard.suit', 'Hazmat', -3.6, qWard.maxZ - 0.8, 90, 'Защитный костюм на стойке');
+    const wards = along(galE, 'S', -2.7, 6, 8, 'wards', 'Палаты медсектора', 'MedicalBay', 1.6, null, 'Standard', req(1));
+    row(wards, 'S', 'MedBed', 1.7, 1.1, 'Койка палаты'); row(wards, 'E', 'Seat', 1.6, 0.6, 'Стул посетителя');
+    const medInv = along(galE, 'S', 6.3, 11, 8, 'medInv', 'Кабинет медицинских расследований', 'Office', 8.6, { style: 'admin' }, 'Security', req(2, P.Medical | P.Security | P.Records));
+    Pz(medInv, 'medInv.desk1', 'Desk', 7.0, -27, 270, 'Стол судмедэксперта'); Pz(medInv, 'medInv.desk2', 'Desk', 10.4, -29, 90, 'Стол следователя'); row(medInv, 'S', 'Shelf', 1.5, 0.5, 'Шкаф с делами');
+    const morgue = along(galE, 'S', 11.3, 19.7, 8, 'morgue', 'Морг', 'Morgue', 13.5, { style: 'research' }, 'Security', req(2, P.Medical | P.Security));
+    Pz(morgue, 'morgue.slab1', 'Slab', 15.5, -28, 0, 'Секционный стол'); Pz(morgue, 'morgue.slab2', 'Slab', 15.5, -30.6, 0, 'Секционный стол'); Pz(morgue, 'morgue.desk', 'Desk', 19.1, -26, 90, 'Журнал морга');
+    morgue.drawers = 12;
+    // SERVICES on the north side of the gallery
+    const staffRoom = along(galW, 'N', -56, -47, 8, 'staffRoom', 'Комната отдыха персонала', 'Lounge', -51.5, null, 'Standard', req(1));
+    row(staffRoom, 'N', 'Seat', 1.3, 0.7, 'Кресло'); Pz(staffRoom, 'staffRoom.coffee', 'Workbench', -55.4, -15, 270, 'Кофемашина');
+    const archS = along(galW, 'N', -46.7, -41, 8, 'archiveS', 'Архив галереи Ю', 'Archive', -43.8, { style: 'admin' }, 'Security', req(2, P.Records | P.Research | P.Security));
+    row(archS, 'E', 'Shelf', 1.3, 0.6, 'Стеллаж с делами'); Pz(archS, 'archiveS.desk', 'Console', -46.1, -15.5, 270, 'Терминал архива');
+    const engStore = along(galE, 'N', 8, 19.7, 8, 'engStore', 'Склад инженерной службы', 'Storage', 12, { style: 'tech' }, 'Standard', req(1, P.Engineering | P.Logistics | P.Security));
+    row(engStore, 'N', 'Shelf', 1.6, 0.6, 'Стеллаж'); Pz(engStore, 'engStore.suit', 'Hazmat', 19.1, -15, 90, 'Защитный костюм на стойке');
+
+    // ================================================================= LEVEL 4 additions: stairs Ю, freight lift, D-3 sector, SCP isolators С-4
+    const stairsS4 = R('stairsS4', 'Лестница Ю, уровень 4', 'Stairs', -45.7, -40.3, -9.8, -1.8, o4('Т'));
+    D('d.stairsS4', 'Дверь лестницы Ю', 'stairsS4', 'corr4w', -43, -1.65, false, 'Standard', req(1));
+    transit('t.stairsS', 'Лестница Ю', 'stairsS', 'stairsS4', 'Stairs', 14, req(1));
+    const freight4 = R('freight4', 'Грузовой лифт, уровень 4', 'Lift', -10, -4, -9.8, -1.8, o4('Т'));
+    D('d.freight4', 'Ворота грузового лифта', 'freight4', 'corr4', -7, -1.65, false, 'Standard', req(1, P.Logistics | P.Security | P.MTF | P.Engineering | P.Medical), 2.4);
+    transit('t.freight', 'Грузовой лифт Ю-3 ↔ уровень 4', 'freightS', 'freight4', 'Lift', 12, req(1, P.Logistics | P.Security | P.MTF | P.Engineering | P.Medical));
+    // D-3: housing, common room, mess, showers, medical room, waiting room, test airlocks; a separate escort corridor to D-2
+    const sluD3 = R('sluiceD3', 'Шлюз сектора D-3', 'Airlock', -50, -46, 1.8, 10.2, o4('D', 'dclass')); hubs(sluD3, -48, 3.5, -48, 8.5);
+    D('d.sluiceD3', 'Шлюз сектора D-3 (тоннель)', 'sluiceD3', 'corr4w', -48, 1.65, false, 'Security', req(2, P.Security | P.DClassBlock | P.Medical | P.Ethics));
+    const escD = R('escD', 'Коридор конвоирования D-3', 'Corridor', -80, -18.3, 10.5, 13.5, o4('D', 'dclass'));
+    for (let x = -77; x <= -21; x += 7) hubs(escD, x, 12);
+    D('d.sluiceD3n', 'Шлюз сектора D-3 (коридор)', 'sluiceD3', 'escD', -48, 10.35, false, 'Security', req(2, P.Security | P.DClassBlock | P.Medical | P.Ethics));
+    D('d.escDh', 'Конвойный проход в сектор D-2', 'escD', 'dhall', -18.15, 12, true, 'Security', req(2, P.Security | P.DClassBlock));
+    Pz(escD, 'pp.escD', 'PatrolPoint', -60, 11.2, 90, 'Коридор конвоирования D-3');
+    for (let i = 0; i < 6; i++) {
+      const x0 = -79.6 + i * 3.9, x1 = x0 + 3.6, cell = R('d3cell' + (i + 1), 'Камера D3-' + (i + 1), 'DClassCell', x0, x1, 13.8, 19.5, Object.assign(o4('D', 'dclass'), { height: 2.8 }));
+      hubs(cell, x0 + 2.3, 14.9, x0 + 2.3, 18.2); Pz(cell, cell.id + '.bunk', 'CellBunk', x0 + 0.75, 18.4, 0, 'Нары', { bunk: true });
+      const cd = D('d.d3cell' + (i + 1), 'Дверь камеры D3-' + (i + 1), cell.id, 'escD', x0 + 2.3, 13.65, false, 'Cell', req(0, P.CellResident | P.DClassBlock | P.Security)); cd.curfewStart = Hm(22); cd.curfewEnd = Hm(6, 30);
+    }
+    const d3c = R('d3common', 'Сектор D-3 — общая комната', 'DClassCommon', -56.2, -46, 13.8, 21.8, o4('D', 'dclass'));
+    D('d.d3common', 'Дверь общей комнаты D-3', 'd3common', 'escD', -51, 13.65, false, 'Standard', req(0, P.CellResident | P.DClassBlock | P.Security));
+    let s3 = 0; for (let k = -2; k <= 2; k++) { Pz(d3c, 'd3common.s' + (++s3), 'Seat', -51 + k * 1.1, 17.1, 180, 'Скамья'); Pz(d3c, 'd3common.s' + (++s3), 'Seat', -51 + k * 1.1, 18.6, 0, 'Скамья'); }
+    row(d3c, 'N', 'Workbench', 2.2, 0.7, 'Рабочий стол', null, null, 'd3common.work'); Pz(d3c, 'pp.d3common', 'PatrolPoint', -55, 14.8, 0, 'Общая комната D-3');
+    const d3m = R('d3mess', 'Столовая сектора D-3', 'DClassCommon', -45.7, -36, 13.8, 21.8, o4('D', 'dclass'));
+    D('d.d3mess', 'Дверь столовой D-3', 'd3mess', 'escD', -41, 13.65, false, 'Standard', req(0, P.CellResident | P.DClassBlock | P.Security));
+    Pz(d3m, 'd3mess.counter', 'FoodCounter', -40.85, 21.0, 0, 'Раздача пайков D-3'); let m3 = 0; for (const tx of [-43.5, -38.2]) for (let k = 0; k < 3; k++) Pz(d3m, 'd3mess.s' + (++m3), 'Seat', tx, 15.5 + k * 1.5, 90, 'Место');
+    const d3sh = R('d3shower', 'Душевые D-3', 'Shower', -35.7, -30, 13.8, 19.5, o4('D', 'dclass')); D('d.d3shower', 'Дверь душевых D-3', 'd3shower', 'escD', -32.8, 13.65, false, 'Standard', req(0, P.CellResident | P.DClassBlock | P.Security));
+    const d3med = R('d3medical', 'Медкабинет сектора D-3', 'MedicalBay', -79.6, -71, 1.8, 10.2, o4('D', 'dclass'));
+    D('d.d3medical', 'Дверь медкабинета D-3', 'd3medical', 'escD', -75, 10.35, false, 'Standard', req(1, P.Medical | P.Security | P.DClassBlock));
+    Pz(d3med, 'd3medical.bed1', 'MedBed', -78, 3, 180, 'Смотровая кушетка'); Pz(d3med, 'd3medical.bed2', 'MedBed', -75, 3, 180, 'Смотровая кушетка'); Pz(d3med, 'd3medical.desk', 'Desk', -71.6, 6, 90, 'Стол врача D-3');
+    const d3w = R('d3wait', 'Комната ожидания испытаний', 'Waiting', -70.7, -62, 1.8, 10.2, o4('D', 'dclass'));
+    D('d.d3wait', 'Дверь комнаты ожидания', 'd3wait', 'escD', -66, 10.35, false, 'Security', req(1, P.Security | P.DClassBlock | P.Research));
+    row(d3w, 'S', 'Seat', 1.0, 0.6, 'Скамья ожидания'); Pz(d3w, 'd3wait.guard', 'GuardPost', -62.6, 8.6, 90, 'Пост конвоя');
+    const lock3 = R('testLock3', 'Испытательный шлюз D-3/1', 'Airlock', -61.7, -56, 1.8, 10.2, o4('D', 'heavy')); hubs(lock3, -58.85, 8.2, -58.85, 4.2);
+    D('d.testLock3', 'Вход в испытательный шлюз 1', 'testLock3', 'escD', -58.85, 10.35, false, 'Security', req(2, P.Security | P.Research | P.DClassBlock));
+    const t3 = R('d3test', 'Испытательная камера D-3/1', 'TestChamber', -55.7, -50.3, 1.8, 10.2, o4('D', 'heavy'));
+    D('d.d3test', 'Гермодверь испытательной камеры 1', 'd3test', 'testLock3', -55.85, 4.5, true, 'Security', req(2, P.Security | P.Research | P.DClassBlock));
+    Pz(t3, 'd3test.spot', 'Stand', -53, 7, 0, 'Место испытуемого'); Pz(t3, 'd3test.obs', 'Console', -54.9, 2.6, 270, 'Пульт испытаний');
+    const lock4 = R('testLock4', 'Испытательный шлюз D-3/2', 'Airlock', -45.7, -40.3, 1.8, 10.2, o4('D', 'heavy')); hubs(lock4, -43, 8.2, -43, 4.2);
+    D('d.testLock4', 'Вход в испытательный шлюз 2', 'testLock4', 'escD', -43, 10.35, false, 'Security', req(2, P.Security | P.Research | P.DClassBlock));
+    const t4 = R('d3test2', 'Испытательная камера D-3/2', 'TestChamber', -40, -29, 1.8, 10.2, o4('D', 'heavy'));
+    D('d.d3test2', 'Гермодверь испытательной камеры 2', 'd3test2', 'testLock4', -40.15, 4.5, true, 'Security', req(2, P.Security | P.Research | P.DClassBlock));
+    Pz(t4, 'd3test2.spot', 'Stand', -33, 6, 0, 'Место испытуемого'); Pz(t4, 'd3test2.obs', 'Console', -39.4, 2.6, 270, 'Пульт испытаний');
+    // SCP isolators С-4: the wing T-2 corridor continues east to six new containment blocks, a control room and a temporary isolator
+    const cS4 = R('corrS4', 'Коридор изоляторов С-4', 'Corridor', 92.3, 142, -14.3, -10.2, o4('С-4', 'heavy'));
+    for (let x = 95; x <= 139; x += 7.3) hubs(cS4, x, -12.25);
+    D('d.corrS4', 'Гермоперегородка Т-2 / С-4', 'corrT2', 'corrS4', 92.15, -12.25, true, 'Security', req(3, P.Containment | P.Security | P.Research | P.MTF), 2.4);
+    Pz(cS4, 'pp.corrS4', 'PatrolPoint', 118, -11.2, 90, 'Изоляторы С-4');
+    const ctrlS4 = along(cS4, 'N', 130, 142, 7.9, 'ctrlS4', 'Пульт управления изоляторами С-4', 'Command', 134, { style: 'heavy' }, 'Security', req(3, P.Containment | P.Security));
+    row(ctrlS4, 'N', 'Console', 1.6, 0.8, 'Пульт изолятора'); ctrlS4.terminal = { x: 141.6, z: -6, yaw: 90 };
+    const isoS4 = along(cS4, 'N', 117, 129.7, 7.9, 'isoS4', 'Временный изолятор С-4', 'TempHold', 123, { style: 'heavy' }, 'Security', req(3, P.Containment | P.MTF)); isoS4.vacant = true;
+    Pz(isoS4, 'isoS4.bay', 'Stand', 123, -5.5, 0, 'Изоляционный отсек'); Pz(isoS4, 'isoS4.desk', 'Desk', 129.1, -9, 90, 'Пост приёмки');
+    // special access lift to level −9
+    const liftS4 = R('liftS4', 'Спецлифт уровня 4', 'Lift', 92, 98, 1.8, 7.8, o4('Т', 'heavy'));
+    D('d.liftS4', 'Дверь спецлифта', 'liftS4', 'corr4', 95, 1.65, false, 'Security', req(4, P.Containment | P.Command | P.MTF));
+
+    // ================================================================= LEVEL −9: zone of special containment (access L4)
+    const o9 = (st) => ({ level: 9, floorY: -14, sector: '−9', style: st || 'heavy' });
+    const liftS9 = R('liftS9', 'Спецлифт, уровень −9', 'Lift', 92, 98, 2.3, 8.3, o9());
+    transit('t.liftS', 'Спецлифт: уровень 4 ↔ уровень −9', 'liftS4', 'liftS9', 'Lift', 16, req(4, P.Containment | P.Command | P.MTF));
+    const c9 = R('corr9', 'Коридор зоны особого содержания (−9)', 'Corridor', 68, 122, -2, 2, o9());
+    for (let x = 71; x <= 119; x += 8) hubs(c9, x, 0);
+    D('d.liftS9', 'Дверь спецлифта (−9)', 'liftS9', 'corr9', 95, 2.15, false, 'Security', req(4, P.Containment | P.Command | P.MTF));
+    Pz(c9, 'pp.corr9', 'PatrolPoint', 100, -0.9, 90, 'Уровень −9'); Pz(c9, 'panel.corr9', 'Panel', 110, 1.4, 0, 'Щит уровня −9');
+    const ctrl9 = along(c9, 'N', 98.3, 108, 8, 'ctrl9', 'Пост управления уровня −9', 'SecurityPost', 102, null, 'Heavy', req(4, P.Containment | P.Security));
+    row(ctrl9, 'N', 'GuardPost', 1.8, 1.0, 'Пульт особого содержания'); ctrl9.terminal = { x: 107.6, z: 6, yaw: 90 }; Pz(ctrl9, 'pp.ctrl9', 'PatrolPoint', 100, 3.4, 0, 'Пост −9');
+    const lab9 = along(c9, 'N', 108.3, 122, 8, 'lab9', 'Лаборатория особого содержания', 'Laboratory', 112, { style: 'research' }, 'Security', req(4, P.Containment | P.Research));
+    row(lab9, 'N', 'Workbench', 2.0, 0.7, 'Лабораторный стол'); Pz(lab9, 'lab9.console', 'Console', 121.4, 5, 90, 'Терминал особого содержания');
+    // observation gallery over two large cells
+    const gal9 = along(c9, 'N', 68, 91.7, 5, 'obsGal9', 'Галерея наблюдения −9', 'Observation', 80, { style: 'research' }, 'Security', req(4, P.Containment | P.Research | P.Security));
+    Pz(gal9, 'obsGal9.c1', 'Console', 73, 6.4, 0, 'Пульт наблюдения'); Pz(gal9, 'obsGal9.c2', 'Console', 85.5, 6.4, 0, 'Пульт наблюдения'); gal9.intercom = { x: 79.5, z: 7.18, yaw: 0 };
+    const bigCell = (id, scp, name, x0, x1) => {
+      const c = R(id, 'Большая камера ' + scp + ' «' + name + '»', 'Containment', x0, x1, 7.6, 21.6, Object.assign(o9(), { height: 5.5, scp, vacant: true }));
+      const cx = (x0 + x1) / 2; hubs(c, cx, 14.6, x0 + 2.4, 9.4, x1 - 2.4, 9.4, x0 + 2.4, 19.8, x1 - 2.4, 19.8);
+      Pz(c, id + '.center', 'Stand', cx, 14.6, 0, 'Центр камеры'); Pz(c, id + '.window', 'Window', cx - 1.5, 8.7, 180, 'У стекла галереи'); Pz(c, id + '.w1', 'Stand', x0 + 1.3, 20.3, 0, 'Угол'); Pz(c, id + '.w2', 'Stand', x1 - 1.3, 14.6, 0, 'Стена');
+      const d = D('d.' + id, 'Гермодверь большой камеры ' + scp, id, 'obsGal9', x1 - 1.6, 7.45, false, 'Heavy', req(4, P.Containment, true)); d.hasExit = true; d.exitFrom = id; d.exitReq = req(4, P.Containment);
+      gal9.visibleRooms.push(id); c.visibleRooms.push(gal9.id);
+      f.windows.push({ a: gal9.id, b: id, min: x0 + 1.4, max: x1 - 3.4, y0: 1.0, y1: 2.6, scp });
+      f.blocks[scp] = { obs: gal9.id, cell: id, side: 'N' };
+      return c;
+    };
+    bigCell('bigCell9a', 'SCP-LF-151', 'Рой', 68, 79.7);
+    bigCell('bigCell9b', 'SCP-LF-156', 'Слепой зверь', 80, 91.7);
+    // four special blocks on the south side (cells deeper than usual)
+    [['SCP-LF-147', 'Пустотник'], ['SCP-LF-150', 'Чёрный узник'], ['SCP-LF-155', 'Голодная тень'], ['SCP-LF-158', 'Последний свидетель']].forEach(([scp, name], i) => {
+      const b = block('S', 68.3 + i * 8.3, scp, name, { corr: c9, depth: 9, dark: scp === 'SCP-LF-155' }); b.chm.vacant = true;
+    });
+    // six blocks of the С-4 isolators
+    [['SCP-LF-148', 'Костяной сторож'], ['SCP-LF-149', 'Смотрящий'], ['SCP-LF-152', 'Ложный охранник'], ['SCP-LF-153', 'Собиратель'], ['SCP-LF-154', 'Тонкий', { height: 4.6 }], ['SCP-LF-157', 'Ночной пациент', { style: 'research' }]].forEach(([scp, name, o], i) => {
+      const b = block('S', 92.6 + i * 8.3, scp, name, Object.assign({ corr: cS4 }, o || {})); b.chm.vacant = true;
+    });
     // Anomalous: the floor that does not exist (reachable only through SCP-LF-122).
     const nf = R('nullfloor', 'Этаж «—»', 'NullFloor', 120, 140, 20, 26, { level: 3.5, floorY: -3.5, height: 2.9, sector: '?', style: 'null' });
     hubs(nf, 123, 23, 130, 23, 137, 23); Pz(nf, 'nullfloor.end', 'Stand', 138, 23, 90, 'Тупик');
@@ -295,5 +471,5 @@
     return f;
   }
 
-  S.Map = { build, L4Y };
+  S.Map = { build, L4Y, L9Y: -14 };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -16,6 +16,11 @@
   const S = root.SCP, T = root.THREE;
   const D2R = Math.PI / 180;
   const H = { ready: false, failed: false, base: null, clips: {}, outfits: {}, waiting: [] };
+  // death falls by cause (S.Med.KIND[].pose): preceding hit, fall speed, twist (yaw), roll, height, seizure, crouch first
+  const DEATH = {
+    fall_back: { hit: 'Hit_Head', rate: 1 }, collapse_fwd: { hit: 'Hit_Chest', rate: 1.45, roll: 9, dy: -0.04 }, kneel_fall: { crouch: true, rate: 0.8, roll: -7 },
+    twist_fall: { hit: 'Hit_Chest', rate: 1.05, yaw: 78 }, crumple: { rate: 1.9, dy: -0.05 }, seizure: { rate: 0.7, seize: true }, slump: { crouch: true, rate: 0.55, roll: 15 }, curl: { crouch: true, rate: 0.6, roll: 24, yaw: -30 }
+  };
   const URL = (root.SCP_ASSET_BASE || 'assets/') + 'models/ual_mannequin.glb';
   const R = { skin: 0, hair: 1, shirt: 2, sleeve: 3, hand: 4, pants: 5, shoe: 6, belt: 7, collar: 8, coat: 9, vest: 10, apron: 11, hat: 12, gear: 13, badge: 14, sclera: 15, iris: 16, mouth: 17, frame: 18, visor: 19, stripe: 20, lip: 21, beard: 22 };
   const GET = ['getX', 'getY', 'getZ', 'getW'], comp = (a, i, k) => a[GET[k]](i);
@@ -326,11 +331,25 @@
       if (!n || !this.acts[n]) return; if (this.oneShot && this.oneShot.name === n && this.oneShot.t < 0.4) return;
       const a = this.acts[n]; a.reset(); a.setEffectiveWeight(0); a.play(); a._on = true; this.oneShot = { name: n, t: 0, dur: H.clips[n].duration * (kind === 'defend' ? 3 : 1) };
     }
+    // Death: each cause has its own fall — the hit that precedes it, speed, twist, roll, a seizure — on top of the fall clip.
+    die(dt, pose, since, carried) {
+      const P = DEATH[pose] || DEATH.fall_back, dur = this.clipDur('Death01'), pre = P.hit ? 0.35 : P.crouch ? 0.7 : 0, want = {};
+      if (P.hit && since < pre) want[P.hit] = { w: 1, t: since / pre * this.clipDur(P.hit) * 0.7 };
+      if (P.crouch && since < pre + 0.4) want.Crouch_Idle_Loop = { w: since < pre ? 1 : 1 - (since - pre) / 0.4, t: 0.4 };
+      const ft = Math.max(0, since - pre) * P.rate; want.Death01 = { w: since < pre ? 0 : 1, t: Math.min(dur - 0.01, ft), snap: since > pre + 1 };
+      this.drive(dt, want, since > pre + 1 ? 1 : Math.min(1, dt * 12));
+      const k = S.clamp(ft / dur, 0, 1), m = this.model;
+      m.rotation.x = 0; m.rotation.y = (P.yaw || 0) * D2R * k; m.rotation.z = (P.roll || 0) * D2R * k; m.position.z = 0;
+      m.position.y = (P.dy || 0) * k + (carried ? 0.72 : 0);
+      if (P.seize && since > pre && since < pre + 3.4) { const f = 1 - (since - pre) / 3.4, s = Math.sin(since * 36) * 0.22 * f; this.b.sp2.rotation.z += s; this.b.sp3.rotation.x += s * 0.6; if (this.b.head) this.b.head.rotation.y += s * 1.2; }
+      if (this.lids) this.mesh.morphTargetInfluences[0] = since > pre + 0.6 ? 0.75 : 0;
+    }
     // speed (m/s), posture (sim), lookYaw (deg, relative), t (s); this.gait (steps walked) is set by the caller for synced feet
     animate(dt, speed, posture, lookYaw, t, opt) {
       opt = opt || {};
       const want = this.lod >= 1 ? this.geoFar : this.geoNear; if (this.mesh.geometry !== want) this.mesh.geometry = want;
       this.upd += dt; const every = this.lod >= 2 ? 0.12 : this.lod === 1 ? 0.05 : 0; if (this.upd < every) return; dt = this.upd; this.upd = 0;
+      if (posture === 'Dead') { this.die(dt, opt.deathPose, opt.since == null ? 99 : opt.since, opt.carried); return; }
       const k = Math.min(1, dt * 6), B = H.base, moving = speed > 0.15;
       this.speed += (speed - this.speed) * Math.min(1, dt * 6);
       const sp = this.speed;

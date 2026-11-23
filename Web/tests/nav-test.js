@@ -3,7 +3,7 @@
 // an unreachable goal, and the real brain-driven world near the canteen at lunch. Measured on every tick:
 // body overlap, jumps (teleports), spinning on the spot, long hangs, arrivals, door gate queues.
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP, V = S.V;
 let failures = 0;

@@ -26,6 +26,14 @@
     C('cam33', 'К-33 Сектор D-2', 'dhall', 11.6, 3.0, 2.2, 225, 22, 85, 25); C('cam34', 'К-34 Испытательная камера', 'dtest', 17.6, 3.0, 13.4, 225, 9); C('cam35', 'К-35 Главная генераторная', 'genMain', 55.6, 3.0, 2.2, 315, 16);
     C('cam36', 'К-36 Камера Т-1', 'heavyCell4', 73.6, 3.2, 19.6, 225, 16, 85, 15); C('cam37', 'К-37 Временная зона', 'tempHold', 89.6, 3.0, 2.2, 315, 14); C('cam38', 'К-38 Приёмный шлюз', 'arrivalDock', 107.6, 3.0, -2.2, 225, 16); C('cam39', 'К-39 Западный тоннель', 'corr4w', -79.5, 2.9, 1.1, 90, 30, 60, 10);
     C('cam40', 'К-40 Пост D-2', 'postD', -20.9, 3.0, 8.6, 225, 8);
+    // CRISIS update: the south gallery, security / MTF / medical sectors, D-3, isolators С-4, level −9 (corner cameras look at the room centre)
+    const CC = (id, name, room, range, corner) => { const r = w.fac.room(room); if (!r) return; const cx = corner & 1 ? r.minX + 0.4 : r.maxX - 0.4, cz = corner & 2 ? r.minZ + 0.4 : r.maxZ - 0.4; C(id, name, room, cx, Math.min(3.0, r.height - 0.3), cz, V.yawFromDir({ x: r.center.x - cx, z: r.center.z - cz }), range); };
+    CC('cam41', 'К-41 Галерея Ю, запад', 'galW', 30, 1); CC('cam42', 'К-42 Развязка Ю-3', 'galHub', 18, 0); CC('cam43', 'К-43 Галерея Ю, восток', 'galE', 30, 0);
+    CC('cam44', 'К-44 Оружейная', 'armory', 12, 0); CC('cam45', 'К-45 Временное задержание', 'detHall', 10, 1); CC('cam46', 'К-46 Транспортная зона МОГ', 'mtfGarage', 18, 0);
+    CC('cam47', 'К-47 Морг', 'morgue', 12, 0); CC('cam48', 'К-48 Реанимация', 'icu', 10, 0); CC('cam49', 'К-49 Коридор конвоирования D-3', 'escD', 30, 1);
+    CC('cam50', 'К-50 Общая комната D-3', 'd3common', 14, 1); CC('cam51', 'К-51 Испытательная камера D-3/1', 'd3test', 9, 1); CC('cam52', 'К-52 Коридор уровня −9', 'corr9', 30, 0);
+    CC('cam53', 'К-53 Галерея наблюдения −9', 'obsGal9', 20, 1); CC('cam54', 'К-54 Коридор изоляторов С-4', 'corrS4', 30, 1); CC('cam55', 'К-55 Столовая D-3', 'd3mess', 14, 0);
+    CC('cam56', 'К-56 Операционная', 'operating', 9, 0); CC('cam57', 'К-57 Штаб МОГ', 'mtfHQ', 10, 1); CC('cam58', 'К-58 Пост управления −9', 'ctrl9', 10, 1);
   }
 
   // Responsible scientists: stage-1 staff keep SCP-L-001; story characters keep their objects.
@@ -94,7 +102,7 @@
   }
 
   S.Content = {
-    START, createWorld,
+    START, createWorld, setupPlayer,
     archive() { return S.Anoms.ORDER.map(id => { const d = S.Anoms.DEFS[id]; return { id, name: d.name, cls: d.cls, kind: d.kind, desc: d.desc, contain: d.contain, triggers: d.triggers }; }); }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

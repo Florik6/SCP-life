@@ -4,13 +4,14 @@
   'use strict';
   const S = window.SCP, T = window.THREE, A = S.Audio, $ = id => document.getElementById(id);
   const D2R = Math.PI / 180, EYE = 1.62, WALK = 2.3, RUN = 4.2, RADIUS = 0.3, REACH = 2.7;
+  const DEATH_MODES = ['ЗАГРУЗКА', 'ДРУГОЙ ПЕРСОНАЖ', 'ХАРДКОР'];
   const SAVE_KEY = 'scplife.save.v2', BAK_KEY = 'scplife.save.v2.bak', SET_KEY = 'scplife.settings.v2';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }, del(k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } } };
 
   // ------------------------------------------------------------------ settings
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-  const settings = Object.assign({ sens: 1.0, fov: 72, quality: isTouch ? 1 : 2, volume: 0.8, music: 0.6, invert: false, touch: isTouch, hud: 1, btn: 1, lefty: false, fx: 1, noflash: false, shake: false, minhud: false }, (() => { try { return JSON.parse(store.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
+  const settings = Object.assign({ sens: 1.0, fov: 72, quality: isTouch ? 1 : 2, volume: 0.8, music: 0.6, invert: false, touch: isTouch, hud: 1, btn: 1, lefty: false, fx: 1, noflash: false, shake: false, minhud: false, gore: 1, deathMode: 0 }, (() => { try { return JSON.parse(store.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
   const QUALITY = isTouch ? [{ name: 'Низкое', ratio: 0.55, lights: 3, far: 26, npcs: 10 }, { name: 'Среднее', ratio: 0.75, lights: 4, far: 34, npcs: 16 }, { name: 'Высокое', ratio: 1.0, lights: 6, far: 44, npcs: 28 }]
     : [{ name: 'Низкое', ratio: 0.6, lights: 4, far: 28, npcs: 18 }, { name: 'Среднее', ratio: 0.85, lights: 6, far: 38, npcs: 28 }, { name: 'Высокое', ratio: 1.0, lights: 8, far: 48, npcs: 40 }];
   const saveSettings = () => store.set(SET_KEY, JSON.stringify(settings));
@@ -333,6 +334,7 @@
       const on = v => v ? 'ВКЛ' : 'ВЫКЛ';
       $('sSens').textContent = settings.sens.toFixed(1); $('sFov').textContent = settings.fov + '°'; $('sInvert').textContent = on(settings.invert); $('sQuality').textContent = QUALITY[settings.quality].name;
       $('sVolume').textContent = Math.round(settings.volume * 100) + '%'; $('sMusic').textContent = Math.round(settings.music * 100) + '%'; $('sHud').textContent = Math.round(settings.hud * 100) + '%'; $('sBtn').textContent = Math.round(settings.btn * 100) + '%';
+      $('sGore').textContent = ['НЕТ', 'УМЕРЕННО', 'ПОЛНОСТЬЮ'][settings.gore]; $('sDeath').textContent = DEATH_MODES[settings.deathMode];
       $('sLefty').textContent = settings.lefty ? 'СЛЕВА' : 'СПРАВА'; $('sTouch').textContent = on(settings.touch); $('sFx').textContent = Math.round(settings.fx * 100) + '%'; $('sNoFlash').textContent = on(settings.noflash); $('sShake').textContent = on(settings.shake); $('sMinHud').textContent = on(settings.minhud);
     },
     syncTouch() {
@@ -834,6 +836,41 @@
   $('chatForm').addEventListener('submit', e => { e.preventDefault(); Chat.send($('chatIn').value); });
   $('chatIn').addEventListener('keydown', e => e.stopPropagation());
   function makeRig(npc) { return (S.Humans && S.Humans.create(npc)) || new S.Render.Humanoid(npc, G.fv.m); }
+  // ---- bodies, stretchers and blood (amount by the "gore" setting)
+  function stretcherAt(id, x, y, z, yaw) {
+    const S2 = G.stretchers || (G.stretchers = {}); let m = S2[id];
+    if (!m) { m = new T.Group(); const fv = G.fv.m; const bed = new T.Mesh(new T.BoxGeometry(0.62, 0.06, 2.0), fv.fabric || fv.dark); bed.position.y = 0.66; m.add(bed); for (const sx of [-0.33, 0.33]) { const pole = new T.Mesh(new T.BoxGeometry(0.04, 0.04, 2.5), fv.metal); pole.position.set(sx, 0.68, 0); m.add(pole); } scene.add(m); S2[id] = m; }
+    m.position.set(x, y, z); m.rotation.y = yaw * D2R; m.visible = true; m.used = true;
+  }
+  function bloodAt(key, x, y, z, r) {
+    const B = G.blood || (G.blood = {}); let m = B[key];
+    if (!m) {
+      if (!G.bloodMat) G.bloodMat = new T.MeshBasicMaterial({ color: 0x3b0606, transparent: true, opacity: 0.86, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+      m = new T.Mesh(new T.CircleGeometry(1, 20), G.bloodMat); m.rotation.x = -Math.PI / 2; scene.add(m); B[key] = m;
+      const keys = Object.keys(B); if (keys.length > 60) { const k0 = keys[0]; scene.remove(B[k0]); B[k0].geometry.dispose(); delete B[k0]; }
+    }
+    m.position.set(x, y + 0.012, z); m.scale.setScalar(r); m.visible = true;
+  }
+  function gore(w, dt) {
+    for (const id in G.stretchers || {}) { const m = G.stretchers[id]; if (!m.used) m.visible = false; m.used = false; }
+    const level = settings.gore, md = w.med; if (!md) return;
+    for (const k in G.blood || {}) G.blood[k].visible = level > 0;
+    for (const b of md.bodies) {
+      if (b.inMorgue) continue;
+      const npcShown = w.npc(b.who) && !w.npc(b.who).played;
+      if (!npcShown) bodyRig(w, b);                                      // a former player character lies where they fell
+      if (b.carriedBy && !npcShown) stretcherAt(b.id, b.pos.x, b.pos.y, b.pos.z, b.yaw || 0);
+      if (level > 0 && !b.carriedBy && !b.recovered) { const age = (w.now - b.t) / w.clock.minPerSec, bloody = ['cut', 'bite', 'claw', 'gunshot', 'crush'].indexOf(b.cause) >= 0; if (bloody || level === 2) bloodAt('b:' + b.id, b.pos.x, b.pos.y, b.pos.z, Math.min(level === 2 ? 1.25 : 0.7, 0.25 + age * 0.02) * (bloody ? 1 : 0.4)); }
+    }
+    // fresh bleeding leaves drops (full detail only)
+    if (level === 2) { G.dripT = (G.dripT || 0) - dt; if (G.dripT <= 0) { G.dripT = 0.6; for (const n of w.active) if (!n.dead && n.wounds && n.wounds.some(k => k.bleed > 0.05) && G.visible.has(n.agent.roomId)) bloodAt('d:' + n.id + ':' + Math.round(w.realTime * 2), n.agent.pos.x + (Math.random() - 0.5) * 0.3, n.agent.pos.y, n.agent.pos.z + (Math.random() - 0.5) * 0.3, 0.06 + Math.random() * 0.06); } }
+  }
+  function bodyRig(w, b) {
+    const R = G.bodyRigs || (G.bodyRigs = {}); let r = R[b.id];
+    if (!r) { const look = b.look || 'Guard'; r = R[b.id] = (S.Humans && S.Humans.create({ id: b.id, role: look, female: b.female })) || new S.Render.Humanoid({ id: b.id, role: look, female: b.female, colorVariant: 0 }, G.fv.m); scene.add(r.root); }
+    r.root.position.set(b.pos.x, b.pos.y, b.pos.z); r.root.rotation.y = (b.yaw || 0) * D2R; r.root.visible = G.visible.has(b.roomId);
+    if (r.mixer) r.animate(0.05, 0, 'Dead', 0, 0, { deathPose: b.pose, since: (w.now - b.t) / w.clock.minPerSec, carried: !!b.carriedBy }); else r.animate(0.05, 0, 'Down', 0, 0);
+  }
   function npcView(n) {
     let v = G.npcViews[n.id]; if (v) return v;
     const rig = makeRig(n); scene.add(rig.root);
@@ -952,7 +989,8 @@
       const x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
       v.root.position.set(x, n.agent.pos.y, z); v.root.rotation.y = yaw * D2R; v.root.visible = true;
       const moved = Math.hypot(x - v.last.x, z - v.last.z); v.last = { x, y: 0, z }; v.sp += (Math.min(3, dt > 0 ? moved / dt : 0) - v.sp) * Math.min(1, dt * 10);
-      const posture = n.agent.moving ? 'Standing' : n.posture; let look = 0, target = null;
+      const posture = n.dead ? 'Dead' : n.carriedBy ? 'Lying' : n.agent.moving ? 'Standing' : n.posture; let look = 0, target = null;
+      if (n.carriedBy) stretcherAt(n.id, x, n.agent.pos.y, z, yaw);
       if (n.conv) { const o = w.npc(n.conv); if (o) target = o.agent.pos; } else if (dist < 3.5 && !G.cctv && ['Lying', 'Down', 'Counting'].indexOf(posture) < 0) target = w.player.pos;
       if (target) look = S.deltaAngle(yaw, Math.atan2(target.x - x, target.z - z) / D2R);
       if (v.rig.mixer) {
@@ -961,11 +999,12 @@
         const fear = n.psy ? n.psy.fear : 0; if (v.lastFear != null && fear - v.lastFear > 12 && dist < 25) v.rig.react(fear > 70 ? 'flinch' : 'surprise'); v.lastFear = fear;
         if (n.agent.waitingDoor && n.agent.waitingDoor !== v.lastDoor) v.rig.react('door'); v.lastDoor = n.agent.waitingDoor;
         const tgtY = target ? (target === w.player.pos ? target.y + 1.6 : target.y + 1.55) : 0, lp = target ? -Math.atan2(tgtY - (n.agent.pos.y + 1.55), Math.max(0.5, Math.hypot(target.x - x, target.z - z))) / D2R : 0;
-        v.rig.animate(dt, v.sp, posture, look, t, { talking: !!n.conv, typing: atPoi && /Desk|Console|Terminal/.test(poi.type) && posture === 'Sitting', repair: n.activity === 'Maintenance' || n.activity === 'RepairDoor' || (atPoi && poi.type === 'Panel'),
+        v.rig.animate(dt, v.sp, posture, look, t, { deathPose: n.deathPose, since: n.dead ? (w.now - n.deathAt) / w.clock.minPerSec : 0, carried: !!n.carriedBy, bedH: n.carriedBy ? 0.75 : undefined, talking: !!n.conv, typing: atPoi && /Desk|Console|Terminal/.test(poi.type) && posture === 'Sitting', repair: n.activity === 'Maintenance' || n.activity === 'RepairDoor' || (atPoi && poi.type === 'Panel'),
           torch: w.clock.night && (n.role === 'Guard') && n.activity === 'Patrol', alert: w.alert && w.alert.level >= 2, stress: S.clamp((fear - 30) / 70, 0, 1), tired: n.psy && n.psy.fatigue > 75, lookPitch: lp, seatH: 0.47 });
       } else v.rig.animate(dt, v.sp, posture, look, t);
       v.drawPos = { x, y: n.agent.pos.y, z };
     }
+    gore(w, dt);
     npcSounds(dt, t);
     for (const v of G.anomViews) {
       const a = v.a, x = v.prev.x + (v.cur.x - v.prev.x) * alpha, z = v.prev.z + (v.cur.z - v.prev.z) * alpha, yaw = v.py + S.deltaAngle(v.py, v.cy) * alpha;
@@ -1002,7 +1041,7 @@
       renderer.setScissorTest(true); renderer.setScissor(r.left, H - r.bottom, r.width, r.height); renderer.setViewport(r.left, H - r.bottom, r.width, r.height);
       if (cam.cam.operational && w.infra.isPowered(cam.cam.roomId)) renderer.render(scene, cctvCam); renderer.setScissorTest(false);
     } else { assignLights(camPos); renderer.render(scene, camera); }
-    if (w.player.dead && $('death').hidden) { const ev = w.events.recent.slice().reverse().find(e => e.type === 'Injury' && e.target === 'player'); $('deathCause').textContent = ev ? ev.text : ''; $('death').hidden = false; }
+    if (w.player.dead && $('death').hidden) showDeath(w);
     saveT -= dt; if (saveT <= 0) { saveT = 120; saveGame(false); }
   }
 
@@ -1044,7 +1083,7 @@
     },
     start() {
       const p = S.Professions.get(Roles.sel); $('create').hidden = true;
-      const opts = { prof: p.id, first: $('cFirst').value.trim() || 'Алексей', last: $('cLast').value.trim() || 'Волков', female: this.sex === 'f', mode: G.mode, traits: { bravery: +$('cBrav').value / 100, diligence: +$('cAtt').value / 100, sociability: +$('cSoc').value / 100 } };
+      const opts = { prof: p.id, first: $('cFirst').value.trim() || 'Алексей', last: $('cLast').value.trim() || 'Волков', female: this.sex === 'f', mode: G.mode, hardcore: settings.deathMode === 2, traits: { bravery: +$('cBrav').value / 100, diligence: +$('cAtt').value / 100, sociability: +$('cSoc').value / 100 } };
       A.start(); begin(S.Content.createWorld((Date.now() >>> 0) ^ 0x5bd1e995, opts));
       UI.msg('Смена началась. Должность: ' + p.name + '. Текущая задача — справа вверху, подробности — в КПК.', '#f2d873');
       saveGame(false);
@@ -1144,9 +1183,27 @@
     if (k === 'btn') settings.btn = r1(S.clamp(settings.btn + d * 0.1, 0.7, 1.5));
     if (k === 'fx') { settings.fx = r1(S.clamp(settings.fx + d * 0.1, 0, 1)); if (G.world) G.world.horror.settings.intensity = Math.max(0.3, settings.fx); }
     for (const tg of ['invert', 'touch', 'lefty', 'noflash', 'shake', 'minhud']) if (k === tg) settings[tg] = !settings[tg];
+    if (k === 'gore') settings.gore = S.clamp(settings.gore + d, 0, 2);
+    if (k === 'deathMode') { if (G.world && G.world.opts && G.world.opts.hardcore && G.playing) UI.msg('Хардкор выбран при начале игры и не меняется', '#ff9a59'); else settings.deathMode = (settings.deathMode + 1) % 3; }
     applySettings(); UI.refreshSettings(); UI.syncTouch(); saveSettings();
   });
   $('sleepWake').addEventListener('click', () => Sleep.wake());
+  // death: normal (load the save), continue the same world as another available person, or hardcore (the save is gone)
+  function showDeath(w) {
+    const ev = w.events.recent.slice().reverse().find(e => (e.type === 'Death' || e.type === 'Injury') && e.target === 'player');
+    const mode = w.opts && w.opts.hardcore ? 2 : settings.deathMode, pick = $('deathPick'); pick.innerHTML = '';
+    $('deathCause').textContent = ev ? ev.text : ''; $('deathMode').textContent = 'Режим: ' + DEATH_MODES[mode].toLowerCase();
+    $('xLoad').hidden = mode !== 0; $('xLoad').textContent = 'ЗАГРУЗИТЬ СОХРАНЕНИЕ';
+    if (mode === 2) { store.del(SAVE_KEY); store.del(BAK_KEY); $('deathMode').textContent = 'ХАРДКОР: сохранение удалено. Мир этого персонажа закончился.'; }
+    if (mode === 1) {
+      const p = w.player, near = w.active.filter(n => !n.dead && !n.incap(w.now) && !n.missing && n.agent.roomId && (p.prof === 'dclass' ? true : n.role !== 'DClass'))
+        .sort((a, b) => w.fac.roomDistance(a.agent.roomId, p.roomId) - w.fac.roomDistance(b.agent.roomId, p.roomId)).slice(0, 8);
+      $('deathMode').textContent = near.length ? 'Мир продолжается. Выберите, за кого продолжить:' : 'Свободных персонажей нет — загрузите сохранение.';
+      if (!near.length) $('xLoad').hidden = false;
+      for (const n of near) { const b = document.createElement('button'); b.className = 'mbtn'; b.textContent = n.displayName + ' · ' + (S.Professions.get(n.prof) || { name: '' }).name + ' · ' + w.roomName(n.agent.roomId); b.addEventListener('click', () => { if (w.takeOver(n.id)) { $('death').hidden = true; G.npcViews[n.id] && scene.remove(G.npcViews[n.id].root); delete G.npcViews[n.id]; P.yaw = w.player.yaw; UI.msg('Вы продолжаете за: ' + w.player.name, '#e8d77a'); saveGame(false); UI.syncTouch(); } }); pick.appendChild(b); }
+    }
+    $('death').hidden = false; UI.syncTouch();
+  }
   $('xLoad').addEventListener('click', () => { if (!loadGame()) { $('death').hidden = true; G.playing = false; Roles.open(); } });
   $('xNew').addEventListener('click', () => { $('death').hidden = true; G.playing = false; Roles.open(); });
   $('xMenu').addEventListener('click', () => { $('death').hidden = true; toMenu(); });

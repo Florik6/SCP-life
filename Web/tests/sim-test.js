@@ -1,6 +1,6 @@
 // Headless checks of the SCP LIFE 2.0 simulation (node Web/tests/sim-test.js)
 const path = require('path'), fs = require('fs'), vm = require('vm');
-const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
+const MODS = ['core', 'professions', 'map', 'people', 'anomalies', 'cognitive', 'tallyman', 'jobs', 'medical', 'living', 'ai/llm', 'ai/profiles', 'ai/minds', 'brain', 'infra', 'scplife', 'horror', 'world', 'content'];
 for (const f of MODS) vm.runInThisContext(fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8'), { filename: f + '.js' });
 const S = globalThis.SCP;
 let failures = 0;
@@ -24,6 +24,7 @@ const park = w => { const r = w.fac.room('post'); w.player.pos = { x: -24.5, y: 
 let W3 = null;
 {
   const w = S.Content.createWorld(7, { prof: 'guard' }); park(w); W3 = w;
+  const evCount = {}; w.events.listeners.push(e => { evCount[e.type] = (evCount[e.type] || 0) + 1; });
   const t0 = Date.now(); let day = 0, night = 0, stuckMax = 0; const still = {};
   let maxActive = 0, minActive = 1e9;
   for (let k = 0; k < 3 * 1440 * 20; k++) {
@@ -44,10 +45,10 @@ let W3 = null;
   ok(w.life.agenda.some(x => x.status === 'decided'), 'совещания и комитет принимают решения: ' + w.life.agenda.filter(x => x.status === 'decided').length);
   ok(w.life.decisions.length > 50 && w.life.decisions.every(d => d.cause && d.decision && Array.isArray(d.data)), 'журнал решений SCP LIFE: ' + w.life.decisions.length + ' записей (причина → данные → решение)');
   ok(stuckMax <= 60, 'никто не застревает надолго (максимум ' + stuckMax + ' с без движения при наличии маршрута)');
-  ok(w.events.recent.some(e => e.type === 'Conversation') && w.events.recent.some(e => e.type === 'Conflict' || e.type === 'Meeting'), 'разговоры и споры случаются');
+  ok(evCount.Conversation > 50 && (evCount.Conflict || 0) + (evCount.Meeting || 0) >= 3, 'разговоры и споры случаются: разговоров ' + (evCount.Conversation || 0) + ', ссор ' + (evCount.Conflict || 0) + ', решений совещаний ' + (evCount.Meeting || 0));
   ok(w.npcs.some(n => n.isSick(w.now) || n.history.some(h => h.kind === 'sick')), 'сотрудники болеют, SCP LIFE ищет замену');
   ok(w.life.decisions.some(d => /Нехватка|Ответственные/.test(d.cause)), 'нехватка персонала и замены отражены в журнале');
-  ok(w.life.arrivals[0].stage !== 'planned' && w.life.transport.length >= 4, 'поступление SCP-LF-147: этап «' + w.life.arrivals[0].stage + '», записей в журнале транспортировки: ' + w.life.transport.length);
+  ok(w.life.arrivals[0].stage !== 'planned' && w.life.transport.length >= 4, 'поступление SCP-LF-159: этап «' + w.life.arrivals[0].stage + '», записей в журнале транспортировки: ' + w.life.transport.length);
   ok(w.life.cases.length > 0 && w.life.cases.some(c => c.evidence.length >= 2), 'расследования собирают улики: дел ' + w.life.cases.length);
   console.log('     3 суток за ' + ms + ' мс');
 }
@@ -180,7 +181,7 @@ let W3 = null;
   // LF-140 never turns while a camera watches it
   a = w.anomaly('SCP-LF-140'); away(); const c0 = a.st.chair; a.rules.cctvContinuous = true; run(w, 60);
   ok(a.st.chair === c0, 'LF-140 не поворачивается, пока на него смотрит камера');
-  a.rules.cctvContinuous = false; a.st.gap = 0; let turned = false; for (let k = 0; k < 6 && !turned; k++) { run(w, 30); turned = a.st.chair !== c0; }
+  a.rules.cctvContinuous = false; a.st.gap = 0; let turned = false; for (let k = 0; k < 6 && !turned; k++) { tick(600, () => { clear('SCP-LF-140'); for (const n of w.active) if (n.agent.roomId === 'command' || n.agent.roomId === 'secObs') { n.agent.pos = { x: -24, y: 0, z: -8 }; n.agent.roomId = 'post'; n.agent.clear(); } }); turned = a.st.chair !== c0; }   // nobody at its window or at the camera monitors
   ok(turned, 'LF-140 поворачивается без наблюдения (стул: ' + c0 + '° → ' + a.st.chair + '°)');
   // LF-146 looks at whoever watches it and leaves an after-effect
   a = at('SCP-LF-146'); p.gazeAt = a.id; tick(700, () => { p.gazeT = w.realTime; clear('SCP-LF-146'); });

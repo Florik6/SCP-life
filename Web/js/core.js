@@ -212,7 +212,7 @@
     Injury: 'Травма', Conversation: 'Разговор', Conflict: 'Конфликт', AlertChanged: 'Уровень тревоги', PatrolCheckpoint: 'Контрольная точка', TaskIssued: 'Новая задача', TaskCompleted: 'Задача выполнена', TaskFailed: 'Задача провалена',
     ReaderMalfunction: 'Сбой считывателя', Announcement: 'Оповещение', Observation: 'Наблюдение', CountingProtocol: 'Протокол счёта', Report: 'Доклад', Treatment: 'Медпомощь', SuspiciousActivity: 'Подозрительная активность',
     Radio: 'Радио', Power: 'Энергосистема', Fault: 'Неисправность', Maintenance: 'Обслуживание', Research: 'Исследование', Arrival: 'Поступление объекта', Personnel: 'Кадры', Discipline: 'Дисциплина', Meeting: 'Совещание',
-    Investigation: 'Расследование', Story: 'Странность', Sighting: 'Неподтверждённое наблюдение', Anomalous: 'Аномальное воздействие', Night: 'Ночная смена'
+    Investigation: 'Расследование', Death: 'Гибель', Story: 'Странность', Sighting: 'Неподтверждённое наблюдение', Anomalous: 'Аномальное воздействие', Night: 'Ночная смена'
   };
   const EV = {}; for (const k in EV_NAMES) EV[k] = k;
   class EventLog {
@@ -237,7 +237,7 @@
     Idle: 'Ожидание', Sleep: 'Сон', Eat: 'Приём пищи', Work: 'Работа', Patrol: 'Патрулирование', GuardPost: 'Дежурство на посту', Leisure: 'Отдых', Hygiene: 'Гигиена',
     ObservationSession: 'Сеанс счёта SCP-L-001', ChamberInspection: 'Осмотр камеры', Maintenance: 'Техобслуживание', Treat: 'Приём пациентов', Labor: 'Трудовая смена', Confined: 'В камере',
     Respond: 'Реагирование', Shelter: 'Укрытие', Flee: 'Бегство', Injured: 'Ранен', SeekTreatment: 'Идёт в медпункт', CountingProtocol: 'Протокол счёта', RepairDoor: 'Ремонт замка',
-    RetrieveCard: 'Ищет ключ-карту', Task: 'Задание', Sick: 'На больничном', Offsite: 'Вне сектора', Meeting: 'Совещание', Escorted: 'Под конвоем', Escort: 'Конвой'
+    RetrieveCard: 'Ищет ключ-карту', Task: 'Задание', Sick: 'На больничном', Offsite: 'Вне сектора', Meeting: 'Совещание', Escorted: 'Под конвоем', Escort: 'Конвой', Dead: 'Погиб'
   };
   class NavAgent {
     constructor() { this.pos = V.v(0, 0, 0); this.yaw = 0; this.roomId = null; this.path = []; this.pi = 0; this.speed = 1.3; this.wait = 0; this.blocked = 0; this.waitingDoor = null; this.doorCd = 0; this.arriveYaw = null; this.moving = false; this.lane = 0; this.side = 0; this.sideT = 0; this.transitT = 0; this.stuckT = 0; this.stuckN = 0; this.lastProg = null; this.ghostT = 0; this.dir = { x: 0, z: 0 };
@@ -291,7 +291,7 @@
       this.arrived = false; this.reservedPoi = null; this.nextThink = 0; this.conv = null; this.needDriven = false;
     }
   }
-  Npc.EXTRA = ['obsNotes', 'reportsPending', 'tasksDone', 'reportsDone', 'missing', 'missingAt', 'missingWhere', 'restricted', 'falseDone', 'radioCall', 'followId', 'escortedBy', 'post', 'workRoom', 'assignedScps', 'testsDone', 'compliance', 'since', 'dept', 'resident', 'bedPoi', 'shift', 'restOffset', 'mealWave', 'needEscort', 'queue', 'sightings', 'warned', 'role', 'overtime', 'treated', 'lastSeenScp', 'missingFor', 'reserve'];
+  Npc.EXTRA = ['obsNotes', 'reportsPending', 'tasksDone', 'reportsDone', 'missing', 'missingAt', 'missingWhere', 'restricted', 'falseDone', 'radioCall', 'followId', 'escortedBy', 'post', 'workRoom', 'assignedScps', 'testsDone', 'compliance', 'since', 'dept', 'resident', 'bedPoi', 'shift', 'restOffset', 'mealWave', 'needEscort', 'queue', 'sightings', 'warned', 'role', 'overtime', 'treated', 'lastSeenScp', 'missingFor', 'reserve', 'dead', 'deathAt', 'deathCause', 'deathSrc', 'deathPose', 'wounds', 'unconUntil', 'carriedBy', 'admitted', 'admitAt', 'needSurgery', 'lastHarm', 'griefUntil', 'messRoom', 'hired', 'played', 'homeRoom', 'hallRoom', 'laborLabel'];
   const NUM_UNITS = ['ноль', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять', 'десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
   const NUM_TENS = ['', '', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
   function numWords(n) { if (n < 20) return NUM_UNITS[n]; if (n < 100) return NUM_TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + NUM_UNITS[n % 10] : ''); return n === 100 ? 'сто' : String(n); }

@@ -96,6 +96,7 @@
         }
       }
       this.resolveCrowd(dt);
+      S.Med.tick(this, dt, gm);
       this._abs += dt; if (this._abs >= ABSTRACT_STEP) { S.People.tickAbstract(this, this._abs * this.clock.minPerSec); this._abs = 0; }
       this._sync -= dt; if (this._sync <= 0) { this._sync = 3; S.People.sync(this); }
       this.tickCameras(dt);
@@ -705,19 +706,31 @@
     stopCounting(reason) { if (!this.player.counting) return; this.player.counting = false; this.notify.push({ time: this.now, type: EV.CountingProtocol, actor: 'player', severity: 1, text: 'Протокол счёта прерван: ' + reason }); }
     // sounds the anomalies can hear (separate from the audio queue, which the renderer consumes)
     makeNoise(kind, pos, roomId, loud, by) { this.noise.push({ t: this.realTime, now: this.now, kind, pos: V.copy(pos), roomId, loud: loud == null ? 0.5 : loud, by: by || null }); if (this.noise.length > 40) this.noise.shift(); }
-    damagePlayer(amount, src, text) {
-      const p = this.player; if (p.dead) return;
-      p.health -= amount; p.stunnedUntil = this.realTime + 2.5; p.psy.fear = clamp(p.psy.fear + 40, 0, 100); this.stopCounting('получен удар');
-      this.events.post({ time: this.now, type: EV.Injury, roomId: p.roomId, pos: V.copy(p.pos), actor: src, target: 'player', severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: p.roomId, pos: V.copy(p.pos), cause: 'injury', who: 'player', female: !!p.female }); this.makeNoise('scream', p.pos, p.roomId, 1, 'player');
-      if (p.health <= 0) { p.health = 0; p.dead = true; }
-    }
-    injureNpc(n, amount, src, text, mins) {
-      n.needs.health = clamp(n.needs.health - amount, 0, 100); n.needs.stress = clamp(n.needs.stress + 35, 0, 100); n.psy.fear = clamp(n.psy.fear + 50, 0, 100); n.incapUntil = this.now + mins; n.nextThink = 0;
-      this.events.post({ time: this.now, type: EV.Injury, roomId: n.agent.roomId, pos: V.copy(n.agent.pos), actor: src, target: n.id, severity: 2, text });
-      this.sounds.push({ t: this.now, kind: 'scream', roomId: n.agent.roomId, pos: V.copy(n.agent.pos), cause: 'injury', who: n.id, female: !!n.female }); this.makeNoise('scream', n.agent.pos, n.agent.roomId, 1, n.id);
-      this.life.openCase('injury', 'Травма: ' + n.shortName, n.agent.roomId, { cause: 'anomalous', scp: src });
-      if (!this.tasks.hasActive('first_aid', n.id)) this.life.assign('first_aid', ['field_medic', 'doctor', 'operative'], { patient: n.id, target: n.id }, 'SCP LIFE', 30, n.agent.roomId);
+    // harm goes through the medical model (kinds of injury, bleeding, unconsciousness, death, witnesses)
+    damagePlayer(amount, src, text, kind, o) { if (this.player.dead) return null; return S.Med.hurt(this, 'player', amount, kind || 'blunt', src, text, o); }
+    injureNpc(n, amount, src, text, mins, kind, o) { if (!n || n.dead) return null; return S.Med.hurt(this, n.id, amount, kind || 'anomalous', src, text, Object.assign({ mins }, o || {})); }
+
+    // Continue the same world as another person after the player character died: the body of the former character stays
+    // where it fell (found, examined, carried to the morgue like anyone else's); the chosen person leaves the NPC simulation.
+    takeOver(id) {
+      const n = this.npc(id), p = this.player; if (!n || n.dead || n.incap(this.now)) return false;
+      const md = S.Med.M(this), gen = (md.played = (md.played || 0) + 1), oldName = p.name;
+      for (const b of md.bodies) if (b.who === 'player') b.who = 'ex' + gen;
+      const journal = p.journal.slice(-30), rep = p.rep;
+      p.counting = false; p.dead = false; p.wounds = (n.wounds || []).map(k => Object.assign({}, k)); p.unconUntil = 0; p.assignedScps = []; p.cards = [];
+      S.Content.setupPlayer(this, { prof: n.prof, first: n.first, last: n.last, female: n.female, mode: p.mode });
+      if (n.role === 'DClass') { p.title = n.callsign; p.name = n.callsign; } else { p.title = n.title; p.name = n.displayName; }
+      const c = this.card('card.player'); if (c) c.ownerName = p.name;
+      p.pos = V.copy(n.agent.pos); p.roomId = n.agent.roomId; p.yaw = n.agent.yaw; p.health = Math.max(20, n.needs.health); p.psy = Object.assign({}, n.psy);
+      p.bedPoi = n.bedPoi; p.homeRoom = n.homeRoom || p.homeRoom; p.hallRoom = n.hallRoom || p.hallRoom; p.workRoom = n.workRoom || p.workRoom; p.post = n.post || p.post; p.shift = n.shift || p.shift;
+      for (const scp of n.assignedScps || []) { const a = this.anomaly(scp); if (a) { a.assigned = a.assigned.filter(x => x !== n.id); if (a.assigned.indexOf('player') < 0) a.assigned.push('player'); p.assignedScps.push(scp); } }
+      p.rep = rep; p.journal = journal; p.addJournal('[' + fmtStamp(this.now) + '] Связь с «' + oldName + '» потеряна. Наблюдение продолжается через: ' + p.name + '.');
+      if (n.reservedPoi) { const q = this.fac.poi(n.reservedPoi); if (q && q.reservedBy === n.id) q.reservedBy = null; }
+      if (n.taskId) { const t = this.tasks.get(n.taskId); if (t && t.status === 'Active') t.status = 'Failed'; }
+      const nc = this.card(n.cardId); if (nc) { nc.revoked = true; nc.holder = null; }
+      n.played = true; n.onSite = false; n.job = null; n.agent.clear(); this.releaseSpot(n.id); this.setActive(n, false);
+      this.events.post({ time: this.now, type: EV.Report, roomId: p.roomId, actor: 'player', severity: 1, pub: true, text: 'Наблюдение продолжается: ' + p.name + ' (' + S.Professions.get(p.prof).name + ').' });
+      return true;
     }
 
     // ---------------------------------------------------------------- player
@@ -843,7 +856,7 @@
         npcs: this.npcs.map(n => World.packNpc(n.save(), tbl)), strings: tbl.list, anomalies: this.anomalies.map(a => a.save()),
         cams: this.cams.map(c => ({ id: c.id, op: c.operational, ph: c.phase })), camLog: this.camLog.slice(-200), alert: this.alert.save(),
         tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, taskDone: this.tasks.done, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
-        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null
+        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null, med: S.Med.save(this)
       });
     }
     static load(json) {
@@ -856,6 +869,8 @@
       for (const p of Object.values(w.fac.pois)) { p.reservedBy = null; }
       for (const [id, ow] of o.pois || []) { const p = w.fac.poi(id); if (p) p.owners = ow; }
       w.active.length = 0;
+      // people hired during the game are recreated from their hiring record first
+      if (o.med && o.med.hires) for (const h of o.med.hires) if (!w.npc(h.id)) S.People.hire(w, h, true);
       for (const n of o.npcs) { const nn = w.npc(n.id); if (!nn) continue; nn.load(World.unpackNpc(n, o.strings || [])); if (nn.onSite) w.active.push(nn); }
       for (const a of o.anomalies) { const aa = w.anomaly(a.id); if (aa) aa.load(w, a); }
       for (const c of o.cams) { const cc = w.cams.find(x => x.id === c.id); if (cc) { cc.operational = c.op; cc.phase = c.ph; } }
@@ -868,7 +883,7 @@
       }
       w.queues = o.queues || {};
       if (w.ai && o.ai) w.ai.load(o.ai);
-      w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
+      S.Med.load(w, o.med); w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
       w.lockEpoch++;
       return w;
     }

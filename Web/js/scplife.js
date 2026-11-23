@@ -73,7 +73,7 @@
     constructor(w) {
       this.w = w; this.decisions = []; this.nextDec = 1; this.due = {}; this.t = 0;
       this.sightings = []; this.cases = []; this.nextCase = 1; this.requests = []; this.nextReq = 1; this.reports = [];
-      this.arrivals = [{ scp: 'SCP-LF-147', notice: Hm(6) + 1440, eta: Hm(14) + 1440, stage: 'planned', origin: 'Филиал «Восток-2»' }, { scp: 'SCP-LF-148', notice: Hm(10) + 3 * 1440, eta: Hm(16) + 3 * 1440, stage: 'planned', origin: 'Полевая операция МОГ «Ключ-9»' }];
+      this.arrivals = [{ scp: 'SCP-LF-159', notice: Hm(6) + 1440, eta: Hm(14) + 1440, stage: 'planned', origin: 'Филиал «Восток-2»' }, { scp: 'SCP-LF-160', notice: Hm(10) + 3 * 1440, eta: Hm(16) + 3 * 1440, stage: 'planned', origin: 'Полевая операция МОГ «Ключ-9»' }];
       this.transport = []; this.agenda = []; this.nextAg = 1; this.planned = []; this.happened = []; this.stories = []; this.restrictions = []; this.short = {}; this.night = { day: -1, plan: [] };
       this.res = { budget: { science: 100, security: 100, engineering: 90, medical: 60, service: 60 }, materials: 60, equipment: 40 };
       this.priorities = { science: 1, safety: 1, maintenance: 1 };

@@ -11,12 +11,15 @@
   const Brain = {
     update(w, n, dt, gm, remote) {
       const now = w.now;
+      if (n.dead) { n.posture = 'Dead'; n.activity = 'Dead'; return; }
+      if (n.carriedBy) { n.posture = 'Lying'; return; }                    // on a stretcher: the carrier moves them
       updateNeeds(w, n, gm);
       if (n.pendingBark && now >= n.pendingBarkAt) { n.say(n.pendingBark, now); n.pendingBark = null; }
       if (n.agent.transitT > 0) { w.tickTransit(n.agent, dt); return; }
       if (n.incap(now)) {
-        if (n.activity !== 'Injured') { releasePoi(w, n); leaveQueue(w, n); if (n.conv) endConv(w, n); n.agent.clear(); n.activity = 'Injured'; n.label = 'Без сознания'; n.taskId = null; n.targetRoom = n.agent.roomId; }
-        n.posture = 'Down'; return;
+        if (n.activity !== 'Injured') { if (!n.admitted) releasePoi(w, n); leaveQueue(w, n); if (n.conv) endConv(w, n); n.agent.clear(); w.releaseSpot(n.id); n.activity = 'Injured'; n.taskId = null; n.targetRoom = n.agent.roomId; }
+        const ms = S.Med.state(w, n); n.label = ms === 'unconscious' ? 'Без сознания' : n.admitted ? 'На лечении' : 'Ранен' + n.G('', 'а') + ', не может идти';
+        n.posture = n.admitted ? 'Lying' : 'Down'; return;
       }
       perceive(w, n, dt);
       n.nextThink -= dt;
@@ -390,6 +393,7 @@
     if (s.pickup) {
       const d = w.npc(s.pickup); if (!d || !d.onSite) { failJob(w, n, 'испытуемого нет на месте'); return; }
       if (V.distXZ(d.agent.pos, n.agent.pos) > 2.5) { n.arrived = false; goTo(w, n, w.fac.nearestNode(d.agent.pos, d.agent.roomId), null); return; }
+      if (d.incap(w.now) && !d.dead) { d.carriedBy = n.id; d.escortedBy = null; d.followId = null; n.say(w.rng.pick(['На носилки. Осторожно.', 'Поднимаем. Раз, два…', 'Держись, несём в медблок.']), w.now); S.Jobs.stepDone(w, n, t, s); jobDestination(w, n); return; }
       if (refuses(w, d)) { d.say(w.rng.pick(['Я туда не пойду!', 'Нет! В прошлый раз оттуда не вернулся Сухов!', 'Не трогайте меня!']), w.now); n.say('Испытуемый отказывается. Докладываю.', w.now); w.life && w.life.onRefusal(d, t, n); failJob(w, n, 'отказ испытуемого'); return; }
       d.escortedBy = n.id; d.followId = n.id; d.nextThink = 0; d.say(w.rng.pick(['Иду, иду.', 'Куда на этот раз?', 'Ладно…']), w.now);
       S.Jobs.stepDone(w, n, t, s); jobDestination(w, n); return;

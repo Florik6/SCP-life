@@ -266,7 +266,8 @@
       const m = this.m, horiz = side === 'N';
       if (d.kind === 'Lift') { this.box(m.dark, x, 1.3, z, horiz ? 2.0 : 0.12, 2.6, horiz ? 0.12 : 2.0); this.box(m.door, x + (horiz ? -0.44 : 0), 1.25, z + (horiz ? 0 : -0.44), horiz ? 0.84 : 0.06, 2.5, horiz ? 0.06 : 0.84); this.box(m.door, x + (horiz ? 0.44 : 0), 1.25, z + (horiz ? 0 : 0.44), horiz ? 0.84 : 0.06, 2.5, horiz ? 0.06 : 0.84); this.box(m.amber, x + (horiz ? 1.2 : 0), 1.3, z + (horiz ? 0 : 1.2), 0.1, 0.16, 0.1); }
       else { for (let i = 0; i < 6; i++) this.box(m.concrete, x + (horiz ? 0 : (side === 'W' ? i * 0.3 : -i * 0.3)), 0.1 + i * 0.2, z + (horiz ? -i * 0.3 : 0), horiz ? 1.6 : 0.3, 0.2, horiz ? 0.3 : 1.6); this.box(m.metal, x, 1.0, z + (horiz ? 0.4 : 0.9), 0.06, 1.0, 0.06); }
-      this.sign((d.kind === 'Lift' ? 'ЛИФТ · ' : 'ЛЕСТНИЦА · ') + (room.level === 4 ? 'НА УРОВЕНЬ 3' : room.id === 'liftOld' ? 'СЛУЖЕБНЫЙ · 00:00–05:00 НЕ ИСПОЛЬЗОВАТЬ' : 'НА УРОВЕНЬ 4'), side === 'W' ? 'W' : side === 'E' ? 'E' : 'N', horiz ? x : z, 2.85, 2.2, '#d9a619', '#111');
+      const to = this.w.fac.room(d.other(room.id)), toLvl = to && to.level === 9 ? '−9' : to ? to.level : '';
+      this.sign((d.kind === 'Lift' ? 'ЛИФТ · ' : 'ЛЕСТНИЦА · ') + (room.id === 'liftOld' ? 'СЛУЖЕБНЫЙ · 00:00–05:00 НЕ ИСПОЛЬЗОВАТЬ' : 'НА УРОВЕНЬ ' + toLvl), side === 'W' ? 'W' : side === 'E' ? 'E' : 'N', horiz ? x : z, 2.85, 2.2, '#d9a619', '#111');
     }
     fixtures(r) {
       const m = this.m, h = r.height, fb = new MB(), view = this.view;
@@ -304,7 +305,7 @@
           this.box(m.metalWall, r.minX + 1.2, 1.0, cz + D / 2 + 1.0, 1.0, 2.0, 0.6, true); this.box(m.screenG, r.minX + 1.2, 1.4, cz + D / 2 + 1.31, 0.5, 0.3, 0.02); // control cabinet
           for (let i = 0; i < 3; i++) this.box(m.rust, r.minX + 2 + i * 2.5, r.height - 0.4, r.maxZ - 0.5, 0.4, 0.4, r.depth * 0.3); break; }
         case 'Servers': break;
-        case 'Command': { const wz = r.maxZ - 0.15; for (let i = 0; i < 8; i++) { const x = r.minX + 1 + i * (r.width - 2) / 8 + 0.5; this.box(m.dark, x, 2.0, wz - 0.05, 1.2, 0.75, 0.08); this.box(i % 3 ? m.screenB : m.screenG, x, 2.0, wz - 0.1, 1.1, 0.65, 0.02); } this.sign('КОМАНДНЫЙ ЦЕНТР · SCP LIFE', 'S', (r.minX + r.maxX) / 2, 2.5, 2.6, '#14171a', '#e8e8e0'); break; }
+        case 'Command': { const wz = r.maxZ - 0.15; for (let i = 0; i < 8; i++) { const x = r.minX + 1 + i * (r.width - 2) / 8 + 0.5; this.box(m.dark, x, 2.0, wz - 0.05, 1.2, 0.75, 0.08); this.box(i % 3 ? m.screenB : m.screenG, x, 2.0, wz - 0.1, 1.1, 0.65, 0.02); } this.sign(r.id === 'command' ? 'КОМАНДНЫЙ ЦЕНТР · SCP LIFE' : r.name.toUpperCase(), 'S', (r.minX + r.maxX) / 2, 2.5, 2.6, '#14171a', '#e8e8e0'); break; }
         case 'Meeting': this.box(m.wood, (r.minX + r.maxX) / 2, 0.74, (r.minZ + r.maxZ) / 2, 3.6, 0.06, 1.3, true); this.box(m.dark, (r.minX + r.maxX) / 2, 0.36, (r.minZ + r.maxZ) / 2, 3.0, 0.72, 0.6); break;
         case 'Shelter': this.sign('АВАРИЙНОЕ УБЕЖИЩЕ · ЗАПАС НА 72 Ч', 'S', (r.minX + r.maxX) / 2, 2.3, 2.4, '#1f5a2a', '#e8e8e0'); break;
         case 'Barracks': case 'Quarters': for (let x = r.maxX - 3; x < r.maxX - 0.3; x += 0.6) this.locker(x, r.minZ + 0.28); break;
@@ -318,6 +319,19 @@
         case 'Kitchen': this.box(m.metal, (r.minX + r.maxX) / 2, 0.45, r.minZ + 0.6, r.width - 2, 0.9, 0.6, true); break;
         case 'NullFloor': for (let x = r.minX + 2; x < r.maxX - 1; x += 3.5) { this.box(m.door, x, 1.15, r.maxZ - 0.05, 0.9, 2.2, 0.06); this.box(m.door, x + 1.7, 1.15, r.minZ + 0.05, 0.9, 2.2, 0.06); } this.liftDecor(r, 'W', r.minX + 0.2, (r.minZ + r.maxZ) / 2, { kind: 'Lift', name: '—' }); break;
         case 'Observation': this.sign('НАБЛЮДЕНИЕ · ' + (this.scpOfObs(r) || 'КАМЕРА'), this.windowSide(r) || 'N', (r.minX + r.maxX) / 2 + 2.6, 2.6, 2.0, '#14171a', '#e8e8e0'); break;
+        case 'Morgue': { // a wall of cold-chamber doors
+          const cols = Math.floor((r.depth - 1.2) / 0.75); for (let c = 0; c < cols; c++) for (let k = 0; k < 3; k++) { const z = r.minZ + 0.9 + c * 0.75; this.box(m.metal, r.minX + 0.35, 0.45 + k * 0.62, z, 0.7, 0.56, 0.68, k === 0); this.box(m.dark, r.minX + 0.71, 0.45 + k * 0.62, z, 0.02, 0.05, 0.3); }
+          this.sign('МОРГ · ТЕМПЕРАТУРА +2 °C', 'N', (r.minX + r.maxX) / 2, 2.4, 2.0, '#14171a', '#e8e8e0'); break; }
+        case 'Armory': this.box(m.metal, (r.minX + r.maxX) / 2, 1.1, r.maxZ - 2.2, r.width - 1.2, 2.2, 0.04, false); this.box(m.dark, (r.minX + r.maxX) / 2, 0.5, r.maxZ - 2.0, 1.6, 1.0, 0.5, true);
+          this.sign('ОРУЖЕЙНАЯ · ВЫДАЧА ПО ВЕДОМОСТИ', 'N', (r.minX + r.maxX) / 2, 2.4, 2.2, '#8c1010', '#e8e8e0'); break;
+        case 'Locker': for (let x = r.minX + 0.6; x < r.maxX - 0.4; x += 0.6) { this.locker(x, r.minZ + 0.28); this.locker(x, r.maxZ - 0.28); } break;
+        case 'Garage': { const cx = (r.minX + r.maxX) / 2 - 1, cz = (r.minZ + r.maxZ) / 2 - 0.6; this.box(m.dark, cx, 1.1, cz, 2.3, 1.5, 5.0, true); this.box(m.dark, cx, 2.1, cz - 0.6, 2.2, 0.9, 3.2); this.box(m.screenB || m.dark, cx, 2.15, cz + 1.05, 2.0, 0.6, 0.04);
+          for (const sx of [-1, 1]) for (const sz of [-1.6, 1.6]) this.box(m.black, cx + sx * 1.18, 0.45, cz + sz, 0.3, 0.9, 0.9);
+          this.box(m.hazard, (r.minX + r.maxX) / 2, 0.005, r.maxZ - 1.0, r.width - 2, 0.01, 0.4, false, 0.5); this.sign('ТРАНСПОРТНАЯ ЗОНА МОГ', 'N', (r.minX + r.maxX) / 2, 3.2, 2.6, '#14171a', '#e8e8e0'); break; }
+        case 'Operating': { const t = r.pois.find(p => p.id.endsWith('.table')); if (t) { this.box(m.white, t.pos.x, r.height - 0.35, t.pos.z, 0.9, 0.08, 0.9); this.box(m.light, t.pos.x, r.height - 0.4, t.pos.z, 0.7, 0.02, 0.7); this.box(m.metal, t.pos.x, r.height - 0.18, t.pos.z, 0.05, 0.35, 0.05); }
+          this.box(m.dark, r.maxX - 0.6, 0.8, r.minZ + 1.4, 0.6, 1.6, 0.5, true); this.box(m.screenG, r.maxX - 0.6, 1.4, r.minZ + 1.66, 0.4, 0.3, 0.02); break; }
+        case 'Lounge': this.box(m.wood || m.dark, (r.minX + r.maxX) / 2, 0.4, (r.minZ + r.maxZ) / 2, 1.6, 0.05, 0.8, true); this.box(m.dark, (r.minX + r.maxX) / 2, 1.6, r.minZ + 0.1, 1.4, 0.8, 0.05); break;
+        case 'Detention': this.sign('КАМЕРА ВРЕМЕННОГО ЗАДЕРЖАНИЯ', 'N', (r.minX + r.maxX) / 2, 2.2, Math.min(2.2, r.width - 0.4), '#14171a', '#e8e8e0'); break;
       }
       // furniture by point type
       for (const p of r.pois) {
@@ -325,7 +339,7 @@
         switch (p.type) {
           case 'Desk': this.desk(p); break;
           case 'Console': case 'GuardPost': { const cx = p.pos.x + f.x * 0.6, cz = p.pos.z + f.z * 0.6; let s = this.sz(f, 0.7, 1.2, 0.85); this.box(m.dark, cx, 0.42, cz, s[0], s[1], s[2], true); s = this.sz(f, 0.75, 1.25, 0.04); this.box(m.plastic, cx, 0.86, cz, s[0], s[1], s[2]); s = this.sz(f, 0.05, 0.6, 0.4); this.box(p.type === 'GuardPost' ? m.screenG : m.screenB, cx + f.x * 0.25, 1.15, cz + f.z * 0.25, s[0], s[1], s[2]); this.chair(p, m.fabric); break; }
-          case 'Seat': if (r.type === 'DClassCommon' || r.type === 'Shelter' || r.type === 'MTF') { const s = this.sz(f, 0.4, 0.9, 0.45); this.box(m.metal, p.pos.x, 0.22, p.pos.z, s[0], s[1], s[2]); } else if (r.type !== 'Canteen') this.chair(p, r.style === 'admin' ? m.colored(0x6b2b2b) : m.fabric); break;
+          case 'Seat': if (r.type === 'DClassCommon' || r.type === 'Shelter' || r.type === 'MTF' || r.type === 'Waiting' || r.type === 'Locker') { const s = this.sz(f, 0.4, 0.9, 0.45); this.box(m.metal, p.pos.x, 0.22, p.pos.z, s[0], s[1], s[2]); } else if (r.type !== 'Canteen') this.chair(p, r.style === 'admin' ? m.colored(0x6b2b2b) : m.fabric); break;
           case 'Bed': if (p.bunk) { this.bed(p, m.dark, m.colored(0x3a4a33), 0.4); const s = this.sz(f, 2.0, 0.9, 0.05); this.box(m.dark, p.pos.x, 1.45, p.pos.z, s[0], s[1], s[2]); this.box(m.mattress, p.pos.x, 1.52, p.pos.z, s[0] * 0.97, 0.1, s[2] * 0.95); } else this.bed(p, r.style === 'admin' ? m.wood : m.dark, m.fabric, 0.4); break;
           case 'CellBunk': this.bed(p, m.dark, m.orange, 0.45); if (p.bunk) { const s = this.sz(f, 2.0, 0.9, 0.05); this.box(m.dark, p.pos.x, 1.45, p.pos.z, s[0], s[1], s[2]); this.box(m.orange, p.pos.x, 1.52, p.pos.z, s[0] * 0.97, 0.1, s[2] * 0.95); } break;
           case 'MedBed': this.bed(p, m.metal, m.white, 0.6); break;
@@ -335,6 +349,9 @@
           case 'Rack': { const cx = p.pos.x + f.x * 0.45, cz = p.pos.z + f.z * 0.45; const s = this.sz(f, 0.8, 0.6, 2.0); this.box(m.black, cx, 1.0, cz, s[0], s[1], s[2], true); for (let k = 0; k < 6; k++) this.box(k % 3 ? m.green : m.amber, cx - f.x * 0.41, 0.4 + k * 0.28, cz - f.z * 0.41, 0.04, 0.02, 0.04); break; }
           case 'FoodCounter': { const s = this.sz(f, 0.7, 2.2, 0.95); this.box(m.metal, p.pos.x + f.x * 0.5, 0.47, p.pos.z + f.z * 0.5, s[0], s[1], s[2], true); break; }
           case 'Hazmat': this.hazmat(p); break;
+          case 'WeaponRack': { const cx = p.pos.x + f.x * 0.35, cz = p.pos.z + f.z * 0.35, s = this.sz(f, 0.35, 1.0, 1.9); this.box(m.dark, cx, 0.95, cz, s[0], s[1], s[2], true);
+            for (let k = -2; k <= 2; k++) { const lx = cx - f.x * 0.2 + (f.z ? k * 0.18 : 0), lz = cz - f.z * 0.2 + (f.x ? k * 0.18 : 0); this.box(m.black, lx, 1.05, lz, 0.05, 0.95, 0.05); } break; }
+          case 'Slab': { const s = this.sz(f, 2.0, 0.8, 0.06); this.box(m.metal, p.pos.x, 0.9, p.pos.z, s[0], s[1], s[2], true); this.box(m.metal, p.pos.x, 0.45, p.pos.z, 0.2, 0.9, 0.2); break; }
           case 'Terminal': { const x = p.pos.x + f.x * 0.55, z = p.pos.z + f.z * 0.55; this.box(m.dark, x, 0.55, z, 0.4, 1.1, 0.3, true); this.box(m.screenG, x - f.x * 0.16, 1.0, z - f.z * 0.16, 0.3, 0.2, 0.02); break; }
         }
       }
@@ -364,7 +381,7 @@
         if (side === 'N' || side === 'S') this.sign(text, side, d.pos.x + d.width / 2 + 0.95, 2.05, 1.5, red ? '#8c1010' : yel ? '#d9a619' : '#14171a', yel ? '#111' : '#e8e8e0');
         else this.sign(text, side, d.pos.z + d.width / 2 + 0.95, 2.05, 1.3, red ? '#8c1010' : '#14171a', '#e8e8e0');
       }
-      const lvl = r.level === 4 ? 'УРОВЕНЬ 4 · ТЕХНИЧЕСКИЙ' : 'УРОВЕНЬ 3 · СЕКТОР ' + r.sector;
+      const lvl = r.level === 9 ? 'УРОВЕНЬ −9 · ОСОБОЕ СОДЕРЖАНИЕ' : r.level === 4 ? 'УРОВЕНЬ 4 · СЕКТОР ' + r.sector : 'УРОВЕНЬ 3 · СЕКТОР ' + r.sector;
       this.sign('ЗОНА-19 · ' + lvl, 'W', (r.minZ + r.maxZ) / 2, 2.0, Math.min(2.6, r.depth - 0.4), '#14171a', '#e8e8e0');
     }
     corridor(r) { this.corridorGeneric(r); this.box(this.m.hazard, 19.5, 0.005, 1.2, 3.0, 0.01, 0.5, false, 0.5); }

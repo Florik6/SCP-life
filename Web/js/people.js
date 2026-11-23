@@ -11,13 +11,13 @@
   const COUNTS = {
     lab_assistant: 12, junior_researcher: 14, scientist: 18, senior_scientist: 8, biologist: 6, anomaly_psychologist: 4, memetics: 4, research_director: 1,
     guard: 36, patrol: 14, escort: 10, cctv_operator: 8, security_officer: 6, shift_chief: 4, operative: 18, field_medic: 4, mtf_commander: 2,
-    technician: 12, electrician: 8, mechanic: 8, containment_engineer: 6, sysadmin: 5, orderly: 6, doctor: 8, psychiatrist: 2,
+    technician: 12, electrician: 8, mechanic: 8, containment_engineer: 6, sysadmin: 5, orderly: 6, doctor: 8, psychiatrist: 2, armorer: 2, surgeon: 2, pathologist: 2,
     dispatcher: 6, ethics_inspector: 3, dept_head: 4, director: 1, janitor: 10, cook: 8, logistician: 6
   };
-  const TITLES = { lab_assistant: 'Лаборант', junior_researcher: 'Мл. н. с.', scientist: 'Д-р', senior_scientist: 'Д-р', biologist: 'Д-р', anomaly_psychologist: 'Д-р', memetics: 'Д-р', research_director: 'Проф.', guard: 'Охранник', patrol: 'Патрульный', escort: 'Конвоир', cctv_operator: 'Оператор', security_officer: 'Офицер', shift_chief: 'Нач. смены', operative: 'Оперативник', field_medic: 'Медик МОГ', mtf_commander: 'Командир', technician: 'Техник', electrician: 'Электрик', mechanic: 'Механик', containment_engineer: 'Инженер', sysadmin: 'Сисадмин', orderly: 'Санитар', doctor: 'Врач', psychiatrist: 'Д-р', dispatcher: 'Диспетчер', ethics_inspector: 'Инспектор', dept_head: 'Рук. отдела', director: 'Директор', janitor: 'Уборщик', cook: 'Повар', logistician: 'Логист' };
+  const TITLES = { lab_assistant: 'Лаборант', junior_researcher: 'Мл. н. с.', scientist: 'Д-р', senior_scientist: 'Д-р', biologist: 'Д-р', anomaly_psychologist: 'Д-р', memetics: 'Д-р', research_director: 'Проф.', guard: 'Охранник', patrol: 'Патрульный', escort: 'Конвоир', cctv_operator: 'Оператор', security_officer: 'Офицер', shift_chief: 'Нач. смены', operative: 'Оперативник', field_medic: 'Медик МОГ', mtf_commander: 'Командир', technician: 'Техник', electrician: 'Электрик', mechanic: 'Механик', containment_engineer: 'Инженер', sysadmin: 'Сисадмин', orderly: 'Санитар', doctor: 'Врач', psychiatrist: 'Д-р', dispatcher: 'Диспетчер', ethics_inspector: 'Инспектор', dept_head: 'Рук. отдела', director: 'Директор', janitor: 'Уборщик', cook: 'Повар', logistician: 'Логист', armorer: 'Оружейник', surgeon: 'Хирург', pathologist: 'Судмедэксперт' };
   // Department head per working sector (where the staff of a profession enter the complex).
-  const ENTRY = { science: 'stairsC', security: 'liftB', mtf: 'liftB', engineering: 'liftB', medical: 'stairsA', admin: 'stairsA', service: 'liftB' };
-  const SEAT_ROOMS = { science: ['officesC', 'canteen'], security: ['barracks', 'canteen'], mtf: ['mtf', 'barracks'], engineering: ['canteen', 'workshop'], medical: ['medA', 'canteen'], admin: ['canteen', 'meeting'], service: ['canteen', 'kitchen'] };
+  const ENTRY = { science: 'stairsC', security: 'liftB', mtf: 'freightS', engineering: 'liftB', medical: 'stairsA', admin: 'stairsA', service: 'liftB' };
+  const SEAT_ROOMS = { science: ['officesC', 'canteen', 'staffRoom'], security: ['barracks', 'canteen', 'guardPrep', 'staffRoom'], mtf: ['mtf', 'barracks', 'mtfBarracks', 'mtfPrep'], engineering: ['canteen', 'workshop', 'staffRoom'], medical: ['medA', 'canteen', 'staffRoom'], admin: ['canteen', 'meeting', 'staffRoom'], service: ['canteen', 'kitchen', 'staffRoom'] };
 
   // ------------------------------------------------------------------ roster
   function card(w, n, level, perms) {
@@ -103,9 +103,10 @@
   }
   function dBlock(w, n, t) {
     const mod = ((t % DAY) + DAY) % DAY, home = n.homeRoom, hall = n.hallRoom, lab = n.laborLabel;
-    const T = [[Hm(22), Hm(6, 30), 'Sleep', '@bed', 'CellBunk', 'Отбой'], [Hm(6, 30), Hm(7), 'Hygiene', '@bed', 'Stand', 'Подъём, гигиена'], [Hm(7), Hm(7, 40), 'Eat', hall, 'Seat', 'Раздача пайков'],
-      [Hm(7, 40), Hm(12), 'Labor', hall, 'Workbench', lab], [Hm(12), Hm(12, 40), 'Eat', hall, 'Seat', 'Обед'], [Hm(12, 40), Hm(17), 'Labor', hall, 'Workbench', lab], [Hm(17), Hm(18, 30), 'Leisure', hall, 'Seat', 'Свободное время'],
-      [Hm(18, 30), Hm(19, 10), 'Eat', hall, 'Seat', 'Ужин'], [Hm(19, 10), Hm(21, 45), 'Leisure', hall, 'Seat', 'Свободное время'], [Hm(21, 45), Hm(22), 'Confined', '@bed', 'CellBunk', 'Вечерняя поверка']];
+    const mess = n.messRoom || hall;
+    const T = [[Hm(22), Hm(6, 30), 'Sleep', '@bed', 'CellBunk', 'Отбой'], [Hm(6, 30), Hm(7), 'Hygiene', '@bed', 'Stand', 'Подъём, гигиена'], [Hm(7), Hm(7, 40), 'Eat', mess, 'Seat', 'Раздача пайков'],
+      [Hm(7, 40), Hm(12), 'Labor', hall, 'Workbench', lab], [Hm(12), Hm(12, 40), 'Eat', mess, 'Seat', 'Обед'], [Hm(12, 40), Hm(17), 'Labor', hall, 'Workbench', lab], [Hm(17), Hm(18, 30), 'Leisure', hall, 'Seat', 'Свободное время'],
+      [Hm(18, 30), Hm(19, 10), 'Eat', mess, 'Seat', 'Ужин'], [Hm(19, 10), Hm(21, 45), 'Leisure', hall, 'Seat', 'Свободное время'], [Hm(21, 45), Hm(22), 'Confined', '@bed', 'CellBunk', 'Вечерняя поверка']];
     if (!n.onSite && n.reserve) return B('Offsite', null, null, 'Резервный блок D-1', t, t + DAY);
     for (const b of T) if (S.inRange(mod, b[0], b[1])) {
       const room = b[3] === '@bed' ? home : b[3];
@@ -119,6 +120,7 @@
 
   // ------------------------------------------------------------------ presence (multi-tier)
   function wantsOnSite(w, n) {
+    if (n.dead || n.played) return false;
     if (n.role === 'DClass') return !n.reserve;
     if (n.resident) return !n.isSick(w.now) || !!n.bedPoi;
     const b = block(w, n); return b.activity !== 'Offsite';
@@ -136,7 +138,7 @@
   }
   function sync(w) {
     for (const n of w.npcs) {
-      if (n.onSite || n.role === 'DClass' || n.missing) continue;
+      if (n.onSite || n.role === 'DClass' || n.missing || n.dead || n.played) continue;
       if (wantsOnSite(w, n)) spawn(w, n, n.entry);
     }
   }
@@ -144,7 +146,7 @@
   function tickAbstract(w, gmin) {
     const h = gmin / 60, day = w.clock.day;
     for (const n of w.npcs) {
-      if (n.onSite) continue;
+      if (n.onSite || n.dead || n.played) continue;
       const nd = n.needs; nd.energy = clamp(nd.energy + 6 * h, 0, 100); nd.hunger = clamp(nd.hunger - 3 * h, 0, 100); nd.stress = clamp(nd.stress - 3 * h, 0, 100); nd.social = clamp(nd.social + 4 * h, 0, 100);
       n.psy.fatigue = clamp(n.psy.fatigue - 8 * h, 0, 100); n.psy.fear = clamp(n.psy.fear - 10 * h, 0, 100); n.psy.exposure = clamp(n.psy.exposure - 2 * h, 0, 100);
       if (nd.health < 100) nd.health = clamp(nd.health + 2 * h, 0, 100);
@@ -190,21 +192,23 @@
     const npl = opts.playerProf; if (npl && counts[npl] > 0) counts[npl]--;
     for (const prof of Object.keys(counts)) for (let i = 0; i < counts[prof]; i++) staff(w, rng, used, prof);
     // residents: MTF and part of security live on site with hot bunking (day + night share a bunk)
-    const bunks = w.fac.room('barracks').pois.filter(p => p.type === 'Bed'), qbeds = w.fac.room('quartersA').pois.filter(p => p.type === 'Bed');
+    const bunks = ['mtfBarracks', 'barracks'].map(id => w.fac.room(id)).filter(Boolean).flatMap(r => r.pois.filter(p => p.type === 'Bed')), qbeds = w.fac.room('quartersA').pois.filter(p => p.type === 'Bed');
     const resid = w.npcs.filter(n => !n.bedPoi && (n.dept === 'mtf' || n.prof === 'shift_chief'));
     let bi = 0; for (const n of resid) { const b = bunks[Math.floor(bi / 2) % bunks.length]; if (Math.floor(bi / 2) >= bunks.length * 2) break; n.resident = true; n.bedPoi = b.id; b.owners = (b.owners || []).concat(n.id); bi++; }
     const sres = w.npcs.filter(n => !n.bedPoi && (n.prof === 'senior_scientist' || n.prof === 'research_director' || n.prof === 'director' || n.prof === 'dept_head'));
     sres.forEach((n, i) => { const b = qbeds[i % qbeds.length]; if (!b || (b.owners && b.owners.length >= 2)) return; n.resident = true; n.bedPoi = b.id; b.owners = (b.owners || []).concat(n.id); });
     for (const p of Object.values(w.fac.pois)) if (p.type === 'Bed' && !p.owners) { const o = w.npcs.find(n => n.bedPoi === p.id); if (o) p.owners = [o.id]; }
     // posts for security, scientists to anomalies
-    const posts = ['post', 'postA', 'postC', 'postD'];
+    const posts = ['post', 'postA', 'postC', 'postD', 'reservePost', 'ctrlPost', 'detHall'];
     w.npcs.filter(n => n.prof === 'guard').forEach((n, i) => { n.post = n.workRoom = n.id === 'g.yastrebov' ? 'postC' : posts[i % posts.length]; });
-    w.npcs.filter(n => n.prof === 'escort').forEach(n => { n.post = n.workRoom = 'postD'; });
+    w.npcs.filter(n => n.prof === 'escort').forEach((n, i) => { n.post = n.workRoom = i % 3 === 2 ? 'd3wait' : 'postD'; });
     // D-class: 4 cells in sector B, 8 double cells on level 4, 20 more in the reserve block
     const dn = ['Виктор', 'Сергей', 'Марина', 'Рустам'], dc = ['D-9341', 'D-7720', 'D-4108', 'D-5512'], df = [false, false, true, false], did = ['d.9341', 'd.7720', 'd.4108', 'd.5512'];
     const dtr = [[0.6, 0.4, 0.7], [0.3, 0.6, 0.5], [0.5, 0.7, 0.3], [0.45, 0.5, 0.55]];
     for (let i = 0; i < 4; i++) dclass(w, rng, did[i], dn[i], 'Ветров', dc[i], df[i], 'cell' + (i + 1), 'dblock', 'cell' + (i + 1) + '.bunk', i % 2 ? 'Трудовая смена: прачечная' : 'Трудовая смена: сортировка', { bravery: dtr[i][0], sociability: dtr[i][1], temper: dtr[i][2] });
     for (let c = 0; c < 8; c++) for (let k = 0; k < 2; k++) { const num = 'D-' + (2000 + rng.int(0, 7999)); dclass(w, rng, 'd.' + num.slice(2) + (w.npcs.length), null, null, num, rng.chance(0.25), 'dcell' + (c + 1), 'dhall', 'dcell' + (c + 1) + '.bunk', rng.pick(['Трудовая смена: ремонт тары', 'Трудовая смена: сборка', 'Трудовая смена: стирка'])); }
+    // sector D-3 on level 4: six double cells, own common room and mess
+    for (let c = 0; c < 6; c++) for (let k = 0; k < 2; k++) { const num = 'D-' + (2000 + rng.int(0, 7999)); const n = dclass(w, rng, 'd.' + num.slice(2) + (w.npcs.length), null, null, num, rng.chance(0.25), 'd3cell' + (c + 1), 'd3common', 'd3cell' + (c + 1) + '.bunk', rng.pick(['Трудовая смена: сортировка ветоши', 'Трудовая смена: ремонт тары', 'Трудовая смена: уборка сектора'])); n.messRoom = 'd3mess'; }
     for (let i = 0; i < 20; i++) { const num = 'D-' + (1000 + rng.int(0, 8999)); const n = dclass(w, rng, 'd.r' + num.slice(2) + i, null, null, num, rng.chance(0.25), null, 'dhall', null, 'Трудовая смена'); n.reserve = true; }
     const rel = (a, b, v) => { const x = w.npc(a), y = w.npc(b); if (x && y) { x.adjustRel(y.id, v); y.adjustRel(x.id, v); } };
     rel('s.orlova', 's.kim', 35); rel('s.orlova', 's.lebedev', 15); rel('s.kim', 's.lebedev', 20); rel('g.petrenko', 'g.melnik', 25); rel('t.sokolov', 'g.petrenko', 15); rel('m.zaitseva', 's.orlova', 20);
@@ -220,6 +224,32 @@
     n.needs.stress = rng.range(20, 40); n.needs.hunger = rng.range(10, 35); n.needs.energy = rng.range(65, 90); n.compliance = rng.range(0.3, 0.9); n.testsDone = 0; n.assignedScps = []; n.tasksDone = 0;
     const bp = w.fac.poi(bed); if (bp) bp.owners = (bp.owners || []).concat(id);
     card(w, n, 0, S.P.CellResident); w.addNpc(n); return n;
+  }
+  // A replacement arrives: a new person with name, profession, character, rank, access card, workplace, relations and traits.
+  // The hiring record (spec) is enough to recreate exactly the same person when a save is loaded.
+  function hire(w, spec, restoring) {
+    const rng = new S.SimRandom(((w.seed || 1) * 7919 + spec.n * 104729 + 17) >>> 0), used = new Set(w.npcs.map(x => x.first + x.last));
+    const id = spec.id || ('h.' + spec.prof.slice(0, 4) + '.' + spec.n), kept = w.cards['card.' + id];
+    if (w.npc(id)) return w.npc(id);
+    let n;
+    if (spec.prof === 'dclass') {
+      const num = 'D-' + (3000 + rng.int(0, 6999)), hall = spec.hall || 'dhall';
+      n = dclass(w, rng, id, null, null, num, rng.chance(0.2), spec.home || 'dcell1', hall, spec.bed || null, rng.pick(['Трудовая смена: сортировка', 'Трудовая смена: ремонт тары', 'Трудовая смена: уборка сектора']));
+      if (hall === 'd3common') n.messRoom = 'd3mess'; n.entry = hall;
+    } else {
+      n = staff(w, rng, used, spec.prof, { id, workRoom: spec.room && w.fac.room(spec.room) ? spec.room : undefined });
+      if (spec.post) n.post = n.workRoom = spec.post;
+      if (spec.bed) { const b = w.fac.poi(spec.bed); if (b) { n.bedPoi = b.id; n.resident = true; b.owners = (b.owners || []).filter(o => o !== spec.by).concat(n.id); } }
+      // knows a couple of colleagues from earlier postings; strangers to the rest
+      const mates = w.npcs.filter(o => o !== n && o.dept === n.dept && !o.dead); for (let k = 0; k < Math.min(2, mates.length); k++) { const o = mates[rng.int(0, mates.length)]; const v = rng.range(5, 25); n.adjustRel(o.id, v); o.adjustRel(n.id, v * 0.7); }
+    }
+    if (kept) w.cards[kept.id] = kept;
+    n.hired = spec.t != null ? spec.t : w.now; n.hireSpec = Object.assign({}, spec, { id, t: n.hired });
+    if (!restoring) {
+      n.addHistory(w.now, 'Переведён' + (n.female ? 'а' : '') + ' на объект на замену выбывшего сотрудника', 'personnel');
+      if (n.role === 'DClass') { spawn(w, n, n.hallRoom); w.events.post({ time: w.now, type: S.EV.Personnel, roomId: n.hallRoom, severity: 1, text: 'Конвой доставил заключённого ' + n.callsign + ' в «' + w.roomName(n.hallRoom) + '».' }); }
+    }
+    return n;
   }
   function storyHistory(w, n) {
     const H = {
@@ -250,5 +280,5 @@
     }
   }
 
-  S.People = { generate, block, staffBlock, currentShift, works, wantsOnSite, spawn, despawn, sync, tickAbstract, placeAll, COUNTS, TITLES, MALE, FEMALE, SURN, fem, character, makeTraits, makeBeliefs };
+  S.People = { generate, hire, block, staffBlock, currentShift, works, wantsOnSite, spawn, despawn, sync, tickAbstract, placeAll, COUNTS, TITLES, MALE, FEMALE, SURN, fem, character, makeTraits, makeBeliefs };
 })(typeof window !== 'undefined' ? window : globalThis);

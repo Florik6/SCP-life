@@ -283,6 +283,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
       <div class="row"><span>Без резких вспышек</span><span></span><output id="sNoFlash"></output><button data-s="noflash" data-d="1">⇄</button></div>
       <div class="row"><span>Уменьшить тряску камеры</span><span></span><output id="sShake"></output><button data-s="shake" data-d="1">⇄</button></div>
       <div class="row"><span>Компактный HUD</span><span></span><output id="sMinHud"></output><button data-s="minhud" data-d="1">⇄</button></div>
+      <div class="row"><span>Натуралистичность ранений</span><button data-s="gore" data-d="-1">−</button><output id="sGore"></output><button data-s="gore" data-d="1">+</button></div>
+      <div class="row"><span>При гибели персонажа</span><span></span><output id="sDeath"></output><button data-s="deathMode" data-d="1">⇄</button></div>
     </div>
     <div class="aiset">
       <h3>ИНТЕЛЛЕКТ ОБЪЕКТОВ (ЯЗЫКОВАЯ МОДЕЛЬ)</h3>
@@ -322,6 +324,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
   <div class="menu-box">
     <h1>КОНТАКТ ПОТЕРЯН</h1>
     <div class="note" id="deathCause" style="text-align:center"></div>
+    <div id="deathMode" class="note" style="text-align:center"></div>
+    <div id="deathPick"></div>
     <button class="mbtn" id="xLoad">ЗАГРУЗИТЬ СОХРАНЕНИЕ</button>
     <button class="mbtn" id="xNew">НОВАЯ ИГРА</button>
     <button class="mbtn" id="xMenu">ГЛАВНОЕ МЕНЮ</button>
@@ -341,6 +345,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 <script src="js/cognitive.js"></script>
 <script src="js/tallyman.js"></script>
 <script src="js/jobs.js"></script>
+<script src="js/medical.js"></script>
 <script src="js/living.js"></script>
 <script src="js/ai/llm.js"></script>
 <script src="js/ai/profiles.js"></script>
