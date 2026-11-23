@@ -111,15 +111,30 @@
   L.isNight = w => w.clock.night;
   L.lights = (w, a) => { const r = L.cell(w, a); return r && r.powered !== false && !r.dark ? 1 : r && r.powered !== false ? 0.3 : 0; };
 
+  // movement part of a mind's directive (returns false for commands the creature's own code animates: looks, speech)
+  L.moveDirective = (w, a, d, dt) => {
+    const win = L.win(w, a), r = L.cell(w, a), sp = a.def.speed || 0.8, tp = d.target && d.target !== 'cctv' ? w.posOf(d.target) : null;
+    switch (d.cmd) {
+      case 'APPROACH_WINDOW': L.walk(w, a, tp ? clamp(tp.x, win.x0 + 0.3, win.x1 - 0.3) : win.cx, win.inZ - 0.4, sp, dt); if (tp && !a.agent.moving) L.face(a, L.yawTo(a, tp), dt * 2); return true;
+      case 'RETREAT': L.walk(w, a, r.center.x, r.minZ + 1.0, sp, dt); return true;
+      case 'MOVE_TO_POINT': if (!d.point) return false; L.walk(w, a, d.point.x, d.point.z, sp, dt); return true;
+      case 'HIDE': L.walk(w, a, r.minX + 0.6, r.minZ + 0.6, sp * 1.5, dt); return true;
+      case 'REST': case 'SLEEP': a.agent.moving = false; return true;
+      case 'LOOK_AT_TARGET': case 'OBSERVE_PERSON': if (!tp) return false; a.lookAt = d.target; if (a.def.model !== 'observer' && a.def.model !== 'mimic') { a.agent.moving = false; L.face(a, L.yawTo(a, tp), dt * 2); return true; } return false;
+      default: return false;
+    }
+  };
   // a generic per-tick wrapper: decisions once a second, movement every tick
   function living(spec) {
     return Object.assign({ kind: 'living', living: true, knowledge0: 8 }, spec, {
       tick(w, a, dt, gm) {
         if (gm <= 0) return; const st = a.st;
         if (!st.init) { st.init = true; st.act = st.act || 'idle'; st.log = st.log || []; if (spec.setup) spec.setup(w, a); }
+        // a directive chosen by the creature's mind (ai/minds.js, already validated); the creature's nature can still win
+        const d = st.dir && st.dir.until > w.realTime ? st.dir : (st.dir = null), useDir = d && !(spec.instinct && spec.instinct(w, a, d));
         st.sec = (st.sec || 0) - dt;
-        if (st.sec <= 0) { st.sec = 1; const att = L.attention(w, a, spec.attention); const heard = spec.hears ? L.hear(w, a, spec.hears) : []; spec.think(w, a, att, heard); }
-        if (spec.move) spec.move(w, a, dt);
+        if (st.sec <= 0) { st.sec = 1; const att = L.attention(w, a, spec.attention); const heard = spec.hears ? L.hear(w, a, spec.hears) : []; spec.think(w, a, att, heard); if (useDir && spec.directive) spec.directive(w, a, d, att); }
+        if (!(useDir && L.moveDirective(w, a, d, dt)) && spec.move) spec.move(w, a, dt);
       },
       hourly(w, a) { L.report(w, a, spec.hourNote ? spec.hourNote(w, a) : ''); if (spec.hourlyExtra) spec.hourlyExtra(w, a); },
       truth(w, a) { const t = spec.truthX ? spec.truthX(w, a) : {}; return Object.assign({ motion: a.agent.moving ? 0.7 : 0.02, sound: 0.05 }, t); }
@@ -139,6 +154,7 @@
     exps: [{ id: 'pair', name: 'Один и двое у окна', desc: 'Наблюдатель стоит у окна один, затем к нему присоединяется второй.', dur: 20 }, { id: 'lights', name: 'Полный свет', desc: 'Во время подхода включить полный свет в камере.', dur: 10 },
       { id: 'familiar', name: 'Знакомый и новичок', desc: 'По очереди к окну подходят постоянный сотрудник и новый.', dur: 20 }, { id: 'knock', name: 'Стук по стеклу', desc: 'Тихий стук по стеклу, пока объект стоит в углу.', dur: 5 }],
     setup(w, a) { const r = L.cell(w, a); a.agent.pos = V.v(r.minX + 1.0, r.floorY, r.minZ + 1.0); a.agent.yaw = 225; a.st.neck = 0; a.st.headTurn = 0; L.act(w, a, 'corner'); },
+    instinct: (w, a, d) => d.cmd === 'APPROACH_WINDOW' && ((w.fac.room(a.containRoom).lightBoost || 0) > 0.5 || (a.st.att && a.st.att.people > 1)), // light and company always drive it back
     think(w, a, att, heard) {
       const st = a.st, win = L.win(w, a), light = (w.fac.room(a.containRoom).lightBoost || 0) > 0.5;
       const lone = att.people === 1 && att.by.filter(b => b.kind === 'window').length === 1, target = att.by.find(b => b.kind === 'window') || att.by.find(b => b.kind === 'cell');
@@ -240,6 +256,7 @@
       ['hears_footsteps', 'слышит шаги в наблюдательной и замирает', { quietWalk: true }], ['warm_attracts', 'тянется к источникам тепла — тепловую лампу можно использовать как приманку']],
     exps: [{ id: 'quiet_watch', name: 'Тихое наблюдение', desc: 'Наблюдение без движения и звука в течение 10 минут.', dur: 15 }, { id: 'heat_lamp', name: 'Тепловая лампа', desc: 'Включить тепловую лампу у окна.', dur: 10 }, { id: 'night_log', name: 'Ночной журнал датчиков', desc: 'Сопоставить ночные показания датчиков с состоянием решётки.', dur: 10 }],
     setup(w, a) { const r = L.cell(w, a); a.agent.pos = V.v(r.maxX - 1, r.floorY, r.minZ + 1); a.st.surf = 'floor'; a.st.mesh = 100; a.st.h = 0; L.act(w, a, 'rest'); },
+    instinct: (w, a) => !!(a.st.att && a.st.att.watched), // under a gaze it freezes whatever it intended
     think(w, a, att, heard) {
       const st = a.st, r = L.cell(w, a);
       const loud = heard.reduce((m, h) => Math.max(m, h.loud), 0);
@@ -295,6 +312,7 @@
       ['copies_absent', 'принимает облик отсутствующего постоянного посетителя', { rotateWatchers: true }], ['cctv_blank', 'на камерах лицо и одежда остаются гладкими — облик видят только живые наблюдатели']],
     exps: [{ id: 'knock_pattern', name: 'Ритм стука', desc: 'Постучать по стеклу три раза, затем пять.', dur: 5 }, { id: 'two_watchers', name: 'Два наблюдателя', desc: 'Двое смотрят на объект по очереди.', dur: 15 }, { id: 'cctv_compare', name: 'Сравнение с записью', desc: 'Сравнить облик у окна с записью камеры.', dur: 10 }],
     setup(w, a) { const r = L.cell(w, a); a.agent.pos = V.v(r.center.x, r.floorY, r.center.z); a.agent.yaw = 0; a.st.copy = null; a.st.mirror = []; L.act(w, a, 'blank'); },
+    directive(w, a, d) { if ((d.cmd === 'OBSERVE_PERSON' || d.cmd === 'LOOK_AT_TARGET') && d.target && d.target !== 'cctv' && [a.obsRoom, a.containRoom].indexOf(w.roomOf(d.target)) >= 0) { if (a.st.copy !== d.target) L.log(w, a, 'act', 'выбрал, кого копировать: ' + w.nameOf(d.target)); a.st.copy = d.target; L.act(w, a, 'mirror'); } else if (d.cmd === 'IGNORE' || d.cmd === 'RETREAT') { a.st.copy = null; L.act(w, a, 'blank'); } else if (d.cmd === 'CHANGE_POSTURE') a.st.crouch = !a.st.crouch; },
     think(w, a, att, heard) {
       const st = a.st, win = L.win(w, a);
       for (const h of heard) if (h.kind === 'glass_knock') { st.knocks = (st.knocks || 0) + 1; st.knockAt = w.realTime; }
@@ -414,6 +432,8 @@
       ['routine', 'действия повторяют распорядок сотрудника 1970-х: чай в 7:00, работа, обед в 12:00, уход в 17:00'], ['delayed_answer', 'на вопросы через интерком отвечает спустя часы — когда никто не слушает']],
     exps: [{ id: 'blink_test', name: 'Поочерёдный взгляд', desc: 'Наблюдатели отворачиваются по очереди на 10 секунд.', dur: 15 }, { id: 'routine_log', name: 'Журнал распорядка', desc: 'Сопоставить положения объекта по часам за трое суток.', dur: 10 }, { id: 'talk', name: 'Вопрос через интерком', desc: 'Задать вопрос и оставить запись диктофона.', dur: 10 }],
     setup(w, a) { const r = L.cell(w, a); a.agent.pos = V.v(r.center.x - 1, r.floorY, r.center.z); a.agent.yaw = 90; a.st.frame = 0.3; a.st.task = 'walk'; a.st.tremor = 0; L.act(w, a, 'frozen'); },
+    instinct: (w, a, d) => !!(a.st.att && (a.st.att.watched || a.st.att.cctv)) && d.cmd !== 'SPEAK' && d.cmd !== 'REFUSE' && d.cmd !== 'REQUEST_ITEM',
+    directive(w, a, d) { if ((d.cmd === 'SLEEP' || d.cmd === 'REST') && a.st.task !== 'lie' && w.clock.night) { a.st.task = 'lie'; a.st.frame = 0.5; L.log(w, a, 'move', 'лёг на койку (решение объекта, без наблюдения)'); } },
     think(w, a, att) {
       const st = a.st, watched = att.watched || att.cctv;
       const due = ROUTINE.slice().reverse().find(x => w.clock.hour >= x.h) || ROUTINE[ROUTINE.length - 1];
@@ -515,6 +535,7 @@
       ['afterimage', 'после долгого контакта взглядом у человека остаётся чувство, что за ним наблюдают', { contactLimit: 30 }], ['blind_spot', 'не видит сквозь матовое стекло — шторка полностью блокирует воздействие', { shutter: true }]],
     exps: [{ id: 'camera', name: 'Камера и человек', desc: 'Сначала наблюдение только через камеру, затем у окна.', dur: 10 }, { id: 'three', name: 'Трое у окна', desc: 'Трое сотрудников смотрят по очереди.', dur: 15 }, { id: 'frosted', name: 'Матовая шторка', desc: 'Закрыть окно матовой шторкой во время контакта.', dur: 5 }],
     setup(w, a) { const r = L.cell(w, a); a.agent.pos = V.v(r.center.x, r.floorY, r.center.z); a.agent.yaw = 180; a.st.head = 0; a.st.shutter = false; L.act(w, a, 'wait'); },
+    directive(w, a, d, att) { if (a.st.shutter) return; const inView = id => id === 'cctv' ? w.cams.some(c => c.roomId === a.containRoom) : [a.obsRoom, a.containRoom].indexOf(w.roomOf(id)) >= 0; if ((d.cmd === 'OBSERVE_PERSON' || d.cmd === 'LOOK_AT_TARGET') && d.target && inView(d.target)) { a.st.target = d.target; a.lookAt = d.target === 'cctv' ? null : d.target; L.act(w, a, d.target === 'cctv' ? 'camera' : 'stare'); } else if (d.cmd === 'IGNORE') { a.st.target = null; a.lookAt = null; L.act(w, a, 'wait', 'отвернулся от наблюдателей (решение объекта)'); } },
     think(w, a, att) {
       const st = a.st, cell = L.cell(w, a);
       if (a.rules.shutter && !att.inCell) { const session = H.subjects(w, [a.obsRoom]).some(s => s.n && s.n.job && s.n.job.steps && s.n.job.steps.some(x => !x.done && x.scp === a.id)); st.shutter = !session && !(w.player.roomId === a.obsRoom && w.player.gazeAt === a.id); }

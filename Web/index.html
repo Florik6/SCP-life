@@ -154,6 +154,27 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
   .row { padding: 4px 10px; font-size: 13px; } .row button { height: 30px; } .sheet { gap: 6px; } .pc { padding: 6px 8px; }
 }
 @media (prefers-reduced-motion: reduce) { #feed div, #peripheral, #fade { transition: none; } }
+
+/* chat with an anomaly (intercom) */
+#chat { position: fixed; inset: auto 0 0 0; z-index: 30; display: flex; justify-content: center; pointer-events: none; padding: 0 8px 8px; }
+#chat .box { pointer-events: auto; width: min(96vw, 760px); max-height: 72vh; display: grid; grid-template-rows: auto 1fr auto auto; gap: 6px; background: rgba(6, 9, 10, 0.96); border: 1px solid var(--line); border-top: 3px solid #9b7bd6; padding: 8px 10px; }
+#chat .hd { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #cdb8f5; font-size: 14px; }
+#chat .hd .mode { font-size: 11px; font-weight: 600; padding: 2px 6px; border: 1px solid var(--line); color: #9fa8a3; }
+#chat .hd .mode.on { color: #8dff9e; border-color: #2c6b3a; }
+#chat .hd button { margin-left: auto; }
+#chatLog { overflow: auto; min-height: 80px; max-height: 42vh; font-size: 14px; line-height: 1.4; touch-action: pan-y; display: grid; gap: 5px; align-content: start; }
+#chatLog .m { padding: 5px 8px; border-left: 3px solid #39424a; background: rgba(20, 26, 29, 0.7); white-space: pre-wrap; }
+#chatLog .m.scp { border-left-color: #9b7bd6; } #chatLog .m.me { border-left-color: #4e8fbf; } #chatLog .m.sys { border-left-color: #6b6b5a; color: #a7a594; font-size: 12px; }
+#chatLog .m .src { display: block; font-size: 10px; color: #7c858a; margin-top: 2px; }
+#chatQuick { display: flex; gap: 5px; flex-wrap: wrap; } #chatQuick button { font-size: 12px; padding: 5px 8px; background: #141a1d; border: 1px solid var(--line); }
+#chatForm { display: flex; gap: 6px; } #chatIn { flex: 1; min-width: 0; background: #0b1012; color: var(--ink); border: 1px solid var(--line); padding: 8px; font: inherit; font-size: 15px; user-select: text; -webkit-user-select: text; touch-action: auto; }
+#chatForm button { background: #1d2427; border: 1px solid var(--line); padding: 8px 12px; font-weight: 700; }
+.aiset { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; font-size: 13px; }
+.aiset h3 { margin: 0; font-size: 14px; color: #cdb8f5; letter-spacing: 0.05em; }
+.aiset input { background: #0b1012; color: var(--ink); border: 1px solid var(--line); padding: 6px; font: inherit; width: 100%; box-sizing: border-box; user-select: text; -webkit-user-select: text; touch-action: auto; }
+.aiset .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; } .aiset .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.aiset .btns button { background: #151b1e; border: 1px solid var(--line); padding: 6px 10px; font-weight: 600; }
+.aiset .note { color: #8d968f; font-size: 12px; }
 </style>
 
 <div id="game"></div>
@@ -263,10 +284,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
       <div class="row"><span>Уменьшить тряску камеры</span><span></span><output id="sShake"></output><button data-s="shake" data-d="1">⇄</button></div>
       <div class="row"><span>Компактный HUD</span><span></span><output id="sMinHud"></output><button data-s="minhud" data-d="1">⇄</button></div>
     </div>
+    <div class="aiset">
+      <h3>ИНТЕЛЛЕКТ ОБЪЕКТОВ (ЯЗЫКОВАЯ МОДЕЛЬ)</h3>
+      <div id="aiStatus" class="note"></div>
+      <div class="btns"><button id="aiToggle"></button><button id="aiProv"></button><button id="aiTest">ПРОВЕРИТЬ СВЯЗЬ</button></div>
+      <div class="two"><input id="aiUrl" placeholder="Адрес сервера ИИ (https://…)" autocomplete="off"><input id="aiTok" type="password" placeholder="Токен доступа к серверу" autocomplete="off"></div>
+      <div class="note">В версии на claude.ai объекты думают через Claude (разрешение спросят один раз). В APK нужен свой сервер ИИ (Tools/llm-proxy): ключ API хранится только на сервере, в приложение вводится адрес и токен доступа. Без модели объекты живут на локальном ИИ и не «говорят» заготовками.</div>
+    </div>
     <button class="mbtn" id="sBack">ГОТОВО</button>
   </div>
 </div>
 
+<div id="chat" hidden><div class="box"><div class="hd"><span id="chatTitle">Интерком</span><span class="mode" id="chatMode"></span><button class="tbtn" id="chatClose">ЗАКРЫТЬ ✕</button></div><div id="chatLog"></div><div id="chatQuick"></div><form id="chatForm" autocomplete="off"><input id="chatIn" maxlength="300" placeholder="Сказать в интерком…"><button type="submit">▶</button></form></div></div>
 <div id="dialogue" class="overlay" hidden><div class="dlg"><h2 id="dTitle"></h2><p id="dBody"></p><div class="acts" id="dActs"></div></div></div>
 
 <div id="pda" class="overlay" hidden>
@@ -313,6 +342,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--hazard); ou
 <script src="js/tallyman.js"></script>
 <script src="js/jobs.js"></script>
 <script src="js/living.js"></script>
+<script src="js/ai/llm.js"></script>
+<script src="js/ai/profiles.js"></script>
+<script src="js/ai/minds.js"></script>
 <script src="js/brain.js"></script>
 <script src="js/infra.js"></script>
 <script src="js/scplife.js"></script>

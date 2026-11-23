@@ -36,6 +36,8 @@
     effectsOf(subj) { const l = this.effects[subj]; return l ? l.filter(e => !e.ended) : []; }
     has(subj, kind) { return this.effectsOf(subj).some(e => e.kind === kind); }
     end(subj, e, reason) { if (e.ended) return; e.ended = true; e.endedAt = this.w.now; e.endReason = reason; this.history.push({ t: this.w.now, subj, kind: e.kind, src: e.src, text: 'прекращено: ' + reason }); if (subj === 'player' && reason !== 'истекло') this.w.notify.push({ time: this.w.now, type: EV.Anomalous, perceived: true, text: 'Странное ощущение прошло (' + reason + ').' }); }
+    // pressure from the minds of anomalies: deliberate unsettling acts weigh more than incidental strangeness
+    nudge(amount, why, deliberate) { this.aiPressure = clamp((this.aiPressure || 0) + amount * (deliberate ? 1 : 0.5), -0.3, 0.45); this.aiLog = (this.aiLog || []).concat({ t: this.w.now, why, deliberate: !!deliberate, amount }).slice(-30); }
     explain(kind, text, who) { const fa = (who && this.falseAlarms.find(f => f.kind === kind && !f.explained && f.who === who)) || this.falseAlarms.find(f => f.kind === kind && !f.explained); if (fa) { fa.explained = true; fa.explainedAt = this.w.now; this.w.player.addJournal('[' + fmtStamp(this.w.now) + '] Объяснение найдено: ' + text); this.w.notify.push({ time: this.w.now, type: EV.Report, text: 'Объяснение: ' + text }); this.w.player.psy.fear = Math.max(0, this.w.player.psy.fear - 20); } }
     // Does the effect manifest right now for this subject? (company, light and place matter)
     active(e, subj) {
@@ -86,7 +88,8 @@
         default: role = room && room.type === 'Observation' && night ? 0.1 : 0;
       }
       const score = clamp((night ? 0.18 : 0) + (alone ? 0.14 : -0.1) + (dark ? 0.2 : 0) + p.psy.fear / 200 + p.psy.fatigue / 400 + strange * 0.07 + role + (room && room.level === 4 ? 0.05 : 0), 0, 1);
-      this.score = score; this.tension += (score - this.tension) * 0.08;
+      this.aiPressure = (this.aiPressure || 0) * 0.97;
+      this.score = clamp(score + this.aiPressure, 0, 1); this.tension += (this.score - this.tension) * 0.08;
       let st;
       if (realThreat) { st = 'threat'; this.threatEnd = w.now; }
       else if (w.now - this.threatEnd < 15) st = 'aftermath';

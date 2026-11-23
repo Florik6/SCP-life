@@ -1,0 +1,11 @@
+{
+  "name": "scp-life-llm-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protected LLM proxy for SCP LIFE: keeps the Anthropic API key on the server, enforces access tokens, rate limits and a daily budget.",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": { "start": "node server.mjs", "test": "node test.mjs" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "@anthropic-ai/sdk": "^1.12.0" }
+}

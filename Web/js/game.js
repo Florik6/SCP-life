@@ -216,10 +216,10 @@
       case 'poi': case 'spot': UI.msg(d.label, '#ccc'); break;
       case 'bed': { const poi = w.fac.poi(d.id); if (poi && ((poi.owners || []).indexOf('player') >= 0 || !poi.owners)) Sleep.start(); else UI.msg('Это чужая койка.', '#ccc'); break; }
       case 'hazmat': UI.msg('Защитный костюм висит на стойке. Издалека в полумраке он похож на человека.', '#ccc'); w.horror.explain('suit', 'Силуэт — защитный костюм на стойке'); break;
-      case 'window': { const a = anomalyIn(d.room); UI.dialogue(a ? 'Наблюдение: ' + a.displayName : 'Окно', [a ? w.observe(a.id, false) : 'За стеклом пустая камера.'], a && a.def.living ? livingActs(a) : undefined); break; }
+      case 'window': { const a = anomalyIn(d.room); UI.dialogue(a ? 'Наблюдение: ' + a.displayName : 'Окно', [a ? w.observe(a.id, false) : 'За стеклом пустая камера.'], a ? mindActs(a) : undefined); break; }
       case 'intercom': intercom(d); break;
       case 'transit': Ride.start(d); break;
-      case 'anomaly': { const a = w.anomaly(d.id); UI.dialogue('Наблюдение: ' + a.displayName, [w.observe(d.id, false)], a.def.living ? livingActs(a) : undefined); break; }
+      case 'anomaly': { const a = w.anomaly(d.id); UI.dialogue('Наблюдение: ' + a.displayName, [w.observe(d.id, false)], mindActs(a)); break; }
       case 'npc': Talk.open(d.id); break;
       case 'card': { if (w.pickUp(d.id)) { const c = w.card(d.id); UI.msg('Подобрана карта L' + c.level + ' · ' + c.ownerName + '. Использование чужой карты попадает в журнал.', '#ffd76b'); } break; }
       case 'fake_door': UI.msg('Под ладонью — холодная стена. Никакой двери здесь нет.', '#c7c2b0'); p.psy.fear = S.clamp(p.psy.fear + 8, 0, 100); break;
@@ -334,7 +334,7 @@
       $('sLefty').textContent = settings.lefty ? 'СЛЕВА' : 'СПРАВА'; $('sTouch').textContent = on(settings.touch); $('sFx').textContent = Math.round(settings.fx * 100) + '%'; $('sNoFlash').textContent = on(settings.noflash); $('sShake').textContent = on(settings.shake); $('sMinHud').textContent = on(settings.minhud);
     },
     syncTouch() {
-      const overlay = ['terminal', 'pda', 'pause', 'settings', 'death', 'sleep'].some(id => !$(id).hidden);
+      const overlay = ['terminal', 'pda', 'pause', 'settings', 'death', 'sleep', 'chat'].some(id => !$(id).hidden);
       const tHide = !(G.playing && settings.touch && !overlay); if (tHide && !$('touch').hidden) { endStick(); endLook(); } $('touch').hidden = tHide; $('topbtns').hidden = !G.playing || overlay;
       $('hud').hidden = !G.playing || !$('terminal').hidden || !$('pda').hidden;
       for (const id of ['status', 'taskbox', 'feed', 'card']) $(id).style.visibility = G.hudHidden ? 'hidden' : '';
@@ -427,6 +427,7 @@
       else if (e.type === 'PatrolCheckpoint' || e.type === 'Observation' || e.type === 'DoorAccess' || e.type === 'Conversation') continue;
       else if (e.radio) { color = '#bfe0ff'; A.play('radio', null, 0.5, { dry: true }); }
       else { if (e.severity <= 0 && !e.pub && e.type !== 'CountingProtocol' && !e.perceived && e.type !== 'Discipline' && e.type !== 'Personnel') continue; color = e.severity >= 3 ? '#ff4d4d' : e.severity === 2 ? '#ff9a59' : e.perceived ? '#c7c2b0' : '#e6e3bf'; }
+      if (e.speech) { color = '#cdb8f5'; Chat.hear(e); }
       if (e.pub) { prefix = '[ОПОВЕЩЕНИЕ] '; A.play('chime', null, 0.5, { dry: true }); }
       UI.msg(prefix + e.text, color);
     }
@@ -581,12 +582,13 @@
   PDA.build();
 
   // ------------------------------------------------------------------ terminals (tabs depend on the profession)
-  const TAB_NAMES = { cams: 'КАМЕРЫ', access: 'ДОСТУП', events: 'СОБЫТИЯ', tasks: 'ЗАДАЧИ', report: 'РАПОРТ', research: 'ИССЛЕДОВАНИЯ', cases: 'РАССЛЕДОВАНИЯ', manage: 'УПРАВЛЕНИЕ', ethics: 'ЭТИКА', radio: 'ДИСПЕТЧЕРСКАЯ', scplife: 'ЖУРНАЛ SCP LIFE', eng: 'ИНЖЕНЕРИЯ', med: 'МЕДИЦИНА', arrivals: 'ПОСТУПЛЕНИЯ', staff: 'ПЕРСОНАЛ', archive: 'АРХИВ SCP' };
+  const TAB_NAMES = { minds: 'РАЗУМ ОБЪЕКТОВ', cams: 'КАМЕРЫ', access: 'ДОСТУП', events: 'СОБЫТИЯ', tasks: 'ЗАДАЧИ', report: 'РАПОРТ', research: 'ИССЛЕДОВАНИЯ', cases: 'РАССЛЕДОВАНИЯ', manage: 'УПРАВЛЕНИЕ', ethics: 'ЭТИКА', radio: 'ДИСПЕТЧЕРСКАЯ', scplife: 'ЖУРНАЛ SCP LIFE', eng: 'ИНЖЕНЕРИЯ', med: 'МЕДИЦИНА', arrivals: 'ПОСТУПЛЕНИЯ', staff: 'ПЕРСОНАЛ', archive: 'АРХИВ SCP' };
   function tabsFor(p) {
     const d = p.dept, pr = p.prof, t = [];
     if (d === 'security' || d === 'mtf' || ['dispatcher', 'director', 'sysadmin', 'dept_head'].indexOf(pr) >= 0) t.push('cams');
     if (['security_officer', 'shift_chief', 'director', 'sysadmin', 'cctv_operator'].indexOf(pr) >= 0) t.push('access');
     if (d === 'science' || pr === 'director') t.push('research');
+    if (d === 'science' || ['director', 'research_director', 'anomaly_psychologist', 'ethics_inspector'].indexOf(pr) >= 0) t.push('minds');
     if (['security_officer', 'shift_chief', 'director', 'dept_head'].indexOf(pr) >= 0) t.push('cases');
     if (['director', 'dept_head', 'research_director', 'shift_chief', 'mtf_commander'].indexOf(pr) >= 0) t.push('manage');
     if (['ethics_inspector', 'director', 'research_director'].indexOf(pr) >= 0) t.push('ethics');
@@ -625,6 +627,24 @@
       if (this.tab === 'cams') return this.cams(dt);
       this.refresh -= dt; if (this.refresh > 0) return; this.refresh = 1.5;
       const el = $('tText'), y = el.scrollTop; el.innerHTML = this[this.tab](w) + (this.msg ? '\n<span class="w">' + esc(this.msg) + '</span>' : ''); el.scrollTop = y;
+    },
+    // what researchers can know about the minds: observed behaviour, decisions and their source (model or local), requests, refusals
+    minds(w) {
+      if (!w.ai) return 'Модуль интеллекта объектов не загружен.';
+      const st = S.LLM ? S.LLM.status() : { online: false, reason: '—' }, T = S.AITypes || {};
+      let h = '<b>РАЗУМ ОБЪЕКТОВ</b> · языковая модель: ' + (st.online ? '<span style="color:#8dff9e">' + esc(st.provider) + '</span>' : '<span style="color:#ffb36b">нет (' + esc(st.reason) + ')</span>') + ' · очередь ' + st.queue + '\n\n';
+      for (const id in w.ai.agents) {
+        const ag = w.ai.agents[id], a = ag.a; if (!a || !a.arrived) continue; const s2 = ag.s, last = s2.decisions[s2.decisions.length - 1];
+        const mood = Object.entries(s2.emo).sort((x, y) => y[1] - x[1])[0];
+        h += '<b>' + esc(a.displayName) + '</b> — ' + esc(T[ag.p.type] || ag.p.type) + (ag.p.llm ? ', мышление: языковая модель' : ', поведенческий ИИ') + '\n';
+        h += '  Наблюдаемое: ' + esc(a.status) + (mood ? ' · состояние: ' + esc(mood[0]) : '') + (s2.refuseUntil > w.now ? ' · <span style="color:#ff8a6b">отказывается от экспериментов</span>' : '') + (s2.request ? ' · просит: ' + esc(s2.request.item) : '') + '\n';
+        if (last) h += '  Последнее действие: ' + esc(last.rejected ? 'решение отклонено (' + last.rejected + ')' : last.action + (last.target ? ' → ' + w.nameOf(last.target) : '') + (last.say ? ' «' + last.say + '»' : '')) + ' <span style="color:#7c858a">[' + (last.src === 'llm' ? 'модель' : 'локально') + ', ' + S.fmtTime(last.t) + ']</span>\n';
+        const known = Object.keys(s2.rel).filter(k => s2.rel[k].fam > 0.3).map(k => w.nameOf(k)); if (known.length) h += '  Узнаёт: ' + esc(known.slice(0, 5).join(', ')) + '\n';
+        h += '  Решений: модель ' + s2.llmUses + ', локально ' + s2.localUses + '\n\n';
+      }
+      h += '<b>AI OVERSEER</b>\n'; for (const l of w.ai.overseer.log.slice(-6).reverse()) h += '  ' + S.fmtTime(l.t) + ' [' + (l.src === 'llm' ? 'модель' : 'локально') + '] ' + esc(l.text) + '\n';
+      h += '\n<b>ЖУРНАЛ РАЗУМОВ</b>\n'; for (const l of w.ai.log.slice(-14).reverse()) h += '  ' + S.fmtTime(l.t) + ' ' + esc(l.scp) + ' [' + (l.src === 'llm' ? 'модель' : 'локально') + '] ' + esc(l.text) + '\n';
+      return h;
     },
     cams(dt) {
       const w = G.world, cam = w.cams[G.camIndex]; G.extraRoom = cam.roomId;
@@ -771,6 +791,46 @@
     return [['Постучать по стеклу', () => { S.Living.knock(w, 'player', a.id); UI.msg('Вы постучали по стеклу.', '#ccc'); }],
       ['Журнал наблюдений', () => UI.dialogue('Журнал: ' + a.displayName, S.Living.dossier(w, a))]];
   }
+  // actions offered by an anomaly's mind (talking objects get the intercom; objects with wishes can receive an item)
+  function mindActs(a) {
+    const w = G.world, ag = w.ai && w.ai.agent(a.id), acts = a.def.living ? livingActs(a) : [];
+    if (ag && ag.p.llm && ag.p.speech.mode !== 'none') acts.unshift(['Говорить (интерком)', () => { UI.closeDialogue(); Chat.open(a.id); }]);
+    if (ag && (ag.p.items || []).length) acts.push(['Передать предмет', () => UI.dialogue('Передать в камеру', ['Что передать ' + a.displayName + '?' + (ag.s.request ? '\nОбъект просил: ' + ag.s.request.item : '')], ag.p.items.map(it => [it, () => { UI.msg(w.ai.giveItem(a.id, 'player', it), '#cdb8f5'); UI.closeDialogue(); }]))]);
+    return acts.length ? acts : undefined;
+  }
+  // ------------------------------------------------------------------ intercom chat with a thinking anomaly (language model)
+  const QUICK = { 'SCP-LF-144': ['Который сейчас час?', 'Как вас зовут?', 'Что вы пишете?'], 'SCP-LF-146': ['Почему вы на меня смотрите?', 'Что вы видите?', 'Кто смотрел на вас дольше всех?'], 'SCP-LF-142': ['Привет', 'Повтори за мной', 'Кого ты копируешь?'], 'SCP-L-001': ['Сколько нас?', 'Что ты считаешь?', 'Сколько осталось?'], 'SCP-LF-124': ['Что нас ждёт завтра?', 'Кому вы доверяете?', 'Почему вы отказались?'], 'SCP-LF-128': ['Как ты?', 'Тебе одиноко?', 'Хочешь игрушку?'] };
+  const Chat = {
+    scp: null, busy: false,
+    open(id) {
+      this.scp = id; const w = G.world, a = w.anomaly(id), ag = w.ai.agent(id); $('chatTitle').textContent = a.displayName + ' · интерком'; $('chat').hidden = false; $('chatLog').innerHTML = '';
+      const conv = (ag.s.mem.convo.player || []).slice(-8); for (const l of conv) this.add(l.from === 'scp' ? 'scp' : 'me', l.text, l.from === 'scp' ? 'из памяти разговоров' : '');
+      if (ag.s.mem.summary.player) this.add('sys', 'Раньше: ' + ag.s.mem.summary.player.slice(-200));
+      const q = $('chatQuick'); q.innerHTML = ''; for (const t of (QUICK[id] || ['Здравствуйте', 'Как вы?'])) { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; b.addEventListener('click', () => this.send(t)); q.appendChild(b); }
+      this.mode(); A.play('ui_open', null, 0.5, { dry: true, ui: true });
+    },
+    close() { $('chat').hidden = true; this.scp = null; $('chatIn').blur(); },
+    mode() { const st = S.LLM ? S.LLM.status() : { online: false, reason: 'модуль ИИ не загружен' }; const el = $('chatMode'); el.textContent = st.online ? 'ИИ: ' + st.provider : 'локальный режим'; el.classList.toggle('on', st.online); el.title = st.reason; },
+    add(cls, text, src) { const d = document.createElement('div'); d.className = 'm ' + cls; d.textContent = text; if (src) { const s2 = document.createElement('span'); s2.className = 'src'; s2.textContent = src; d.appendChild(s2); } const log = $('chatLog'); log.appendChild(d); log.scrollTop = log.scrollHeight; return d; },
+    send(text) {
+      text = String(text || '').trim(); if (!text || this.busy || !this.scp) return; const w = G.world, id = this.scp, a = w.anomaly(id);
+      if (w.player.roomId !== a.obsRoom && w.player.roomId !== a.containRoom) { this.add('sys', 'Интерком работает только из наблюдательной объекта.'); return; }
+      this.add('me', text); $('chatIn').value = ''; this.busy = true; const wait = this.add('sys', '…'); this.mode();
+      w.ai.talk(id, 'player', text).then(r => {
+        this.busy = false; wait.remove(); if (this.scp !== id) return;
+        if (r.say) this.add('scp', r.say, 'ответ создан языковой моделью (' + (r.provider === 'artifact' ? 'Claude' : r.provider === 'proxy' ? 'сервер ИИ' : r.provider) + ')');
+        if (r.nonverbal) this.add('sys', r.nonverbal);
+        if (!r.ok) this.add('sys', 'Ответа словами нет: ' + (r.reason || 'модель недоступна') + '.');
+        else if (!r.say && !r.nonverbal) this.add('sys', 'Объект молчит.');
+        if (r.rejected) this.add('sys', 'Часть ответа отклонена проверкой: ' + r.rejected);
+        this.mode();
+      });
+    },
+    hear(e) { if (!$('chat').hidden && e.scp === this.scp) this.add('scp', e.text.replace(/^[^:]*:\s*/, '').replace(/^«|»$/g, ''), e.src === 'llm' ? 'объект заговорил сам (языковая модель)' : 'локально'); }
+  };
+  $('chatClose').addEventListener('click', () => Chat.close());
+  $('chatForm').addEventListener('submit', e => { e.preventDefault(); Chat.send($('chatIn').value); });
+  $('chatIn').addEventListener('keydown', e => e.stopPropagation());
   function makeRig(npc) { return (S.Humans && S.Humans.create(npc)) || new S.Render.Humanoid(npc, G.fv.m); }
   function npcView(n) {
     let v = G.npcViews[n.id]; if (v) return v;
@@ -864,7 +924,7 @@
     readInput(); if (G.playing) Perf.tick(dt);
     if (!G.playing || !G.world) { renderer.setScissorTest(false); Menu3D.frame(dt); A.tick(null, dt); return; }
     const w = G.world;
-    if (Input.pause) { if (!$('terminal').hidden) Terminal.close(); else if (!$('pda').hidden) PDA.close(); else if (!$('dialogue').hidden) UI.closeDialogue(); else if (!$('settings').hidden) $('settings').hidden = true; else if (!$('pause').hidden) $('pause').hidden = true; else if (!w.player.dead) openPause(); }
+    if (Input.pause) { if (!$('chat').hidden) Chat.close(); else if (!$('terminal').hidden) Terminal.close(); else if (!$('pda').hidden) PDA.close(); else if (!$('dialogue').hidden) UI.closeDialogue(); else if (!$('settings').hidden) $('settings').hidden = true; else if (!$('pause').hidden) $('pause').hidden = true; else if (!w.player.dead) openPause(); }
     if (Input.pda && $('terminal').hidden) { if ($('pda').hidden) PDA.open(); else PDA.close(); }
     if (Input.hud) G.hudHidden = !G.hudHidden;
     const paused = UI.paused(), gameplay = !UI.modal();
@@ -1024,7 +1084,26 @@
   $('mContinue').addEventListener('click', loadGame);
   $('mDossier').addEventListener('click', () => { $('dosText').innerHTML = dossierHtml(null, false); $('dossier').hidden = false; $('menu').hidden = true; });
   $('dosBack').addEventListener('click', () => { $('dossier').hidden = true; showMenu(); });
-  $('mSettings').addEventListener('click', () => { UI.refreshSettings(); $('settings').hidden = false; });
+  // AI settings: provider, own server address and access token (no API keys in the app), connection test with a real round trip
+  const AISet = {
+    refresh() {
+      const L = S.LLM; if (!L) { $('aiStatus').textContent = 'Модуль ИИ не загружен.'; return; } const st = L.status(), u = st.usage;
+      $('aiStatus').textContent = (st.online ? 'На связи: ' + st.provider : 'Локальный ИИ: ' + st.reason) + ' · сегодня запросов ' + (u.requests || 0) + ', ~' + Math.round((u.tokens || 0) / 1000) + ' тыс. токенов из ' + Math.round(L.cfg.dailyTokens / 1000) + ' тыс., из кэша ' + (u.cached || 0) + (L.lastError ? ' · последняя ошибка: ' + L.lastError : '');
+      $('aiToggle').textContent = L.cfg.enabled ? 'МОДЕЛЬ: ВКЛ' : 'МОДЕЛЬ: ВЫКЛ'; $('aiProv').textContent = 'ИСТОЧНИК: ' + ({ auto: 'АВТО', artifact: 'CLAUDE (CLAUDE.AI)', proxy: 'СЕРВЕР ИИ' }[L.cfg.provider] || L.cfg.provider);
+      if (document.activeElement !== $('aiUrl')) $('aiUrl').value = L.cfg.proxyUrl || ''; if (document.activeElement !== $('aiTok')) $('aiTok').value = L.cfg.proxyToken || '';
+    }
+  };
+  if (S.LLM) {
+    S.LLM.init();
+    $('aiToggle').addEventListener('click', () => { S.LLM.cfg.enabled = !S.LLM.cfg.enabled; S.LLM.saveCfg(); AISet.refresh(); });
+    $('aiProv').addEventListener('click', () => { const o = ['auto', 'artifact', 'proxy']; S.LLM.cfg.provider = o[(o.indexOf(S.LLM.cfg.provider) + 1) % 3]; S.LLM.saveCfg(); AISet.refresh(); });
+    $('aiUrl').addEventListener('change', () => { S.LLM.cfg.proxyUrl = $('aiUrl').value.trim(); S.LLM.saveCfg(); AISet.refresh(); });
+    $('aiTok').addEventListener('change', () => { S.LLM.cfg.proxyToken = $('aiTok').value.trim(); S.LLM.saveCfg(); AISet.refresh(); });
+    for (const id of ['aiUrl', 'aiTok']) $(id).addEventListener('keydown', e => e.stopPropagation());
+    $('aiTest').addEventListener('click', () => { $('aiStatus').textContent = 'Проверка связи…'; S.LLM.Providers.artifact.probe().then(() => S.LLM.test()).then(r => { AISet.refresh(); $('aiStatus').textContent = (r.ok ? 'Связь есть: модель ответила «' + (r.json.answer || 'ok') + '» (' + (r.provider === 'artifact' ? 'Claude' : r.provider) + '). ' : 'Нет ответа модели: ' + (r.error || r.reason) + '. ') + $('aiStatus').textContent; }); });
+    setInterval(() => { if (!$('settings').hidden) AISet.refresh(); }, 2000);
+  }
+  $('mSettings').addEventListener('click', () => { UI.refreshSettings(); AISet.refresh(); $('settings').hidden = false; });
   // credits: every third-party resource with its author and licence (CC BY 4.0 for the Oculus Audio Pack requires it)
   $('mCredits').addEventListener('click', () => {
     const base = (window.SCP_ASSET_BASE || 'assets/'), get = f => fetch(base + f).then(r => r.ok ? r.json() : null).catch(() => null);
@@ -1047,7 +1126,7 @@
   $('pResume').addEventListener('click', () => { $('pause').hidden = true; });
   $('pSave').addEventListener('click', () => saveGame(true));
   $('pLoad').addEventListener('click', loadGame);
-  $('pSettings').addEventListener('click', () => { UI.refreshSettings(); $('settings').hidden = false; });
+  $('pSettings').addEventListener('click', () => { UI.refreshSettings(); AISet.refresh(); $('settings').hidden = false; });
   $('pSpeed').addEventListener('click', () => { G.timeScale = G.timeScale === 1 ? 2 : G.timeScale === 2 ? 4 : 1; $('pSpeed').textContent = 'СКОРОСТЬ ВРЕМЕНИ: ×' + G.timeScale; });
   $('pFull').addEventListener('click', () => { const el = document.documentElement, fn = el.requestFullscreen || el.webkitRequestFullscreen; try { const r = fn ? fn.call(el) : null; if (!fn) UI.msg('Полный экран недоступен в этом окне.', '#ff9a59'); else if (r && r.catch) r.catch(() => UI.msg('Полный экран недоступен в этом окне. Откройте страницу в отдельной вкладке браузера.', '#ff9a59')); } catch (e) { UI.msg('Полный экран недоступен в этом окне.', '#ff9a59'); } $('pause').hidden = true; });
   $('pMenu').addEventListener('click', toMenu);

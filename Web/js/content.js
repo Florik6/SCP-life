@@ -89,6 +89,7 @@
     for (const a of w.anomalies) if (a.arrived) for (const id of a.assigned) { if (id === 'player') continue; const m = a.mind.get(id); m.seen = 6; m.recog = 0.8; m.trust = 0.3; m.last = START - 600; m.hours[w.rng.int(9, 17)] = 5; m.habit = 0.8; }
     const nos = w.anomaly('SCP-LF-125').mind.get('c.nosova'); nos.seen = 12; nos.trust = 0.8; nos.recog = 0.95; nos.last = START - 300;
     w.life.due = {}; w.life.planDay = w.clock.day; w.life.dayPlan();
+    w.ai = S.AI ? new S.AI.Core(w) : null;
     return w;
   }
 

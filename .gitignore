@@ -33,3 +33,4 @@ crashlytics-build.properties
 !/Tools/**/*.csproj
 /dist/
 /android/build/
+/Tools/llm-proxy/node_modules/

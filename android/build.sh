@@ -4,7 +4,7 @@
 # Needs (Ubuntu): apt-get install android-sdk-build-tools android-sdk-platform-23 apksigner dalvik-exchange
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION_NAME=2.1; VERSION_CODE=3
+VERSION_NAME=2.2; VERSION_CODE=4
 SDK=/usr/lib/android-sdk; JAR=$SDK/platforms/android-23/android.jar
 DX=$(command -v dx || echo $SDK/build-tools/debian/dx)
 B=android/build

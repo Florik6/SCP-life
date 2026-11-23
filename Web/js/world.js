@@ -90,6 +90,7 @@
       this.tasks.tick(this);
       this.life.tick(dt);
       this.horror.tick(dt);
+      if (this.ai) this.ai.tick(dt);
       this.dirt.tick(dt);
       for (const r of this.fac.roomList) if (r.flickerUntil > 0 && r.flickerUntil < this.now) r.flickerUntil = 0;
       if (this.timers.length) { const due = this.timers.filter(t => t.at <= this.realTime); this.timers = this.timers.filter(t => t.at > this.realTime); for (const t of due) t.fn(); }
@@ -494,7 +495,7 @@
         npcs: this.npcs.map(n => World.packNpc(n.save(), tbl)), strings: tbl.list, anomalies: this.anomalies.map(a => a.save()),
         cams: this.cams.map(c => ({ id: c.id, op: c.operational, ph: c.phase })), camLog: this.camLog.slice(-200), alert: this.alert.save(),
         tasks: this.tasks.list.filter(t => t.status === 'Active' || this.now - t.issued < 360), taskId: this.tasks.nextId, taskDone: this.tasks.done, life: this.life.save(), infra: this.infra.save(), horror: this.horror.save(), dirt: this.dirt.save(),
-        player: this.player.save(), research: this.research, food: this.food, queues: this.queues
+        player: this.player.save(), research: this.research, food: this.food, queues: this.queues, ai: this.ai ? this.ai.save() : null
       });
     }
     static load(json) {
@@ -518,6 +519,7 @@
         n.routine = null;
       }
       w.queues = o.queues || {};
+      if (w.ai && o.ai) w.ai.load(o.ai);
       w.life.load(o.life); w.infra.load(o.infra); w.horror.load(o.horror); w.dirt.load(o.dirt); w.player.load(o.player); w.research = o.research || w.research; w.food = o.food != null ? o.food : 100;
       w.lockEpoch++;
       return w;
