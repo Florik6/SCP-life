@@ -11,7 +11,8 @@
   // ------------------------------------------------------------------ settings
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   const settings = Object.assign({ sens: 1.0, fov: 72, quality: isTouch ? 1 : 2, volume: 0.8, music: 0.6, invert: false, touch: isTouch, hud: 1, btn: 1, lefty: false, fx: 1, noflash: false, shake: false, minhud: false }, (() => { try { return JSON.parse(store.get(SET_KEY) || '{}'); } catch (e) { return {}; } })());
-  const QUALITY = [{ name: 'Низкое', ratio: 0.6, lights: 4, far: 28, npcs: 18 }, { name: 'Среднее', ratio: 0.85, lights: 6, far: 38, npcs: 28 }, { name: 'Высокое', ratio: 1.0, lights: 8, far: 48, npcs: 40 }];
+  const QUALITY = isTouch ? [{ name: 'Низкое', ratio: 0.55, lights: 3, far: 26, npcs: 10 }, { name: 'Среднее', ratio: 0.75, lights: 4, far: 34, npcs: 16 }, { name: 'Высокое', ratio: 1.0, lights: 6, far: 44, npcs: 28 }]
+    : [{ name: 'Низкое', ratio: 0.6, lights: 4, far: 28, npcs: 18 }, { name: 'Среднее', ratio: 0.85, lights: 6, far: 38, npcs: 28 }, { name: 'Высокое', ratio: 1.0, lights: 8, far: 48, npcs: 40 }];
   const saveSettings = () => store.set(SET_KEY, JSON.stringify(settings));
   function applySettings() {
     document.documentElement.style.setProperty('--hud', settings.hud); document.documentElement.style.setProperty('--btn', settings.btn);
@@ -45,7 +46,12 @@
   const flash = new T.SpotLight(0xfff2d9, 0, 15, 0.5, 0.45, 1.5); flash.position.set(0.15, -0.12, 0); camera.add(flash); flash.target.position.set(0, -0.1, -5); camera.add(flash.target);
   const cctvCam = new T.PerspectiveCamera(52, 16 / 9, 0.05, 30); cctvCam.rotation.order = 'YXZ'; // layer 0 only: CCTV never sees hallucinations
   const raycaster = new T.Raycaster(); raycaster.far = REACH; if (raycaster.layers) raycaster.layers.mask = 0xffffffff;
-  function resize() { const q = QUALITY[settings.quality]; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * q.ratio); renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / Math.max(1, window.innerHeight); camera.far = q.far; camera.updateProjectionMatrix(); scene.fog.far = q.far - 2; Menu3D.resize(); }
+  // Adaptive resolution: if frames get slow (a phone in a crowded room), the render scale drops before input starts to lag.
+  const Perf = { scale: 1, acc: 0, n: 0, slow: 0, ft: 16,
+    tick(dt) { this.ft += (dt * 1000 - this.ft) * 0.1; this.acc += dt; this.n++; if (this.acc < 1.5) return; const avg = this.acc / this.n * 1000; this.acc = 0; this.n = 0;
+      const prev = this.scale; if (avg > 40) this.scale = Math.max(0.5, this.scale - 0.1); else if (avg < 24 && this.scale < 1) this.scale = Math.min(1, this.scale + 0.05);
+      if (prev !== this.scale) resize(); } };
+  function resize() { const q = QUALITY[settings.quality]; renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2) * q.ratio * Perf.scale); renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / Math.max(1, window.innerHeight); camera.far = q.far; camera.updateProjectionMatrix(); scene.fog.far = q.far - 2; Menu3D.resize(); }
   window.addEventListener('resize', () => resize());
 
   // ------------------------------------------------------------------ 3D main menu: a dark corridor, something standing at its end
@@ -271,15 +277,26 @@
   canvasEl.addEventListener('mousedown', () => { A.start(); if (!G.playing || settings.touch) return; mouseDrag = true; try { const r = canvasEl.requestPointerLock && canvasEl.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* drag to look */ } });
   window.addEventListener('mouseup', () => { mouseDrag = false; });
   window.addEventListener('mousemove', e => { if (!G.playing || settings.touch) return; if (document.pointerLockElement === canvasEl || mouseDrag) { Input.lookAcc.x += e.movementX * 0.12; Input.lookAcc.y += e.movementY * 0.12; } });
+  // Touch controls: left zone = movement stick, right zone = look. Robust on Android WebView:
+  // - a new finger always takes over its zone (a lost "up" event can never lock the control);
+  // - lost pointer capture (an overlay opened on top, the system cancelled the gesture) ends the control;
+  // - a window-level up/cancel also releases it, wherever the finger was lifted.
   const zoneL = $('zoneL'), zoneR = $('zoneR'), stick = $('stick'), knob = $('knob'); let stickId = null, stickO = null, lookId = null, lookLast = null;
-  zoneL.addEventListener('pointerdown', e => { A.start(); if (stickId !== null) return; stickId = e.pointerId; zoneL.setPointerCapture(e.pointerId); stickO = { x: e.clientX, y: e.clientY }; stick.style.left = e.clientX + 'px'; stick.style.top = e.clientY + 'px'; });
+  const cap = (el, id) => { try { el.setPointerCapture(id); } catch (e) { /* capture not available: window listeners still release */ } };
+  const endStick = e => { if (e && e.pointerId !== stickId) return; stickId = null; Input.stick = { x: 0, y: 0 }; knob.style.transform = ''; stick.style.left = ''; stick.style.top = ''; };
+  const endLook = e => { if (!e || e.pointerId === lookId) lookId = null; };
+  zoneL.addEventListener('pointerdown', e => { e.preventDefault(); A.start(); stickId = e.pointerId; cap(zoneL, e.pointerId); stickO = { x: e.clientX, y: e.clientY }; Input.stick = { x: 0, y: 0 }; knob.style.transform = ''; stick.style.left = e.clientX + 'px'; stick.style.top = e.clientY + 'px'; });
   zoneL.addEventListener('pointermove', e => { if (e.pointerId !== stickId) return; let dx = e.clientX - stickO.x, dy = e.clientY - stickO.y; const l = Math.hypot(dx, dy), m = 52 * settings.btn; if (l > m) { dx *= m / l; dy *= m / l; } knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; const v = Math.hypot(dx, dy) / m; Input.stick = v < 0.12 ? { x: 0, y: 0 } : { x: dx / m, y: -dy / m }; });
-  const endStick = e => { if (e.pointerId !== stickId) return; stickId = null; Input.stick = { x: 0, y: 0 }; knob.style.transform = ''; stick.style.left = ''; stick.style.top = ''; };
-  zoneL.addEventListener('pointerup', endStick); zoneL.addEventListener('pointercancel', endStick);
-  zoneR.addEventListener('pointerdown', e => { A.start(); if (lookId !== null) return; lookId = e.pointerId; zoneR.setPointerCapture(e.pointerId); lookLast = { x: e.clientX, y: e.clientY }; });
-  zoneR.addEventListener('pointermove', e => { if (e.pointerId !== lookId) return; const k = 170 / Math.max(1, window.innerHeight); Input.lookAcc.x += (e.clientX - lookLast.x) * k * (settings.lefty ? 1 : 1); Input.lookAcc.y += (e.clientY - lookLast.y) * k; lookLast = { x: e.clientX, y: e.clientY }; });
-  const endLook = e => { if (e.pointerId === lookId) lookId = null; };
-  zoneR.addEventListener('pointerup', endLook); zoneR.addEventListener('pointercancel', endLook);
+  zoneR.addEventListener('pointerdown', e => { e.preventDefault(); A.start(); lookId = e.pointerId; cap(zoneR, e.pointerId); lookLast = { x: e.clientX, y: e.clientY }; });
+  zoneR.addEventListener('pointermove', e => {
+    if (e.pointerId !== lookId) return; const k = 170 / Math.max(1, window.innerHeight);
+    // coalesced events carry every intermediate finger position (smooth look even when frames are slow)
+    const list = e.getCoalescedEvents ? e.getCoalescedEvents() : null, pts = list && list.length ? list : [e];
+    for (const q of pts) { Input.lookAcc.x += (q.clientX - lookLast.x) * k; Input.lookAcc.y += (q.clientY - lookLast.y) * k; lookLast = { x: q.clientX, y: q.clientY }; }
+  });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) { zoneL.addEventListener(t, endStick); zoneR.addEventListener(t, endLook); }
+  window.addEventListener('pointerup', e => { endStick(e); endLook(e); }, true); window.addEventListener('pointercancel', e => { endStick(e); endLook(e); }, true);
+  window.addEventListener('blur', () => { endStick(); endLook(); }); document.addEventListener('visibilitychange', () => { if (document.hidden) { endStick(); endLook(); } });
   const tap = (id, name) => $(id).addEventListener('pointerdown', e => { e.preventDefault(); A.start(); Input.taps[name] = true; $(id).classList.add('on'); setTimeout(() => $(id).classList.remove('on'), 140); });
   tap('bUse', 'use'); tap('bLight', 'flash'); tap('bCard', 'card'); tap('bCount', 'count');
   $('bUse').addEventListener('pointerup', () => { if (G.hold) cancelHold(); });
@@ -318,7 +335,7 @@
     },
     syncTouch() {
       const overlay = ['terminal', 'pda', 'pause', 'settings', 'death', 'sleep'].some(id => !$(id).hidden);
-      $('touch').hidden = !(G.playing && settings.touch && !overlay); $('topbtns').hidden = !G.playing || overlay;
+      const tHide = !(G.playing && settings.touch && !overlay); if (tHide && !$('touch').hidden) { endStick(); endLook(); } $('touch').hidden = tHide; $('topbtns').hidden = !G.playing || overlay;
       $('hud').hidden = !G.playing || !$('terminal').hidden || !$('pda').hidden;
       for (const id of ['status', 'taskbox', 'feed', 'card']) $(id).style.visibility = G.hudHidden ? 'hidden' : '';
     }
@@ -844,7 +861,7 @@
   function frame(nowT) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.1, (nowT - lastT) / 1000); lastT = nowT;
-    readInput();
+    readInput(); if (G.playing) Perf.tick(dt);
     if (!G.playing || !G.world) { renderer.setScissorTest(false); Menu3D.frame(dt); A.tick(null, dt); return; }
     const w = G.world;
     if (Input.pause) { if (!$('terminal').hidden) Terminal.close(); else if (!$('pda').hidden) PDA.close(); else if (!$('dialogue').hidden) UI.closeDialogue(); else if (!$('settings').hidden) $('settings').hidden = true; else if (!$('pause').hidden) $('pause').hidden = true; else if (!w.player.dead) openPause(); }
