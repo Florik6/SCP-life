@@ -11,6 +11,8 @@ B=android/build
 rm -rf $B/gen $B/obj $B/assets $B/*.apk $B/classes.dex; mkdir -p $B/gen $B/obj $B/assets dist
 python3 Tools/bundle_web.py $B/assets/index.html ${THREE_JS:-}
 (cd $B/assets && rm -f ../../../dist/scp-life-$VERSION_NAME-web.zip && zip -q -r ../../../dist/scp-life-$VERSION_NAME-web.zip index.html assets)
+# the AI server address + access token go into the APK only (never into the web zip or git): SCP_AI_URL / SCP_AI_TOKEN or android/ai-config.local.json
+python3 -I Tools/inject_ai_config.py $B/assets/index.html
 aapt2 compile --dir android/res -o $B/res.zip
 aapt2 link -o $B/base.apk -I $JAR --manifest android/AndroidManifest.xml -R $B/res.zip -A $B/assets -0 ogg -0 jpg -0 glb \
   --min-sdk-version 21 --target-sdk-version 34 --version-code $VERSION_CODE --version-name $VERSION_NAME --java $B/gen

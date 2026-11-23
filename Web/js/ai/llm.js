@@ -83,7 +83,13 @@
 
   // ------------------------------------------------------------------ gateway
   const LLM = {
-    cfg: Object.assign({ enabled: true, provider: 'auto', proxyUrl: '', proxyToken: '', perMinute: 6, perHour: 60, dailyTokens: 250000, concurrency: 1, timeoutMs: 25000, queueMax: 14 }, (() => { try { return JSON.parse(store.get(CFG_KEY) || '{}'); } catch (e) { return {}; } })()),
+    // build-time defaults (APK built with SCP_AI_URL / SCP_AI_TOKEN): the server address and the access token it issued — never an API key
+    cfg: (() => {
+      const d = root.SCP_AI_DEFAULT || {}, base = Object.assign({ enabled: true, provider: 'auto', proxyUrl: '', proxyToken: '', perMinute: 6, perHour: 60, dailyTokens: 250000, concurrency: 1, timeoutMs: 25000, queueMax: 14 }, d.proxyUrl ? { proxyUrl: d.proxyUrl, proxyToken: d.proxyToken || '', provider: d.provider || 'auto' } : {});
+      let saved = {}; try { saved = JSON.parse(store.get(CFG_KEY) || '{}'); } catch (e) { saved = {}; }
+      if (!saved.proxyUrl) { delete saved.proxyUrl; delete saved.proxyToken; }
+      return Object.assign(base, saved, { builtIn: !!d.proxyUrl });
+    })(),
     usage: (() => { try { return Object.assign({ day: '', tokens: 0, requests: 0, failed: 0, cached: 0, dropped: 0 }, JSON.parse(store.get(USE_KEY) || '{}')); } catch (e) { return { day: '', tokens: 0, requests: 0, failed: 0, cached: 0, dropped: 0 }; } })(),
     queue: [], running: 0, recent: [], cache: new Map(), backoffUntil: 0, fails: 0, lastError: null, lastOk: 0, log: [], Providers,
     saveCfg() { store.set(CFG_KEY, JSON.stringify(Object.assign({}, this.cfg, { proxyToken: this.cfg.proxyToken }))); },

@@ -34,3 +34,6 @@ crashlytics-build.properties
 /dist/
 /android/build/
 /Tools/llm-proxy/node_modules/
+
+# AI server address and access token for the APK build (never commit)
+/android/ai-config.local.json

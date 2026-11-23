@@ -1,0 +1,18 @@
+# One-click deploy of the SCP LIFE AI server on Render (Dashboard → New → Blueprint → this repository).
+# Set ANTHROPIC_API_KEY when asked; SCP_PROXY_TOKENS is generated — copy it into the APK build (SCP_AI_TOKEN).
+services:
+  - type: web
+    name: scp-life-ai
+    runtime: node
+    rootDir: Tools/llm-proxy
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SCP_PROXY_TOKENS
+        generateValue: true
+      - key: SCP_ORIGINS
+        value: https://appassets.androidplatform.net
